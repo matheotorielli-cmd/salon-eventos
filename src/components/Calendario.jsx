@@ -5,20 +5,22 @@ import FullCalendar from "@fullcalendar/react"
 import dayGridPlugin from "@fullcalendar/daygrid"
 import timeGridPlugin from "@fullcalendar/timegrid"
 import interactionPlugin from "@fullcalendar/interaction"
-import multiMonthPlugin from "@fullcalendar/multimonth"
 
 import esLocale from "@fullcalendar/core/locales/es"
 
 export default function Calendario() {
 
   const navigate = useNavigate()
+
   const [eventos, setEventos] = useState([])
 
   useEffect(() => {
+
     const guardados =
       JSON.parse(localStorage.getItem("eventos")) || []
 
     setEventos(guardados)
+
   }, [])
 
   function abrirEvento(info) {
@@ -26,49 +28,50 @@ export default function Calendario() {
   }
 
   return (
-    <div
-      style={{
-        background: "white",
-        padding: "20px",
-        borderRadius: "10px",
-        boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-        height: "100%"
-      }}
-    >
-      <h2 style={{ marginBottom: "20px" }}>
-        Calendario
-      </h2>
+
+    <div className="calendar-wrapper">
 
       <FullCalendar
+
         plugins={[
           dayGridPlugin,
           timeGridPlugin,
-          interactionPlugin,
-          multiMonthPlugin
+          interactionPlugin
         ]}
+
         locales={[esLocale]}
         locale="es"
+
         initialView="timeGridWeek"
+
+        height="700px"
+
+        slotMinTime="10:00:00"
+        slotMaxTime="18:00:00"
+
+        allDaySlot={true}
+
         headerToolbar={{
-          left: "prev,next today",
+          left: "today prev,next",
           center: "title",
-          right: "multiMonthYear,dayGridMonth,timeGridWeek,timeGridDay"
+          right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek"
         }}
+
         buttonText={{
           today: "Hoy",
           month: "Mes",
           week: "Semana",
           day: "Día",
-          multiMonthYear: "Año"
+          list: "Lista"
         }}
-        editable={true}
-        selectable={true}
-        eventClick={abrirEvento}
-        slotMinTime="08:00:00"
-        slotMaxTime="24:00:00"
-        height="100vh"
+
         events={eventos}
+
+        eventClick={abrirEvento}
+
       />
+
     </div>
+
   )
 }
