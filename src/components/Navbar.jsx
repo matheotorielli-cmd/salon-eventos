@@ -19,7 +19,14 @@ export default function Navbar() {
   }
 
   function toggleMenu(menu) {
-    setOpenMenu(openMenu === menu ? null : menu)
+    // 🔥 esto hace que solo 1 menú esté abierto a la vez
+    setOpenMenu(prev => (prev === menu ? null : menu))
+    setOpenUser(false)
+  }
+
+  function toggleUser() {
+    setOpenUser(prev => !prev)
+    setOpenMenu(null)
   }
 
   useEffect(() => {
@@ -114,7 +121,6 @@ export default function Navbar() {
                 <div onClick={() => { navigate("/cuentas"); setOpenMenu(null) }} style={dropdownItem}>
                   Cuentas
                 </div>
-
                 <div onClick={() => { navigate("/reportes"); setOpenMenu(null) }} style={dropdownItem}>
                   Reportes
                 </div>
@@ -128,18 +134,35 @@ export default function Navbar() {
 
             {openMenu === "movimientos" && (
               <div style={dropdownStyle}>
-                <div onClick={() => { navigate("/movimientos"); setOpenMenu(null) }} style={dropdownItem}>
+
+                <div
+                  onClick={() => { navigate("/movimientos"); setOpenMenu(null) }}
+                  style={dropdownItem}
+                >
                   Mis movimientos
                 </div>
-                <div onClick={() => { navigate("/movimientos/nuevo"); setOpenMenu(null) }} style={dropdownItem}>
+
+                <div
+                  onClick={() => { navigate("/movimientos/nuevo"); setOpenMenu(null) }}
+                  style={dropdownItem}
+                >
                   Nuevo movimiento
                 </div>
-                <div onClick={() => { navigate("/movimientos/proveedores"); setOpenMenu(null) }} style={dropdownItem}>
+
+                <div
+                  onClick={() => { navigate("/movimientos/proveedores"); setOpenMenu(null) }}
+                  style={dropdownItem}
+                >
                   Pago proveedores
                 </div>
-                <div onClick={() => { navigate("/movimientos/prestadores"); setOpenMenu(null) }} style={dropdownItem}>
+
+                <div
+                  onClick={() => { navigate("/movimientos/prestadores"); setOpenMenu(null) }}
+                  style={dropdownItem}
+                >
                   Pago prestadores
                 </div>
+
               </div>
             )}
           </div>
@@ -150,7 +173,7 @@ export default function Navbar() {
         <div style={{ position: "relative", color: "white", fontSize: "16px" }}>
 
           <div
-            onClick={() => setOpenUser(!openUser)}
+            onClick={toggleUser}
             style={{
               cursor: "pointer",
               padding: "8px 12px",
