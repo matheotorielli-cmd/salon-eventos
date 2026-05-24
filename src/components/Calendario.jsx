@@ -11,16 +11,13 @@ import esLocale from "@fullcalendar/core/locales/es"
 export default function Calendario() {
 
   const navigate = useNavigate()
-
   const [eventos, setEventos] = useState([])
 
   useEffect(() => {
-
     const guardados =
       JSON.parse(localStorage.getItem("eventos")) || []
 
     setEventos(guardados)
-
   }, [])
 
   function abrirEvento(info) {
@@ -28,50 +25,53 @@ export default function Calendario() {
   }
 
   return (
+    <div
+      style={{
+        background: "white",
+        padding: "20px",
+        borderRadius: "8px",
+        height: "calc(100vh - 140px)", // 👈 CLAVE
+        display: "flex",
+        flexDirection: "column"
+      }}
+    >
 
-    <div className="calendar-wrapper">
+      <div style={{ flex: 1 }}>
+        <FullCalendar
 
-      <FullCalendar
+          plugins={[
+            dayGridPlugin,
+            timeGridPlugin,
+            interactionPlugin
+          ]}
 
-        plugins={[
-          dayGridPlugin,
-          timeGridPlugin,
-          interactionPlugin
-        ]}
+          locales={[esLocale]}
+          locale="es"
 
-        locales={[esLocale]}
-        locale="es"
+          initialView="dayGridMonth"
 
-        initialView="timeGridWeek"
+          height="100%" // 👈 IMPORTANTE
 
-        height="700px"
+          headerToolbar={{
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay"
+          }}
 
-        slotMinTime="10:00:00"
-        slotMaxTime="18:00:00"
+          buttonText={{
+            today: "Hoy",
+            month: "Mes",
+            week: "Semana",
+            day: "Día"
+          }}
 
-        allDaySlot={true}
+          events={eventos}
 
-        headerToolbar={{
-          left: "today prev,next",
-          center: "title",
-          right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek"
-        }}
+          eventClick={abrirEvento}
 
-        buttonText={{
-          today: "Hoy",
-          month: "Mes",
-          week: "Semana",
-          day: "Día",
-          list: "Lista"
-        }}
-
-        events={eventos}
-
-        eventClick={abrirEvento}
-
-      />
+        />
+      </div>
 
     </div>
-
   )
 }

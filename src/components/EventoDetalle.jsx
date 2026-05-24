@@ -1,19 +1,25 @@
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { useEffect, useState } from "react"
-
-const inputStyle = {
-  width: "100%",
-  padding: "10px",
-  marginTop: "5px",
-  borderRadius: "8px",
-  border: "1px solid #d1d5db"
-}
 
 export default function EventoDetalle() {
 
   const { id } = useParams()
+  const navigate = useNavigate()
 
   const [evento, setEvento] = useState(null)
+  const [editando, setEditando] = useState(false)
+
+  const [form, setForm] = useState({
+    cliente: "",
+    telefono: "",
+    direccion: "",
+    tipoEvento: "",
+    fecha: "",
+    hora: "",
+    personas: "",
+    total: "",
+    observaciones: ""
+  })
 
   useEffect(() => {
 
@@ -21,29 +27,43 @@ export default function EventoDetalle() {
       JSON.parse(localStorage.getItem("eventos")) || []
 
     const encontrado = eventos.find(
-      (e) => e.id === id
+      e => String(e.id) === id
     )
 
     setEvento(encontrado)
 
-  }, [id])
-
-  function guardarCambios(campo, valor) {
-
-    const actualizado = {
-      ...evento,
-      [campo]: valor
+    if (encontrado) {
+      setForm(encontrado)
     }
 
-    setEvento(actualizado)
+  }, [id])
+
+  if (!evento) {
+    return <h2>Evento no encontrado</h2>
+  }
+
+  function handleChange(e) {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  function guardarEdicion() {
 
     const eventos =
       JSON.parse(localStorage.getItem("eventos")) || []
 
-    const nuevosEventos = eventos.map((e) => {
+    const actualizados = eventos.map(e => {
 
-      if (e.id === id) {
-        return actualizado
+      if (String(e.id) === id) {
+        return {
+          ...form,
+          id: e.id,
+          estado: e.estado,
+          sena: e.sena || 0,
+          saldo: e.saldo || 0
+        }
       }
 
       return e
@@ -51,194 +71,307 @@ export default function EventoDetalle() {
 
     localStorage.setItem(
       "eventos",
-      JSON.stringify(nuevosEventos)
+      JSON.stringify(actualizados)
     )
+
+    setEvento(form)
+    setEditando(false)
   }
 
-  if (!evento) {
-    return <h1>Evento no encontrado</h1>
+  function cambiarEstado(nuevoEstado) {
+
+    const eventos =
+      JSON.parse(localStorage.getItem("eventos")) || []
+
+    const actualizados = eventos.map(e => {
+
+      if (String(e.id) === id) {
+        return {
+          ...e,
+          estado: nuevoEstado
+        }
+      }
+
+      return e
+    })
+
+    localStorage.setItem(
+      "eventos",
+      JSON.stringify(actualizados)
+    )
+
+    setEvento({
+      ...evento,
+      estado: nuevoEstado
+    })
   }
 
-  const saldo =
-    (evento.total || 0) -
-    (evento.cobrado || 0)
+  function eliminarEvento() {
+
+    const confirmar = confirm("¿Seguro querés eliminar este evento?")
+    if (!confirmar) return
+
+    const eventos =
+      JSON.parse(localStorage.getItem("eventos")) || []
+
+    const filtrados = eventos.filter(
+      e => String(e.id) !== id
+    )
+
+    localStorage.setItem(
+      "eventos",
+      JSON.stringify(filtrados)
+    )
+
+    navigate("/eventos")
+  }
+
+  function registrarPago() {
+
+    const monto = prompt("Ingresar monto del pago:")
+    if (!monto) return
+
+    const nuevaSena =
+      Number(evento.sena || 0) + Number(monto)
+
+    const nuevoSaldo =
+      Number(evento.total || 0) - nuevaSena
+
+    const eventos =
+      JSON.parse(localStorage.getItem("eventos")) || []
+
+    const actualizados = eventos.map(e => {
+
+      if (String(e.id) === id) {
+        return {
+          ...e,
+          sena: nuevaSena,
+          saldo: nuevoSaldo
+        }
+      }
+
+      return e
+    })
+
+    localStorage.setItem(
+      "eventos",
+      JSON.stringify(actualizados)
+    )
+
+    setEvento({
+      ...evento,
+      sena: nuevaSena,
+      saldo: nuevoSaldo
+    })
+
+    alert("Pago registrado")
+  }
+
+  const estadoColor = {
+    Presupuestado: "#f59e0b",
+    Confirmado: "#2563eb",
+    Pagado: "#16a34a",
+    Cancelado: "#dc2626"
+  }
 
   return (
-    <div
-      style={{
-        background: "white",
-        padding: "30px",
-        borderRadius: "10px"
-      }}
-    >
 
-      <h1 style={{ marginBottom: "30px" }}>
-        Datos del Evento
-      </h1>
+    <div style={{
+      maxWidth: "1000px",
+      margin: "0 auto",
+      background: "white",
+      borderRadius: "10px",
+      padding: "30px"
+    }}>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px"
-        }}
-      >
-
-        <div>
-          <label>Cliente</label>
-
-          <input
-            type="text"
-            value={evento.cliente || ""}
-            onChange={(e) =>
-              guardarCambios(
-                "cliente",
-                e.target.value
-              )
-            }
-            style={inputStyle}
-          />
-        </div>
+      {/* CABECERA */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "15px",
+        marginBottom: "25px"
+      }}>
 
         <div>
-          <label>Teléfono</label>
 
-          <input
-            type="text"
-            value={evento.telefono || ""}
-            onChange={(e) =>
-              guardarCambios(
-                "telefono",
-                e.target.value
-              )
-            }
-            style={inputStyle}
-          />
+          <h2 style={{ margin: 0, color: "#1e3a8a" }}>
+            Evento #{evento.id}
+          </h2>
+
+          <div style={{
+            marginTop: "8px",
+            display: "inline-block",
+            background: estadoColor[evento.estado],
+            color: "white",
+            padding: "6px 12px",
+            borderRadius: "20px",
+            fontSize: "13px"
+          }}>
+            {evento.estado}
+          </div>
+
         </div>
 
-        <div>
-          <label>Dirección</label>
+        {/* BOTONES */}
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
 
-          <input
-            type="text"
-            value={evento.direccion || ""}
-            onChange={(e) =>
-              guardarCambios(
-                "direccion",
-                e.target.value
-              )
-            }
-            style={inputStyle}
-          />
+          {!editando ? (
+            <button onClick={() => setEditando(true)} style={botonAzul}>
+              Editar
+            </button>
+          ) : (
+            <button onClick={guardarEdicion} style={botonVerde}>
+              Guardar
+            </button>
+          )}
+
+          <button onClick={() => cambiarEstado("Confirmado")} style={botonAzul}>
+            Confirmar
+          </button>
+
+          <button onClick={() => cambiarEstado("Pagado")} style={botonVerde}>
+            Marcar pagado
+          </button>
+
+          <button onClick={() => cambiarEstado("Cancelado")} style={botonRojo}>
+            Cancelar
+          </button>
+
+          <button onClick={registrarPago} style={botonGris}>
+            Registrar pago
+          </button>
+
+          <button onClick={eliminarEvento} style={botonRojo}>
+            Eliminar
+          </button>
+
         </div>
-
-        <div>
-          <label>Tipo de evento</label>
-
-          <input
-            type="text"
-            value={evento.tipoEvento || ""}
-            onChange={(e) =>
-              guardarCambios(
-                "tipoEvento",
-                e.target.value
-              )
-            }
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label>Estado</label>
-
-          <select
-            value={evento.estado || "Pendiente"}
-            onChange={(e) =>
-              guardarCambios(
-                "estado",
-                e.target.value
-              )
-            }
-            style={inputStyle}
-          >
-            <option>Pendiente</option>
-            <option>Señado</option>
-            <option>Pagado</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Precio total</label>
-
-          <input
-            type="number"
-            value={evento.total || 0}
-            onChange={(e) =>
-              guardarCambios(
-                "total",
-                Number(e.target.value)
-              )
-            }
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label>Cobrado</label>
-
-          <input
-            type="number"
-            value={evento.cobrado || 0}
-            onChange={(e) =>
-              guardarCambios(
-                "cobrado",
-                Number(e.target.value)
-              )
-            }
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label>Saldo</label>
-
-          <input
-            type="number"
-            value={saldo}
-            disabled
-            style={{
-              ...inputStyle,
-              background: "#e5e7eb"
-            }}
-          />
-        </div>
-
       </div>
 
-      <div style={{ marginTop: "30px" }}>
+      {/* DATOS */}
+      {!editando ? (
 
-        <label>Notas</label>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))",
+          gap: "20px"
+        }}>
 
-        <textarea
-          value={evento.notas || ""}
-          onChange={(e) =>
-            guardarCambios(
-              "notas",
-              e.target.value
-            )
-          }
-          rows={6}
-          style={{
-            width: "100%",
-            marginTop: "10px",
-            padding: "10px",
-            borderRadius: "8px",
-            border: "1px solid #d1d5db"
-          }}
-        />
+          <Card titulo="Cliente" valor={evento.cliente} />
+          <Card titulo="Teléfono" valor={evento.telefono} />
+          <Card titulo="Dirección" valor={evento.direccion} />
+          <Card titulo="Tipo de evento" valor={evento.tipoEvento} />
+          <Card titulo="Fecha" valor={evento.fecha} />
+          <Card titulo="Hora" valor={evento.hora} />
+          <Card titulo="Personas" valor={evento.personas} />
+          <Card titulo="Total" valor={`$${evento.total}`} />
+          <Card titulo="Seña" valor={`$${evento.sena}`} />
+          <Card titulo="Saldo" valor={`$${evento.saldo}`} />
+
+        </div>
+
+      ) : (
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))",
+          gap: "15px"
+        }}>
+
+          {Object.keys(form).map((key) => (
+            <input
+              key={key}
+              name={key}
+              value={form[key] || ""}
+              onChange={handleChange}
+              placeholder={key}
+              style={{
+                padding: "10px",
+                borderRadius: "8px",
+                border: "1px solid #ccc"
+              }}
+            />
+          ))}
+
+        </div>
+
+      )}
+
+      {/* OBSERVACIONES */}
+      <div style={{
+        marginTop: "30px",
+        borderTop: "1px solid #eee",
+        paddingTop: "20px"
+      }}>
+
+        <h3>Observaciones</h3>
+
+        <p style={{
+          color: "#555",
+          lineHeight: "1.6"
+        }}>
+          {evento.observaciones || "Sin observaciones"}
+        </p>
 
       </div>
 
     </div>
   )
+}
+
+function Card({ titulo, valor }) {
+
+  return (
+    <div style={{
+      background: "#f9fafb",
+      padding: "18px",
+      borderRadius: "8px",
+      border: "1px solid #e5e7eb"
+    }}>
+      <div style={{ fontSize: "13px", color: "#6b7280" }}>
+        {titulo}
+      </div>
+      <div style={{ fontSize: "17px", fontWeight: "600" }}>
+        {valor || "-"}
+      </div>
+    </div>
+  )
+}
+
+const botonAzul = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  padding: "10px 16px",
+  borderRadius: "6px",
+  cursor: "pointer"
+}
+
+const botonVerde = {
+  background: "#16a34a",
+  color: "white",
+  border: "none",
+  padding: "10px 16px",
+  borderRadius: "6px",
+  cursor: "pointer"
+}
+
+const botonRojo = {
+  background: "#dc2626",
+  color: "white",
+  border: "none",
+  padding: "10px 16px",
+  borderRadius: "6px",
+  cursor: "pointer"
+}
+
+const botonGris = {
+  background: "#4b5563",
+  color: "white",
+  border: "none",
+  padding: "10px 16px",
+  borderRadius: "6px",
+  cursor: "pointer"
 }
