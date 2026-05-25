@@ -12,11 +12,6 @@ export default function NuevoEvento() {
       localStorage.getItem("tiposEventos")
     ) || []
 
-  const prestadores =
-    JSON.parse(
-      localStorage.getItem("prestadores")
-    ) || []
-
   const [form, setForm] = useState({
     cliente: "",
     telefono: "",
@@ -34,7 +29,6 @@ export default function NuevoEvento() {
     decoracion: "",
     dj: "",
     catering: "",
-    prestador: "",
     observaciones: ""
   })
 
@@ -282,47 +276,6 @@ export default function NuevoEvento() {
 
         </Section>
 
-        {/* PRESTADORES */}
-        <Section titulo="Prestadores">
-
-          <Grid>
-
-            <div>
-
-              <label style={label}>
-                Prestador
-              </label>
-
-              <select
-                name="prestador"
-                value={form.prestador}
-                onChange={handleChange}
-                style={input}
-              >
-
-                <option value="">
-                  Seleccionar prestador
-                </option>
-
-                {prestadores.map((p) => (
-
-                  <option
-                    key={p.id}
-                    value={`${p.nombre} ${p.apellido}`}
-                  >
-                    {p.nombre} {p.apellido}
-                  </option>
-
-                ))}
-
-              </select>
-
-            </div>
-
-          </Grid>
-
-        </Section>
-
         {/* FINANZAS */}
         <Section titulo="Finanzas">
 
@@ -337,65 +290,14 @@ export default function NuevoEvento() {
               required
             />
 
-            {/* SEÑA */}
-            <div>
+            <Input
+              type="number"
+              label="Seña"
+              name="sena"
+              value={form.sena}
+              onChange={handleChange}
+            />
 
-              <label style={label}>
-                Seña
-              </label>
-
-              <select
-                name="sena"
-                value={
-                  form.total
-                    ? (Number(form.sena) * 100) / Number(form.total)
-                    : ""
-                }
-                onChange={(e) => {
-
-                  const porcentaje =
-                    Number(e.target.value)
-
-                  const monto =
-                    (
-                      Number(form.total || 0) *
-                      porcentaje
-                    ) / 100
-
-                  setForm({
-                    ...form,
-                    sena: monto
-                  })
-
-                }}
-                style={input}
-              >
-
-                <option value="">
-                  Seleccionar porcentaje
-                </option>
-
-                <option value="25">
-                  25%
-                </option>
-
-                <option value="50">
-                  50%
-                </option>
-
-                <option value="75">
-                  75%
-                </option>
-
-                <option value="100">
-                  100%
-                </option>
-
-              </select>
-
-            </div>
-
-            {/* SALDO */}
             <div>
 
               <label style={label}>
@@ -420,7 +322,6 @@ export default function NuevoEvento() {
 
             </div>
 
-            {/* ESTADO */}
             <div>
 
               <label style={label}>
