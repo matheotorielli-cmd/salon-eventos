@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { collection, onSnapshot } from "firebase/firestore"
+import { db } from "../firebase"
+
 export default function MisEventos() {
 
   const navigate = useNavigate()
@@ -22,23 +25,34 @@ export default function MisEventos() {
 
   useEffect(() => {
 
-    const guardados =
-      JSON.parse(
-        localStorage.getItem("eventos")
-      ) || []
+    const unsubscribe = onSnapshot(
+      collection(db, "eventos"),
+      (snapshot) => {
 
-    guardados.sort((a, b) =>
-      new Date(b.fecha) -
-      new Date(a.fecha)
+        const lista =
+          snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+
+        lista.sort((a, b) =>
+          new Date(b.fecha) -
+          new Date(a.fecha)
+        )
+
+        setEventos(lista)
+      }
     )
 
-    setEventos(guardados)
+    return () => unsubscribe()
 
   }, [])
 
   const tiposUnicos = [
     ...new Set(
-      eventos.map(ev => ev.tipoEvento)
+      eventos
+        .map(ev => ev.tipoEvento)
+        .filter(Boolean)
     )
   ]
 

@@ -1,11 +1,14 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { collection, addDoc } from "firebase/firestore"
+import { db } from "../firebase"
 
 export default function NuevoEvento() {
 
   const navigate = useNavigate()
 
   const [error, setError] = useState("")
+const [guardando, setGuardando] = useState(false)
 
   const tiposEventos =
     JSON.parse(
@@ -199,14 +202,19 @@ export default function NuevoEvento() {
         Number(form.sena || 0)
     }
 
-    eventos.push(nuevoEvento)
+    setGuardando(true)
 
-    localStorage.setItem(
-      "eventos",
-      JSON.stringify(eventos)
-    )
-
+addDoc(collection(db, "eventos"), nuevoEvento)
+  .then(() => {
     navigate("/eventos")
+  })
+  .catch((error) => {
+    console.error(error)
+    setError("No se pudo guardar el evento")
+  })
+  .finally(() => {
+    setGuardando(false)
+  })
   }
 
   const saldo =

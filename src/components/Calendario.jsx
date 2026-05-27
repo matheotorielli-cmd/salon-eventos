@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { collection, onSnapshot } from "firebase/firestore"
+import { db } from "../firebase"
+
 import FullCalendar from "@fullcalendar/react"
 
 import dayGridPlugin from "@fullcalendar/daygrid"
@@ -20,61 +23,71 @@ export default function Calendario() {
 
   useEffect(() => {
 
-    const guardados =
-      JSON.parse(
-        localStorage.getItem("eventos")
-      ) || []
+    const unsubscribe = onSnapshot(
+      collection(db, "eventos"),
+      (snapshot) => {
 
-    const eventosFormateados =
-      guardados.map((ev) => {
+        const eventosFormateados =
+          snapshot.docs.map((doc) => {
 
-        let color = "#3b82f6"
+            const ev = {
+              id: doc.id,
+              ...doc.data()
+            }
 
-        if (ev.estado === "Pagado") {
-          color = "#84cc16"
-        }
+            let color = "#3b82f6"
 
-        if (ev.estado === "Confirmado") {
-          color = "#2563eb"
-        }
+            if (ev.estado === "Pagado") {
+              color = "#84cc16"
+            }
 
-        if (
-          ev.estado === "Presupuestado"
-        ) {
-          color = "#facc15"
-        }
+            if (ev.estado === "Confirmado") {
+              color = "#2563eb"
+            }
 
-        if (ev.estado === "Cancelado") {
-          color = "#ef4444"
-        }
+            if (
+              ev.estado === "Presupuestado"
+            ) {
+              color = "#facc15"
+            }
 
-        const horaInicio =
-          ev.hora || "12:00"
+            if (ev.estado === "Cancelado") {
+              color = "#ef4444"
+            }
 
-        const horaFin =
-          ev.horaFin || "18:00"
+            const horaInicio =
+              ev.hora || "12:00"
 
-        return {
+            const horaFin =
+              ev.horaFin || "18:00"
 
-          ...ev,
+            return {
 
-          title:
-            ev.cliente || "Evento",
+              ...ev,
 
-          start:
-            `${ev.fecha}T${horaInicio}`,
+              title:
+                ev.cliente || "Evento",
 
-          end:
-            `${ev.fecha}T${horaFin}`,
+              start:
+                ev.start ||
+                `${ev.fecha}T${horaInicio}`,
 
-          backgroundColor: color,
-          borderColor: color,
-          textColor: "#ffffff"
-        }
+              end:
+                ev.end ||
+                `${ev.fecha}T${horaFin}`,
 
-      })
+              backgroundColor: color,
+              borderColor: color,
+              textColor: "#ffffff"
+            }
 
-    setEventos(eventosFormateados)
+          })
+
+        setEventos(eventosFormateados)
+      }
+    )
+
+    return () => unsubscribe()
 
   }, [])
 
