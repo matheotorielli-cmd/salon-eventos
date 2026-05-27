@@ -5,62 +5,129 @@ export default function MisEventos() {
 
   const navigate = useNavigate()
 
-  const [eventos, setEventos] = useState([])
+  const [eventos, setEventos] =
+    useState([])
 
   const [busqueda, setBusqueda] =
+    useState("")
+
+  const [fechaDesde, setFechaDesde] =
+    useState("")
+
+  const [fechaHasta, setFechaHasta] =
+    useState("")
+
+  const [filtroTipo, setFiltroTipo] =
     useState("")
 
   useEffect(() => {
 
     const guardados =
-      JSON.parse(localStorage.getItem("eventos")) || []
+      JSON.parse(
+        localStorage.getItem("eventos")
+      ) || []
+
+    guardados.sort((a, b) =>
+      new Date(b.fecha) -
+      new Date(a.fecha)
+    )
 
     setEventos(guardados)
 
   }, [])
 
-  const filtrados = eventos.filter(e =>
-    e.cliente
-      ?.toLowerCase()
-      .includes(busqueda.toLowerCase())
-  )
+  const tiposUnicos = [
+    ...new Set(
+      eventos.map(ev => ev.tipoEvento)
+    )
+  ]
 
-  const estadoColor = {
-    Presupuestado: "#f59e0b",
-    Confirmado: "#2563eb",
-    Pagado: "#16a34a",
-    Cancelado: "#dc2626"
+  const eventosFiltrados =
+    eventos.filter((ev) => {
+
+      const coincideBusqueda =
+
+        ev.cliente
+          ?.toLowerCase()
+          .includes(
+            busqueda.toLowerCase()
+          )
+
+      const coincideFecha =
+
+        fechaDesde && fechaHasta
+
+          ? (
+              ev.fecha >= fechaDesde &&
+              ev.fecha <= fechaHasta
+            )
+
+          : true
+
+      const coincideTipo =
+
+        filtroTipo
+          ? ev.tipoEvento === filtroTipo
+          : true
+
+      return (
+        coincideBusqueda &&
+        coincideFecha &&
+        coincideTipo
+      )
+
+    })
+
+  function colorEstado(estado) {
+
+    if (estado === "Pagado") {
+      return "#84cc16"
+    }
+
+    if (estado === "Confirmado") {
+      return "#2563eb"
+    }
+
+    if (
+      estado === "Presupuestado"
+    ) {
+      return "#facc15"
+    }
+
+    if (estado === "Cancelado") {
+      return "#ef4444"
+    }
+
+    return "#6b7280"
   }
 
   return (
 
-    <div
-      style={{
-        background: "white",
-        padding: "25px",
-        borderRadius: "10px"
-      }}
-    >
+    <div>
 
-      {/* CABECERA */}
-      <div
+      <h1
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-          flexWrap: "wrap",
-          gap: "15px"
+          marginTop: 0,
+          marginBottom: "25px",
+          color: "#1e3a8a",
+          textAlign: "center",
+          fontSize: "34px"
         }}
       >
+        Mis Eventos
+      </h1>
 
-        <h2
-          style={{
-            margin: 0
-          }}
-        >
-          Mis eventos
-        </h2>
+      {/* FILTROS */}
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit,minmax(220px,1fr))",
+          gap: "15px",
+          marginBottom: "25px"
+        }}
+      >
 
         <input
           type="text"
@@ -69,136 +136,189 @@ export default function MisEventos() {
           onChange={(e) =>
             setBusqueda(e.target.value)
           }
-          style={{
-            padding: "10px",
-            width: "260px"
-          }}
+          style={input}
         />
+
+        <input
+          type="date"
+          value={fechaDesde}
+          onChange={(e) =>
+            setFechaDesde(e.target.value)
+          }
+          style={input}
+        />
+
+        <input
+          type="date"
+          value={fechaHasta}
+          onChange={(e) =>
+            setFechaHasta(e.target.value)
+          }
+          style={input}
+        />
+
+        <select
+          value={filtroTipo}
+          onChange={(e) =>
+            setFiltroTipo(e.target.value)
+          }
+          style={input}
+        >
+
+          <option value="">
+            Todos los tipos
+          </option>
+
+          {tiposUnicos.map(
+            (tipo, index) => (
+
+              <option
+                key={index}
+                value={tipo}
+              >
+                {tipo}
+              </option>
+
+            )
+          )}
+
+        </select>
 
       </div>
 
-      {/* TABLA */}
+      {/* LISTA */}
+
       <div
         style={{
-          overflowX: "auto"
+          display: "flex",
+          flexDirection: "column",
+          gap: "18px"
         }}
       >
 
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse"
-          }}
-        >
+        {eventosFiltrados.length === 0 && (
 
-          <thead>
+          <div
+            style={{
+              background: "white",
+              padding: "30px",
+              borderRadius: "12px",
+              textAlign: "center",
+              color: "#6b7280"
+            }}
+          >
+            No se encontraron eventos
+          </div>
 
-            <tr
+        )}
+
+        {eventosFiltrados.map((ev) => (
+
+          <div
+            key={ev.id}
+            onClick={() =>
+              navigate(`/evento/${ev.id}`)
+            }
+            style={{
+              background: "white",
+              padding: "22px",
+              borderRadius: "14px",
+              cursor: "pointer",
+              border:
+                "1px solid #e5e7eb",
+              transition: ".2s",
+              boxShadow:
+                "0 2px 8px rgba(0,0,0,0.04)"
+            }}
+          >
+
+            <div
               style={{
-                background: "#f3f4f6"
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "10px"
               }}
             >
 
-              <th style={th}>
-                Cliente
-              </th>
+              <div>
 
-              <th style={th}>
-                Fecha
-              </th>
+                <h2
+                  style={{
+                    margin: 0,
+                    color: "#111827"
+                  }}
+                >
+                  {ev.cliente}
+                </h2>
 
-              <th style={th}>
-                Tipo
-              </th>
+                <div
+                  style={{
+                    marginTop: "8px",
+                    color: "#6b7280",
+                    fontSize: "15px"
+                  }}
+                >
+                  {ev.tipoEvento}
+                </div>
 
-              <th style={th}>
-                Estado
-              </th>
+              </div>
 
-              <th style={th}>
-                Saldo
-              </th>
-
-              <th style={th}>
-                Acción
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            {filtrados.map(evento => (
-
-              <tr
-                key={evento.id}
+              <div
                 style={{
-                  borderBottom:
-                    "1px solid #eee"
+                  background:
+                    colorEstado(ev.estado),
+                  color: "white",
+                  padding:
+                    "8px 14px",
+                  borderRadius: "999px",
+                  fontWeight: "600",
+                  fontSize: "14px"
                 }}
               >
+                {ev.estado}
+              </div>
 
-                <td style={td}>
-                  {evento.cliente}
-                </td>
+            </div>
 
-                <td style={td}>
-                  {evento.fecha}
-                </td>
+            <div
+              style={{
+                marginTop: "18px",
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit,minmax(220px,1fr))",
+                gap: "12px",
+                color: "#374151"
+              }}
+            >
 
-                <td style={td}>
-                  {evento.tipoEvento}
-                </td>
+              <div>
+                📅 {ev.fecha}
+              </div>
 
-                <td style={td}>
+              <div>
+                🕒 {ev.hora || "--:--"}
+              </div>
 
-                  <span
-                    style={{
-                      background:
-                        estadoColor[evento.estado],
-                      color: "white",
-                      padding: "6px 10px",
-                      borderRadius: "20px",
-                      fontSize: "12px"
-                    }}
-                  >
-                    {evento.estado}
-                  </span>
+              <div>
+                👥 {ev.personas || 0} personas
+              </div>
 
-                </td>
+              <div>
+                💲 ${ev.total || 0}
+              </div>
 
-                <td style={td}>
-                  ${evento.saldo}
-                </td>
+              <div>
+                📍 {ev.direccion || "-"}
+              </div>
 
-                <td style={td}>
+            </div>
 
-                  <button
-                    onClick={() =>
-                      navigate(`/evento/${evento.id}`)
-                    }
-                    style={{
-                      background: "#2563eb",
-                      color: "white",
-                      border: "none",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      cursor: "pointer"
-                    }}
-                  >
-                    Abrir
-                  </button>
+          </div>
 
-                </td>
-
-              </tr>
-
-            ))}
-
-          </tbody>
-
-        </table>
+        ))}
 
       </div>
 
@@ -206,13 +326,12 @@ export default function MisEventos() {
   )
 }
 
-const th = {
-  textAlign: "left",
-  padding: "14px",
-  fontSize: "14px"
-}
-
-const td = {
-  padding: "14px",
-  fontSize: "14px"
+const input = {
+  width: "100%",
+  padding: "12px",
+  borderRadius: "10px",
+  border: "1px solid #d1d5db",
+  fontSize: "15px",
+  boxSizing: "border-box",
+  background: "white"
 }

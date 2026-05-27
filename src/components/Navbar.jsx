@@ -12,25 +12,45 @@ export default function Navbar() {
   const [openUser, setOpenUser] = useState(false)
   const [openConfig, setOpenConfig] = useState(false)
 
+  const [openSection, setOpenSection] =
+    useState(null)
+
   const user = auth.currentUser
   const menuRef = useRef()
 
   async function cerrarSesion() {
+
     await signOut(auth)
+
     navigate("/login")
+
   }
 
   function toggleMenu(menu) {
+
     setOpenMenu(
       openMenu === menu
         ? null
         : menu
     )
+
+  }
+
+  function toggleSection(section) {
+
+    setOpenSection(
+      openSection === section
+        ? null
+        : section
+    )
+
   }
 
   useEffect(() => {
+
     setOpenMenu(null)
     setOpenUser(false)
+
   }, [location.pathname])
 
   useEffect(() => {
@@ -39,10 +59,14 @@ export default function Navbar() {
 
       if (
         menuRef.current &&
-        !menuRef.current.contains(e.target)
+        !menuRef.current.contains(
+          e.target
+        )
       ) {
+
         setOpenMenu(null)
         setOpenUser(false)
+
       }
 
     }
@@ -78,10 +102,10 @@ export default function Navbar() {
     background: "white",
     borderRadius: "10px",
     minWidth: "220px",
-    boxShadow: "0 15px 30px rgba(0,0,0,0.12)",
+    boxShadow:
+      "0 15px 30px rgba(0,0,0,0.12)",
     zIndex: 9999,
-    overflow: "hidden",
-    animation: "dropdown .15s ease-out"
+    overflow: "hidden"
   }
 
   const dropdownItem = {
@@ -93,28 +117,45 @@ export default function Navbar() {
     color: "#111827"
   }
 
+  const configTitle = {
+    padding: "14px",
+    fontWeight: "700",
+    fontSize: "15px",
+    cursor: "pointer",
+    borderBottom: "1px solid #eee",
+    background: "#f9fafb",
+    color: "#111827"
+  }
+
+  const configSub = {
+    padding: "12px 20px",
+    borderBottom: "1px solid #f1f1f1",
+    cursor: "pointer",
+    fontSize: "14px",
+    color: "#374151",
+    background: "white"
+  }
+
   return (
+
     <>
+
       <style>{`
-        @keyframes dropdown {
-          from {
-            opacity: 0;
-            transform: translateY(-8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
 
         @keyframes slide {
+
           from {
-            transform: translateX(100%);
+            transform:
+              translateX(100%);
           }
+
           to {
-            transform: translateX(0);
+            transform:
+              translateX(0);
           }
+
         }
+
       `}</style>
 
       <div
@@ -123,7 +164,8 @@ export default function Navbar() {
           background: "#1d4ed8",
           padding: "14px 20px",
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent:
+            "space-between",
           alignItems: "center",
           gap: "15px",
           flexWrap: "wrap",
@@ -144,83 +186,94 @@ export default function Navbar() {
         >
 
           <div
-            onClick={() => navigate("/")}
+            onClick={() =>
+              navigate("/")
+            }
             style={itemStyle}
           >
             Calendario
           </div>
 
           <div
-            onClick={() => navigate("/eventos")}
+            onClick={() =>
+              navigate("/eventos")
+            }
             style={itemStyle}
           >
             Eventos
           </div>
 
           <div
-            onClick={() => navigate("/nuevo")}
+            onClick={() =>
+              navigate("/nuevo")
+            }
             style={itemStyle}
           >
             Nuevo
           </div>
 
-          {/* MOVIMIENTOS */}
-          <div style={{ position: "relative" }}>
+          {/* FINANZAS */}
+          <div
+            style={{
+              position: "relative"
+            }}
+          >
 
             <div
               style={itemStyle}
               onClick={() =>
-                toggleMenu("movimientos")
+                toggleMenu(
+                  "finanzas"
+                )
               }
             >
-              Movimientos ▾
+              Finanzas ▾
             </div>
 
-            {openMenu === "movimientos" && (
+            {openMenu ===
+              "finanzas" && (
 
-              <div style={dropdownStyle}>
+              <div
+                style={
+                  dropdownStyle
+                }
+              >
 
                 <div
                   onClick={() => {
-                    navigate("/movimientos")
-                    setOpenMenu(null)
+
+                    navigate(
+                      "/cuentas"
+                    )
+
+                    setOpenMenu(
+                      null
+                    )
+
                   }}
-                  style={dropdownItem}
+                  style={
+                    dropdownItem
+                  }
                 >
-                  Mis movimientos
+                  Cuentas
                 </div>
 
                 <div
-                  onClick={() => {
-                    navigate("/movimientos/nuevo")
-                    setOpenMenu(null)
-                  }}
-                  style={dropdownItem}
+                  style={
+                    dropdownItem
+                  }
                 >
-                  Nuevo movimiento
+                  Balance
                 </div>
 
                 <div
-                  onClick={() => {
-                    navigate("/movimientos/proveedores")
-                    setOpenMenu(null)
-                  }}
-                  style={dropdownItem}
-                >
-                  Pago proveedores
-                </div>
-
-                <div
-                  onClick={() => {
-                    navigate("/movimientos/prestadores")
-                    setOpenMenu(null)
-                  }}
                   style={{
                     ...dropdownItem,
-                    borderBottom: "none"
+                    borderBottom:
+                      "none"
                   }}
                 >
-                  Pago prestadores
+                  Reportes
                 </div>
 
               </div>
@@ -229,33 +282,76 @@ export default function Navbar() {
 
           </div>
 
-          {/* FINANZAS */}
-          <div style={{ position: "relative" }}>
+          {/* MOVIMIENTOS */}
+          <div
+            style={{
+              position: "relative"
+            }}
+          >
 
             <div
               style={itemStyle}
               onClick={() =>
-                toggleMenu("finanzas")
+                toggleMenu(
+                  "movimientos"
+                )
               }
             >
-              Finanzas ▾
+              Movimientos ▾
             </div>
 
-            {openMenu === "finanzas" && (
+            {openMenu ===
+              "movimientos" && (
 
-              <div style={dropdownStyle}>
+              <div
+                style={
+                  dropdownStyle
+                }
+              >
+
+                <div
+                  style={
+                    dropdownItem
+                  }
+                >
+                  Mis movimientos
+                </div>
 
                 <div
                   onClick={() => {
-                    navigate("/cuentas")
-                    setOpenMenu(null)
+
+                    navigate(
+                      "/nuevo-movimiento"
+                    )
+
+                    setOpenMenu(
+                      null
+                    )
+
                   }}
+                  style={
+                    dropdownItem
+                  }
+                >
+                  Nuevo movimiento
+                </div>
+
+                <div
+                  style={
+                    dropdownItem
+                  }
+                >
+                  Pago proveedores
+                </div>
+
+                <div
                   style={{
                     ...dropdownItem,
-                    borderBottom: "none"
+                    borderBottom:
+                      "none"
                   }}
                 >
-                  Cuentas
+                  Pago prestadores
                 </div>
 
               </div>
@@ -271,8 +367,7 @@ export default function Navbar() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "10px",
-            position: "relative"
+            gap: "10px"
           }}
         >
 
@@ -284,11 +379,15 @@ export default function Navbar() {
             style={{
               width: "42px",
               height: "42px",
-              borderRadius: "10px",
-              background: "rgba(255,255,255,0.15)",
+              borderRadius:
+                "10px",
+              background:
+                "rgba(255,255,255,0.15)",
               display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
+              justifyContent:
+                "center",
+              alignItems:
+                "center",
               cursor: "pointer",
               color: "white",
               fontSize: "22px"
@@ -298,23 +397,34 @@ export default function Navbar() {
           </div>
 
           {/* USUARIO */}
-          <div style={{ position: "relative" }}>
+          <div
+            style={{
+              position: "relative"
+            }}
+          >
 
             <div
               onClick={() =>
-                setOpenUser(!openUser)
+                setOpenUser(
+                  !openUser
+                )
               }
               style={{
                 cursor: "pointer",
                 background:
                   "rgba(255,255,255,0.15)",
-                padding: "10px 14px",
-                borderRadius: "8px",
+                padding:
+                  "10px 14px",
+                borderRadius:
+                  "8px",
                 color: "white",
-                fontWeight: "600"
+                fontWeight:
+                  "600"
               }}
             >
-              {user?.email?.split("@")[0] ||
+              {user?.email?.split(
+                "@"
+              )[0] ||
                 "Usuario"}
             </div>
 
@@ -322,26 +432,36 @@ export default function Navbar() {
 
               <div
                 style={{
-                  position: "absolute",
+                  position:
+                    "absolute",
                   right: 0,
                   top: "52px",
-                  background: "white",
-                  borderRadius: "10px",
+                  background:
+                    "white",
+                  borderRadius:
+                    "10px",
                   width: "180px",
                   boxShadow:
                     "0 15px 30px rgba(0,0,0,0.12)",
-                  overflow: "hidden",
-                  zIndex: 9999
+                  overflow:
+                    "hidden",
+                  zIndex: 99999
                 }}
               >
 
                 <div
-                  onClick={cerrarSesion}
+                  onClick={
+                    cerrarSesion
+                  }
                   style={{
-                    padding: "12px",
-                    cursor: "pointer",
-                    color: "#dc2626",
-                    fontWeight: "600"
+                    padding:
+                      "12px",
+                    cursor:
+                      "pointer",
+                    color:
+                      "#dc2626",
+                    fontWeight:
+                      "600"
                   }}
                 >
                   Cerrar sesión
@@ -361,70 +481,284 @@ export default function Navbar() {
       {openConfig && (
 
         <div
-          onClick={() => setOpenConfig(false)}
+          onClick={() =>
+            setOpenConfig(false)
+          }
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background:
+              "rgba(0,0,0,0.35)",
             zIndex: 99999
           }}
         >
 
           <div
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
             style={{
-              position: "absolute",
+              position:
+                "absolute",
               top: 0,
               right: 0,
-              width: "320px",
+              width: "340px",
               height: "100%",
-              background: "white",
+              background:
+                "white",
               boxShadow:
                 "-10px 0 30px rgba(0,0,0,0.15)",
-              padding: "25px",
-              animation: "slide .2s ease-out"
+              overflowY:
+                "auto",
+              animation:
+                "slide .2s ease-out"
             }}
           >
 
-            <h2
+            <div
               style={{
-                marginTop: 0,
-                marginBottom: "25px",
-                color: "#1e3a8a"
+                padding: "20px",
+                borderBottom:
+                  "1px solid #eee",
+                fontWeight:
+                  "700",
+                fontSize:
+                  "22px",
+                color:
+                  "#1e3a8a"
               }}
             >
               Configuración
-            </h2>
-
-            <div
-              onClick={() => {
-                navigate("/prestadores")
-                setOpenConfig(false)
-              }}
-              style={dropdownItem}
-            >
-              Prestadores
             </div>
 
-            <div style={dropdownItem}>
-              Clientes
+            {/* CLIENTES */}
+            <div>
+
+              <div
+                style={
+                  configTitle
+                }
+                onClick={() =>
+                  toggleSection(
+                    "clientes"
+                  )
+                }
+              >
+                Clientes ▾
+              </div>
+
+              {openSection ===
+                "clientes" && (
+                <>
+
+                  <div
+                    style={
+                      configSub
+                    }
+                  >
+                    Historial
+                  </div>
+
+                  <div
+                    style={
+                      configSub
+                    }
+                  >
+                    Cumpleaños
+                  </div>
+
+                  <div
+                    style={
+                      configSub
+                    }
+                  >
+                    Eventos realizados
+                  </div>
+
+                  <div
+                    style={
+                      configSub
+                    }
+                  >
+                    Deuda / saldo
+                  </div>
+
+                </>
+              )}
+
             </div>
 
-            <div style={dropdownItem}>
-              Servicios
+            {/* PRESTADORES */}
+            <div>
+
+              <div
+                style={
+                  configTitle
+                }
+                onClick={() =>
+                  toggleSection(
+                    "prestadores"
+                  )
+                }
+              >
+                Prestadores ▾
+              </div>
+
+              {openSection ===
+                "prestadores" && (
+                <>
+
+                  <div
+                    style={
+                      configSub
+                    }
+                    onClick={() => {
+
+                      navigate(
+                        "/prestadores"
+                      )
+
+                      setOpenConfig(
+                        false
+                      )
+
+                    }}
+                  >
+                    Lista prestadores
+                  </div>
+
+                  <div
+                    style={
+                      configSub
+                    }
+                  >
+                    Teléfonos
+                  </div>
+
+                  <div
+                    style={
+                      configSub
+                    }
+                  >
+                    Pagos
+                  </div>
+
+                </>
+              )}
+
             </div>
 
-            <div
-              onClick={() => {
-                navigate("/tipos-eventos")
-                setOpenConfig(false)
-              }}
-              style={{
-                ...dropdownItem,
-                borderBottom: "none"
-              }}
-            >
-              Tipos de eventos
+            {/* SERVICIOS */}
+            <div>
+
+              <div
+                style={
+                  configTitle
+                }
+                onClick={() =>
+                  toggleSection(
+                    "servicios"
+                  )
+                }
+              >
+                Servicios ▾
+              </div>
+
+              {openSection ===
+                "servicios" && (
+                <>
+
+                  <div
+                    style={
+                      configSub
+                    }
+                  >
+                    Combos del salón
+                  </div>
+
+                  <div
+                    onClick={() => {
+
+                      navigate(
+                        "/tipos-eventos"
+                      )
+
+                      setOpenConfig(
+                        false
+                      )
+
+                    }}
+                    style={
+                      configSub
+                    }
+                  >
+                    Tipos de eventos
+                  </div>
+
+                </>
+              )}
+
+            </div>
+<div
+  onClick={() => {
+
+    navigate(
+      "/tipos-movimientos"
+    )
+
+    setOpenConfig(
+      false
+    )
+
+  }}
+  style={
+    configSub
+  }
+>
+  Tipos de movimiento
+</div>
+            {/* ETIQUETAS */}
+            <div>
+
+              <div
+                style={
+                  configTitle
+                }
+                onClick={() =>
+                  toggleSection(
+                    "etiquetas"
+                  )
+                }
+              >
+                Etiquetas ▾
+              </div>
+
+              {openSection ===
+                "etiquetas" && (
+                <>
+
+                  <div
+                    style={
+                      configSub
+                    }
+                    onClick={() => {
+
+                      navigate(
+                        "/escuelas"
+                      )
+
+                      setOpenConfig(
+                        false
+                      )
+
+                    }}
+                  >
+                    Escuelas
+                  </div>
+
+                </>
+              )}
+
             </div>
 
           </div>
@@ -432,6 +766,8 @@ export default function Navbar() {
         </div>
 
       )}
+
     </>
+
   )
 }

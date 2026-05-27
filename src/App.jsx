@@ -5,7 +5,10 @@ import {
   Navigate
 } from "react-router-dom"
 
-import { useEffect, useState } from "react"
+import {
+  useEffect,
+  useState
+} from "react"
 
 import Navbar from "./components/Navbar"
 
@@ -13,20 +16,34 @@ import Calendario from "./components/Calendario"
 import Eventos from "./components/MisEventos"
 import NuevoEvento from "./components/NuevoEvento"
 import EventoDetalle from "./components/EventoDetalle"
+import EditarEvento from "./components/EditarEvento"
+import RegistrarCobro from "./components/RegistrarCobro"
+import NuevoTipoMovimiento from "./components/NuevoTipoMovimiento"
+
 import Login from "./components/Login"
-import TiposEventos from "./components/TiposEventos"
 import Prestadores from "./components/Prestadores"
+import TiposEventos from "./components/TiposEventos"
+import Escuelas from "./components/Escuelas"
+import Cuentas from "./components/Cuentas"
+import NuevaCuenta from "./components/NuevaCuenta"
+import NuevoMovimiento from "./components/NuevoMovimiento"
+import TiposMovimientos from "./components/TiposMovimientos"
 
 import { auth } from "./firebase"
 
-function RutaPrivada({ children, user }) {
+function RutaPrivada({
+  children,
+  user
+}) {
 
   if (user === undefined) {
+
     return (
       <div style={{ padding: 30 }}>
         Cargando...
       </div>
     )
+
   }
 
   return user
@@ -81,13 +98,52 @@ function Layout() {
           />
 
           <Route
-            path="/tipos-eventos"
-            element={<TiposEventos />}
+            path="/evento/:id/editar"
+            element={<EditarEvento />}
+          />
+
+          <Route
+            path="/evento/:id/cobro"
+            element={<RegistrarCobro />}
           />
 
           <Route
             path="/prestadores"
             element={<Prestadores />}
+          />
+
+          <Route
+            path="/tipos-eventos"
+            element={<TiposEventos />}
+          />
+           
+           <Route
+  path="/tipos-movimientos"
+  element={<TiposMovimientos />}
+/>
+<Route
+  path="/nuevo-tipo-movimiento"
+  element={<NuevoTipoMovimiento />}
+/>
+
+          <Route
+            path="/escuelas"
+            element={<Escuelas />}
+          />
+
+          <Route
+            path="/cuentas"
+            element={<Cuentas />}
+          />
+
+          <Route
+            path="/nueva-cuenta"
+            element={<NuevaCuenta />}
+          />
+
+          <Route
+            path="/nuevo-movimiento"
+            element={<NuevoMovimiento />}
           />
 
         </Routes>
@@ -100,14 +156,17 @@ function Layout() {
 
 export default function App() {
 
-  const [user, setUser] = useState(undefined)
+  const [user, setUser] =
+    useState(undefined)
 
   useEffect(() => {
 
     const unsub =
-      auth.onAuthStateChanged((u) => {
-        setUser(u)
-      })
+      auth.onAuthStateChanged(
+        (u) => {
+          setUser(u)
+        }
+      )
 
     return () => unsub()
 
