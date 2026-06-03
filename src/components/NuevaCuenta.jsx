@@ -23,28 +23,32 @@ export default function NuevaCuenta() {
 
   }
 
-  function guardarCuenta(e) {
+  async function guardarCuenta(e) {
 
-    e.preventDefault()
+  e.preventDefault()
 
-    const cuentas =
-      JSON.parse(
-        localStorage.getItem("cuentas")
-      ) || []
+  try {
 
-    cuentas.push({
-      id: Date.now(),
-      ...form,
-      activa: true
-    })
-
-    localStorage.setItem(
-      "cuentas",
-      JSON.stringify(cuentas)
+    await addDoc(
+      collection(db, "cuentas"),
+      {
+        ...form,
+        monto: Number(form.monto),
+        activa: true,
+        creado: serverTimestamp()
+      }
     )
 
     navigate("/cuentas")
+
+  } catch (error) {
+
+    console.error(error)
+    alert("Error al guardar cuenta")
+
   }
+
+}
 
   return (
 

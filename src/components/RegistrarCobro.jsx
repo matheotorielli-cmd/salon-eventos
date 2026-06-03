@@ -3,6 +3,8 @@ import {
   useNavigate,
   useParams
 } from "react-router-dom"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
+import { db } from "../firebase"
 
 export default function RegistrarCobro() {
 
@@ -33,21 +35,28 @@ export default function RegistrarCobro() {
     monto: ""
   })
 
-  useEffect(() => {
+useEffect(() => {
 
-    const eventos =
-      JSON.parse(
-        localStorage.getItem("eventos")
-      ) || []
+  async function cargarEvento() {
 
-    const encontrado =
-      eventos.find(
-        e => String(e.id) === id
-      )
+    const ref = doc(db, "eventos", id)
 
-    setEvento(encontrado)
+    const snap = await getDoc(ref)
 
-  }, [id])
+    if (snap.exists()) {
+
+      setEvento({
+        id: snap.id,
+        ...snap.data()
+      })
+
+    }
+
+  }
+
+  cargarEvento()
+
+}, [id])
 
   if (!evento) {
     return <h2>Evento no encontrado</h2>

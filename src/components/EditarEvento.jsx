@@ -3,6 +3,8 @@ import {
   useNavigate,
   useParams
 } from "react-router-dom"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
+import { db } from "../firebase"
 
 export default function EditarEvento() {
 
@@ -27,21 +29,28 @@ export default function EditarEvento() {
       localStorage.getItem("escuelas")
     ) || []
 
-  useEffect(() => {
+ useEffect(() => {
 
-    const eventos =
-      JSON.parse(
-        localStorage.getItem("eventos")
-      ) || []
+  async function cargarEvento() {
 
-    const encontrado =
-      eventos.find(
-        e => String(e.id) === id
-      )
+    const ref = doc(db, "eventos", id)
 
-    setForm(encontrado)
+    const snap = await getDoc(ref)
 
-  }, [id])
+    if (snap.exists()) {
+
+      setForm({
+        id: snap.id,
+        ...snap.data()
+      })
+
+    }
+
+  }
+
+  cargarEvento()
+
+}, [id])
 
   if (!form) {
     return <h2>Cargando...</h2>
@@ -72,44 +81,21 @@ export default function EditarEvento() {
 
   }
 
-  function guardarCambios(e) {
+ async function guardarCambios(e) {
 
-    e.preventDefault()
+  e.preventDefault()
 
-    const eventos =
-      JSON.parse(
-        localStorage.getItem("eventos")
-      ) || []
+  const ref = doc(db, "eventos", id)
 
-    const actualizados =
-      eventos.map(ev => {
+  await updateDoc(ref, {
+    ...form,
+    saldo:
+      Number(form.total || 0) -
+      Number(form.sena || 0)
+  })
 
-        if (
-          String(ev.id) === id
-        ) {
-
-          return {
-
-            ...form,
-
-            saldo:
-              Number(form.total || 0) -
-              Number(form.sena || 0)
-
-          }
-
-        }
-
-        return ev
-      })
-
-    localStorage.setItem(
-      "eventos",
-      JSON.stringify(actualizados)
-    )
-
-    navigate(`/evento/${id}`)
-  }
+  navigate(`/evento/${id}`)
+}
 
   function agregarPrestador(valor) {
 
@@ -184,14 +170,22 @@ export default function EditarEvento() {
       }}
     >
 
-      <h1
-        style={{
-          marginBottom: "25px",
-          color: "#1e3a8a"
-        }}
-      >
-        Editar Evento
-      </h1>
+<div
+  style={{
+    background:
+      "linear-gradient(90deg,#2563eb,#1d4ed8)",
+    color: "white",
+    padding: "18px 22px",
+    borderRadius: "14px",
+    marginBottom: "25px",
+    fontSize: "24px",
+    fontWeight: "700",
+    boxShadow:
+      "0 4px 14px rgba(37,99,235,0.25)"
+  }}
+>
+  Editar evento
+</div>
 
       <form onSubmit={guardarCambios}>
 
@@ -632,14 +626,19 @@ export default function EditarEvento() {
         <button
           type="submit"
           style={{
-            background: "#2563eb",
-            color: "white",
-            border: "none",
-            padding: "14px 28px",
-            borderRadius: "8px",
-            fontWeight: "600",
-            cursor: "pointer"
-          }}
+  background:
+    "linear-gradient(90deg,#2563eb,#1d4ed8)",
+  color: "white",
+  border: "none",
+  padding: "15px 30px",
+  borderRadius: "12px",
+  fontSize: "16px",
+  fontWeight: "700",
+  cursor: "pointer",
+  boxShadow:
+    "0 4px 12px rgba(37,99,235,0.3)"
+}}
+
         >
           Guardar cambios
         </button>
@@ -651,7 +650,6 @@ export default function EditarEvento() {
 }
 
 /* COMPONENTES */
-
 function Section({
   titulo,
   children
@@ -662,27 +660,54 @@ function Section({
     <div
       style={{
         background: "white",
-        padding: "25px",
-        borderRadius: "12px",
-        marginBottom: "25px",
-        border:
-          "1px solid #e5e7eb"
+        borderRadius: "14px",
+        marginBottom: "28px",
+        border: "1px solid #dbe3f0",
+        overflow: "hidden",
+        boxShadow:
+          "0 2px 10px rgba(0,0,0,0.04)"
       }}
     >
 
-      <h3
+      <div
         style={{
-          marginTop: 0,
-          marginBottom: "20px"
+          background:
+            "linear-gradient(90deg,#2563eb,#1d4ed8)",
+          color: "white",
+          padding: "14px 20px",
+          fontWeight: "700",
+          fontSize: "15px"
         }}
       >
         {titulo}
-      </h3>
+      </div>
 
-      {children}
+      <div
+        style={{
+          padding: "25px"
+        }}
+      >
+        {children}
+      </div>
 
     </div>
   )
+}
+
+async function guardarCambios(e) {
+
+  e.preventDefault()
+
+  const ref = doc(db, "eventos", id)
+
+  await updateDoc(ref, {
+    ...form,
+    saldo:
+      Number(form.total || 0) -
+      Number(form.sena || 0)
+  })
+
+  navigate(`/evento/${id}`)
 }
 
 function Grid({ children }) {
@@ -744,11 +769,14 @@ const label = {
 
 const input = {
   width: "100%",
-  padding: "12px",
-  borderRadius: "8px",
+  padding: "13px 14px",
+  borderRadius: "10px",
   border: "1px solid #d1d5db",
   fontSize: "15px",
-  boxSizing: "border-box"
+  boxSizing: "border-box",
+  background: "#ffffff",
+  transition: ".2s",
+  outline: "none"
 }
 
 const th = {
