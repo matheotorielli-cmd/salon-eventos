@@ -28,6 +28,7 @@ import Cuentas from "./components/Cuentas"
 import NuevaCuenta from "./components/NuevaCuenta"
 import NuevoMovimiento from "./components/NuevoMovimiento"
 import TiposMovimientos from "./components/TiposMovimientos"
+import MisMovimientos from "./components/MisMovimientos"
 
 import { auth } from "./firebase"
 
@@ -116,15 +117,16 @@ function Layout() {
             path="/tipos-eventos"
             element={<TiposEventos />}
           />
-           
-           <Route
-  path="/tipos-movimientos"
-  element={<TiposMovimientos />}
-/>
-<Route
-  path="/nuevo-tipo-movimiento"
-  element={<NuevoTipoMovimiento />}
-/>
+
+          <Route
+            path="/tipos-movimientos"
+            element={<TiposMovimientos />}
+          />
+
+          <Route
+            path="/nuevo-tipo-movimiento"
+            element={<NuevoTipoMovimiento />}
+          />
 
           <Route
             path="/escuelas"
@@ -144,6 +146,11 @@ function Layout() {
           <Route
             path="/nuevo-movimiento"
             element={<NuevoMovimiento />}
+          />
+
+          <Route
+            path="/movimientos"
+            element={<MisMovimientos />}
           />
 
         </Routes>

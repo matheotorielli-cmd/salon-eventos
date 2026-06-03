@@ -31,9 +31,9 @@ export default function Calendario() {
           snapshot.docs.map((doc) => {
 
             const ev = {
-              id: doc.id,
-              ...doc.data()
-            }
+  ...doc.data(),
+  id: doc.id
+}
 
             let color = "#3b82f6"
 

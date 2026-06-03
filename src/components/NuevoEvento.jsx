@@ -230,14 +230,22 @@ addDoc(collection(db, "eventos"), nuevoEvento)
       }}
     >
 
-      <h1
-        style={{
-          marginBottom: "25px",
-          color: "#1e3a8a"
-        }}
-      >
-        Nuevo Evento
-      </h1>
+<div
+  style={{
+    background:
+      "linear-gradient(90deg,#2563eb,#1d4ed8)",
+    color: "white",
+    padding: "18px 22px",
+    borderRadius: "14px",
+    marginBottom: "25px",
+    fontSize: "24px",
+    fontWeight: "700",
+    boxShadow:
+      "0 4px 14px rgba(37,99,235,0.25)"
+  }}
+>
+  Crear nuevo evento
+</div>
 
       {error && (
 
@@ -801,25 +809,35 @@ function Section({
     <div
       style={{
         background: "white",
-        padding: "25px",
-        borderRadius: "12px",
-        marginBottom: "25px",
-        border:
-          "1px solid #e5e7eb"
+        borderRadius: "14px",
+        marginBottom: "28px",
+        border: "1px solid #dbe3f0",
+        overflow: "hidden",
+        boxShadow:
+          "0 2px 10px rgba(0,0,0,0.04)"
       }}
     >
 
-      <h3
+      <div
         style={{
-          marginTop: 0,
-          marginBottom: "20px",
-          color: "#111827"
+          background:
+            "linear-gradient(90deg,#2563eb,#1d4ed8)",
+          color: "white",
+          padding: "14px 20px",
+          fontWeight: "700",
+          fontSize: "15px"
         }}
       >
         {titulo}
-      </h3>
+      </div>
 
-      {children}
+      <div
+        style={{
+          padding: "25px"
+        }}
+      >
+        {children}
+      </div>
 
     </div>
   )
@@ -884,11 +902,14 @@ const label = {
 
 const input = {
   width: "100%",
-  padding: "12px",
-  borderRadius: "8px",
+  padding: "13px 14px",
+  borderRadius: "10px",
   border: "1px solid #d1d5db",
   fontSize: "15px",
-  boxSizing: "border-box"
+  boxSizing: "border-box",
+  background: "#ffffff",
+  transition: ".2s",
+  outline: "none"
 }
 
 const th = {

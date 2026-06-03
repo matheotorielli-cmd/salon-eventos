@@ -308,17 +308,24 @@ export default function Navbar() {
                   dropdownStyle
                 }
               >
+                
 
                 <div
-                  style={
-                    dropdownItem
-                  }
-                >
-                  Mis movimientos
-                </div>
+  onClick={() => {
+
+    navigate("/movimientos")
+
+    setOpenMenu(null)
+
+  }}
+  style={dropdownItem}
+>
+  Mis movimientos
+</div>
 
                 <div
                   onClick={() => {
+                    
 
                     navigate(
                       "/nuevo-movimiento"

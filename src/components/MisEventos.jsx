@@ -30,10 +30,10 @@ export default function MisEventos() {
       (snapshot) => {
 
         const lista =
-          snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data()
-          }))
+  snapshot.docs.map((doc) => ({
+    ...doc.data(),
+    id: doc.id
+  }))
 
         lista.sort((a, b) =>
           new Date(b.fecha) -

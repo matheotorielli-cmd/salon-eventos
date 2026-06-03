@@ -15,7 +15,64 @@ export default function Cuentas() {
         localStorage.getItem("cuentas")
       ) || []
 
-    setCuentas(guardadas)
+    const movimientos =
+      JSON.parse(
+        localStorage.getItem("movimientos")
+      ) || []
+
+    const cuentasConSaldo =
+      guardadas.map((cuenta) => {
+
+        let saldo =
+          Number(cuenta.monto || 0)
+
+        movimientos.forEach((mov) => {
+
+          const monto =
+            Number(mov.monto || 0)
+
+          if (
+            mov.categoria === "Ingreso" &&
+            mov.cuenta === cuenta.nombre
+          ) {
+            saldo += monto
+          }
+
+          if (
+            mov.categoria === "Egreso" &&
+            mov.cuenta === cuenta.nombre
+          ) {
+            saldo -= monto
+          }
+
+          if (
+            mov.tipo === "Transferencia"
+          ) {
+
+            if (
+              mov.cuentaOrigen === cuenta.nombre
+            ) {
+              saldo -= monto
+            }
+
+            if (
+              mov.cuentaDestino === cuenta.nombre
+            ) {
+              saldo += monto
+            }
+
+          }
+
+        })
+
+        return {
+          ...cuenta,
+          saldoActual: saldo
+        }
+
+      })
+
+    setCuentas(cuentasConSaldo)
 
   }, [])
 
@@ -39,9 +96,12 @@ export default function Cuentas() {
 
     setCuentas(nuevas)
 
+    const paraGuardar =
+      nuevas.map(({ saldoActual, ...resto }) => resto)
+
     localStorage.setItem(
       "cuentas",
-      JSON.stringify(nuevas)
+      JSON.stringify(paraGuardar)
     )
 
   }
@@ -67,11 +127,7 @@ export default function Cuentas() {
         }}
       >
 
-        <h2
-          style={{
-            margin: 0
-          }}
-        >
+        <h2 style={{ margin: 0 }}>
           Cuentas
         </h2>
 
@@ -110,45 +166,22 @@ export default function Cuentas() {
         >
 
           <thead>
-
-            <tr
-              style={{
-                background: "#f3f4f6"
-              }}
-            >
-
-              <th style={th}>
-                Nombre
-              </th>
-
-              <th style={th}>
-                Descripción
-              </th>
-
-              <th style={th}>
-                Divisa
-              </th>
-
-              <th style={th}>
-                Monto
-              </th>
-
-              <th style={th}>
-                Acciones
-              </th>
-
+            <tr style={{ background: "#f3f4f6" }}>
+              <th style={th}>Nombre</th>
+              <th style={th}>Descripción</th>
+              <th style={th}>Divisa</th>
+              <th style={th}>Monto inicial</th>
+              <th style={th}>Saldo actual</th>
+              <th style={th}>Acciones</th>
             </tr>
-
           </thead>
 
           <tbody>
 
             {cuentas.length === 0 && (
-
               <tr>
-
                 <td
-                  colSpan="5"
+                  colSpan="6"
                   style={{
                     padding: "25px",
                     textAlign: "center",
@@ -157,9 +190,7 @@ export default function Cuentas() {
                 >
                   No hay cuentas cargadas
                 </td>
-
               </tr>
-
             )}
 
             {cuentas.map((cuenta) => (
@@ -179,16 +210,25 @@ export default function Cuentas() {
                 </td>
 
                 <td style={td}>
-                  $
-                  {Number(
-                    cuenta.monto || 0
-                  ).toLocaleString(
-                    "es-AR"
-                  )}
+                  ${Number(cuenta.monto || 0)
+                    .toLocaleString("es-AR")}
+                </td>
+
+                <td
+                  style={{
+                    ...td,
+                    fontWeight: "700",
+                    color:
+                      Number(cuenta.saldoActual || 0) >= 0
+                        ? "#16a34a"
+                        : "#dc2626"
+                  }}
+                >
+                  ${Number(cuenta.saldoActual || 0)
+                    .toLocaleString("es-AR")}
                 </td>
 
                 <td style={td}>
-
                   <div
                     style={{
                       display: "flex",
@@ -197,23 +237,17 @@ export default function Cuentas() {
                     }}
                   >
 
-                    <button
-                      style={botonAzul}
-                    >
+                    <button style={botonAzul}>
                       Caja
                     </button>
 
-                    <button
-                      style={botonCeleste}
-                    >
+                    <button style={botonCeleste}>
                       Editar
                     </button>
 
                     <button
                       onClick={() =>
-                        cambiarEstado(
-                          cuenta.id
-                        )
+                        cambiarEstado(cuenta.id)
                       }
                       style={
                         cuenta.activa === false
@@ -227,7 +261,6 @@ export default function Cuentas() {
                     </button>
 
                   </div>
-
                 </td>
 
               </tr>

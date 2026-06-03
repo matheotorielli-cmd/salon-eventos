@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 
 export default function NuevoMovimiento() {
+
+  const navigate = useNavigate()
 
   const [categoria, setCategoria] =
     useState("")
@@ -10,6 +13,21 @@ export default function NuevoMovimiento() {
 
   const [tiposMovimientos, setTiposMovimientos] =
     useState([])
+
+  const [cuentas, setCuentas] =
+    useState([])
+
+  const [form, setForm] =
+    useState({
+      cuenta: "",
+      descripcion: "",
+      concepto: "",
+      monto: "",
+      fecha:
+        new Date()
+          .toISOString()
+          .split("T")[0]
+    })
 
   useEffect(() => {
 
@@ -24,6 +42,13 @@ export default function NuevoMovimiento() {
       )
 
     setTiposMovimientos(activos)
+
+    const cuentasGuardadas =
+      JSON.parse(
+        localStorage.getItem("cuentas")
+      ) || []
+
+    setCuentas(cuentasGuardadas)
 
   }, [])
 
@@ -43,6 +68,65 @@ export default function NuevoMovimiento() {
             tipo.categoria === categoria
         )
       : tiposMovimientos
+
+  function handleChange(e) {
+
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value
+    })
+
+  }
+
+  function guardarMovimiento(e) {
+
+    e.preventDefault()
+
+    if (!categoria) {
+      alert("Seleccioná una categoría")
+      return
+    }
+
+    if (!tipo) {
+      alert("Seleccioná un tipo de movimiento")
+      return
+    }
+
+    if (!form.cuenta) {
+      alert("Seleccioná una cuenta")
+      return
+    }
+
+    if (!form.monto) {
+      alert("Ingresá un monto")
+      return
+    }
+
+    const movimientos =
+      JSON.parse(
+        localStorage.getItem("movimientos")
+      ) || []
+
+    const nuevoMovimiento = {
+      id: Date.now(),
+      categoria,
+      tipo,
+      cuenta: form.cuenta,
+      descripcion: form.descripcion,
+      concepto: form.concepto,
+      monto: Number(form.monto),
+      fecha: form.fecha
+    }
+
+    movimientos.push(nuevoMovimiento)
+
+    localStorage.setItem(
+      "movimientos",
+      JSON.stringify(movimientos)
+    )
+
+    navigate("/movimientos")
+  }
 
   return (
 
@@ -66,91 +150,322 @@ export default function NuevoMovimiento() {
         Agregar movimiento
       </div>
 
-      <div
-        style={{
-          background: "white",
-          padding: "25px",
-          borderRadius: "0 0 10px 10px",
-          border: "1px solid #e5e7eb"
-        }}
-      >
+      <form onSubmit={guardarMovimiento}>
 
-        {/* CATEGORIA */}
         <div
           style={{
-            marginBottom: "20px"
+            background: "white",
+            padding: "25px",
+            borderRadius: "0 0 10px 10px",
+            border: "1px solid #e5e7eb"
           }}
         >
 
-          <label style={label}>
-            Categoría
-          </label>
+          <div style={{ marginBottom: "20px" }}>
 
-          <select
-            value={categoria}
-            onChange={(e) => {
-              setCategoria(e.target.value)
-              setTipo("")
-            }}
-            style={input}
-          >
+            <label style={label}>
+              Categoría
+            </label>
 
-            <option value="">
-              Seleccione la categoría
-            </option>
+            <select
+              value={categoria}
+              onChange={(e) => {
+                setCategoria(e.target.value)
+                setTipo("")
+              }}
+              style={input}
+            >
 
-            {categorias.map((cat) => (
-
-              <option
-                key={cat}
-                value={cat}
-              >
-                {cat}
+              <option value="">
+                Seleccione la categoría
               </option>
 
-            ))}
+              {categorias.map((cat) => (
 
-          </select>
+                <option
+                  key={cat}
+                  value={cat}
+                >
+                  {cat}
+                </option>
+
+              ))}
+
+            </select>
+
+          </div>
+
+          <div style={{ marginBottom: "30px" }}>
+
+            <label style={label}>
+              Tipo de movimiento
+            </label>
+
+            <select
+              value={tipo}
+              onChange={(e) =>
+                setTipo(
+                  e.target.value
+                )
+              }
+              style={input}
+            >
+
+              <option value="">
+                Seleccione el tipo
+              </option>
+
+              {tiposFiltrados.map((item) => (
+
+                <option
+                  key={item.id}
+                  value={item.nombre}
+                >
+                  {item.nombre}
+                </option>
+
+              ))}
+
+            </select>
+
+          </div>
+
+          {categoria && tipo && (
+
+            <div>
+
+              <div
+                style={{
+                  background: "#f3f4f6",
+                  padding: "14px 18px",
+                  borderRadius: "10px",
+                  marginBottom: "20px",
+                  fontWeight: "600",
+                  color: "#1f2937"
+                }}
+              >
+                Registrar {tipo}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit,minmax(250px,1fr))",
+                  gap: "20px"
+                }}
+              >
+
+                <div>
+
+                  {tipo === "Transferencia" ? (
+
+  <>
+
+    <div>
+
+      <label style={label}>
+        Cuenta de origen
+      </label>
+
+      <select
+        name="cuentaOrigen"
+        value={form.cuentaOrigen || ""}
+        onChange={handleChange}
+        style={input}
+      >
+
+        <option value="">
+          Seleccione la cuenta
+        </option>
+
+        {cuentas.map((cuenta) => (
+
+          <option
+            key={cuenta.id}
+            value={cuenta.nombre}
+          >
+            {cuenta.nombre}
+          </option>
+
+        ))}
+
+      </select>
+
+    </div>
+
+    <div>
+
+      <label style={label}>
+        Cuenta destino
+      </label>
+
+      <select
+        name="cuentaDestino"
+        value={form.cuentaDestino || ""}
+        onChange={handleChange}
+        style={input}
+      >
+
+        <option value="">
+          Seleccione la cuenta
+        </option>
+
+        {cuentas.map((cuenta) => (
+
+          <option
+            key={cuenta.id}
+            value={cuenta.nombre}
+          >
+            {cuenta.nombre}
+          </option>
+
+        ))}
+
+      </select>
+
+    </div>
+
+  </>
+
+) : (
+
+  <div>
+
+    <label style={label}>
+      Cuenta
+    </label>
+
+    <select
+      name="cuenta"
+      value={form.cuenta}
+      onChange={handleChange}
+      style={input}
+    >
+
+      <option value="">
+        Seleccione la cuenta
+      </option>
+
+      {cuentas.map((cuenta) => (
+
+        <option
+          key={cuenta.id}
+          value={cuenta.nombre}
+        >
+          {cuenta.nombre}
+        </option>
+
+      ))}
+
+    </select>
+
+  </div>
+
+)}
+
+                </div>
+
+                <div>
+
+                  <label style={label}>
+                    Descripción
+                  </label>
+
+                  <input
+                    name="descripcion"
+                    value={form.descripcion}
+                    onChange={handleChange}
+                    placeholder="Ingrese la descripción del movimiento"
+                    style={input}
+                  />
+
+                </div>
+
+                <div>
+
+                  <label style={label}>
+                    Concepto
+                  </label>
+
+                  <input
+                    name="concepto"
+                    value={form.concepto}
+                    onChange={handleChange}
+                    placeholder="Ingrese el concepto del movimiento"
+                    style={input}
+                  />
+
+                </div>
+
+                <div>
+
+                  <label style={label}>
+                    Monto
+                  </label>
+
+                  <input
+                    type="number"
+                    name="monto"
+                    value={form.monto}
+                    onChange={handleChange}
+                    placeholder="Ingrese el monto"
+                    style={input}
+                  />
+
+                </div>
+
+                <div>
+
+                  <label style={label}>
+                    Fecha
+                  </label>
+
+                  <input
+                    type="date"
+                    name="fecha"
+                    value={form.fecha}
+                    onChange={handleChange}
+                    style={input}
+                  />
+
+                </div>
+
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  marginTop: "30px"
+                }}
+              >
+
+                <button
+                  type="submit"
+                  style={{
+                    background: "#2563eb",
+                    color: "white",
+                    border: "none",
+                    padding: "12px 22px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    fontSize: "15px"
+                  }}
+                >
+                  Agregar movimiento
+                </button>
+
+              </div>
+
+            </div>
+
+          )}
 
         </div>
 
-        {/* TIPO */}
-        <div>
-
-          <label style={label}>
-            Tipo de movimiento
-          </label>
-
-          <select
-            value={tipo}
-            onChange={(e) =>
-              setTipo(
-                e.target.value
-              )
-            }
-            style={input}
-          >
-
-            <option value="">
-              Seleccione el tipo
-            </option>
-
-            {tiposFiltrados.map((item) => (
-
-              <option
-                key={item.id}
-                value={item.nombre}
-              >
-                {item.nombre}
-              </option>
-
-            ))}
-
-          </select>
-
-        </div>
-
-      </div>
+      </form>
 
     </div>
   )

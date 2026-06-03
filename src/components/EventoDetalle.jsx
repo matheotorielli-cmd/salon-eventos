@@ -1,5 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom"
 import { useEffect, useState } from "react"
+import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore"
+import { db } from "../firebase"
 
 export default function EventoDetalle() {
 
@@ -8,47 +10,64 @@ export default function EventoDetalle() {
   const navigate = useNavigate()
 
   const [evento, setEvento] = useState(null)
+  const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
 
-    const eventos =
-      JSON.parse(localStorage.getItem("eventos")) || []
+    async function cargarEvento() {
 
-    const encontrado = eventos.find(
-      e => String(e.id) === id
-    )
+      try {
 
-    setEvento(encontrado)
+        const ref = doc(db, "eventos", id)
+
+        const snap = await getDoc(ref)
+
+        if (snap.exists()) {
+
+          setEvento({
+            id: snap.id,
+            ...snap.data()
+          })
+
+        } else {
+
+          setEvento(null)
+
+        }
+
+      } catch (error) {
+
+        console.error(error)
+
+        setEvento(null)
+
+      } finally {
+
+        setCargando(false)
+
+      }
+
+    }
+
+    cargarEvento()
 
   }, [id])
+
+  if (cargando) {
+    return <h2>Cargando evento...</h2>
+  }
 
   if (!evento) {
     return <h2>Evento no encontrado</h2>
   }
 
-  function cambiarEstado(nuevoEstado) {
+  async function cambiarEstado(nuevoEstado) {
 
-    const eventos =
-      JSON.parse(localStorage.getItem("eventos")) || []
+    const ref = doc(db, "eventos", id)
 
-    const actualizados = eventos.map(e => {
-
-      if (String(e.id) === id) {
-
-        return {
-          ...e,
-          estado: nuevoEstado
-        }
-
-      }
-
-      return e
+    await updateDoc(ref, {
+      estado: nuevoEstado
     })
-
-    localStorage.setItem(
-      "eventos",
-      JSON.stringify(actualizados)
-    )
 
     setEvento({
       ...evento,
@@ -56,25 +75,14 @@ export default function EventoDetalle() {
     })
   }
 
-  function eliminarEvento() {
+  async function eliminarEvento() {
 
     const confirmar =
       confirm("¿Seguro querés eliminar este evento?")
 
     if (!confirmar) return
 
-    const eventos =
-      JSON.parse(localStorage.getItem("eventos")) || []
-
-    const filtrados =
-      eventos.filter(
-        e => String(e.id) !== id
-      )
-
-    localStorage.setItem(
-      "eventos",
-      JSON.stringify(filtrados)
-    )
+    await deleteDoc(doc(db, "eventos", id))
 
     navigate("/eventos")
   }
@@ -97,7 +105,19 @@ export default function EventoDetalle() {
         padding: "30px"
       }}
     >
-
+<div
+  style={{
+    background: "#2563eb",
+    color: "white",
+    padding: "12px 18px",
+    borderRadius: "6px",
+    marginBottom: "20px",
+    fontWeight: "700",
+    fontSize: "16px"
+  }}
+>
+  Acciones y etiquetas
+</div>
       {/* CABECERA */}
       <div
         style={{
@@ -126,7 +146,7 @@ export default function EventoDetalle() {
               marginTop: "10px",
               display: "inline-block",
               background:
-                estadoColor[evento.estado],
+                estadoColor[evento.estado] || "#6b7280",
               color: "white",
               padding: "6px 14px",
               borderRadius: "999px",
@@ -203,6 +223,20 @@ export default function EventoDetalle() {
         </div>
 
       </div>
+<div
+  style={{
+    background: "#2563eb",
+    color: "white",
+    padding: "12px 18px",
+    borderRadius: "6px",
+    marginBottom: "20px",
+    marginTop: "25px",
+    fontWeight: "700",
+    fontSize: "16px"
+  }}
+>
+  Datos del evento Cód. {evento.id}: {evento.cliente}
+</div>
 
       {/* INFORMACION */}
       <div
@@ -248,7 +282,6 @@ export default function EventoDetalle() {
           titulo="Hora finalización"
           valor={evento.horaFin}
         />
-
         <Card
           titulo="Cantidad personas"
           valor={evento.personas}
@@ -280,7 +313,20 @@ export default function EventoDetalle() {
         />
 
       </div>
-
+<div
+  style={{
+    background: "#2563eb",
+    color: "white",
+    padding: "12px 18px",
+    borderRadius: "6px",
+    marginBottom: "20px",
+    marginTop: "30px",
+    fontWeight: "700",
+    fontSize: "16px"
+  }}
+>
+  Prestadores
+</div>
       {/* PRESTADORES */}
       {evento.prestadores?.length > 0 && (
 
