@@ -308,6 +308,8 @@ export default function NuevoEvento() {
 
     const nuevoEvento = {
 
+      ...form,
+
       id: form.id || Date.now(),
 
       title: form.nombreEvento.trim() || form.cliente,
@@ -317,8 +319,6 @@ export default function NuevoEvento() {
 
       end:
         `${form.fechaFin || form.fecha}T${form.horaFin}`,
-
-      ...form,
 
       sena: Number(form.totalCobrado ?? form.sena ?? 0),
       totalCobrado: Number(form.totalCobrado ?? form.sena ?? 0),

@@ -63,12 +63,14 @@ export default function Calendario() {
                 ev.nombreEvento || ev.title || ev.cliente || "Evento",
 
               start:
-                ev.start ||
-                `${ev.fecha}T${horaInicio}`,
+                ev.fecha
+                  ? `${ev.fecha}T${horaInicio}`
+                  : ev.start,
 
               end:
-                ev.end ||
-                `${ev.fecha}T${horaFin}`,
+                ev.fechaFin || ev.fecha
+                  ? `${ev.fechaFin || ev.fecha}T${horaFin}`
+                  : ev.end,
 
               backgroundColor: color,
               borderColor: color,
