@@ -24,6 +24,7 @@ const UsuariosPermisos = lazy(() => import("./components/UsuariosPermisos"))
 const Usuarios = lazy(() => import("./components/Usuarios"))
 const Clientes = lazy(() => import("./components/Clientes"))
 const ClienteDetalle = lazy(() => import("./components/ClienteDetalle"))
+const ComprobantePublico = lazy(() => import("./components/ComprobantePublico"))
 
 function RutaPrivada({ children, user }) {
   if (user === undefined) return <div style={{ padding: 30 }}>Cargando...</div>
@@ -74,6 +75,7 @@ export default function App() {
   return <BrowserRouter>
     <Suspense fallback={<div style={{ padding: 30 }}>Cargando...</div>}><Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/comprobante/:id" element={<ComprobantePublico />} />
       <Route path="/*" element={<RutaPrivada user={user}><Layout /></RutaPrivada>} />
     </Routes></Suspense>
   </BrowserRouter>

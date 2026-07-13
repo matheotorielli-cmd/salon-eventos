@@ -5,6 +5,7 @@ import { auth, db } from "../firebase"
 import { anularCobro, observarCobrosEvento } from "../services/cobros"
 import { useUserRole } from "../hooks/useUserRole"
 import { enlaceWhatsApp } from "../utils/whatsapp"
+import { crearComprobantePublico } from "../services/comprobantes"
 
 const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 const fechaTexto = new Intl.DateTimeFormat("es-AR")
@@ -17,6 +18,7 @@ export default function EventoDetalle() {
   const [cobros, setCobros] = useState([])
   const [cargando, setCargando] = useState(true)
   const [anulandoId, setAnulandoId] = useState("")
+  const [generandoComprobanteId, setGenerandoComprobanteId] = useState("")
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -64,6 +66,24 @@ export default function EventoDetalle() {
       }
       setError(mensajes[annulError.message] || "No se pudo anular el cobro.")
     } finally { setAnulandoId("") }
+  }
+
+  async function abrirComprobante(cobro) {
+    if (!auth.currentUser) return setError("La sesión no está disponible.")
+    const nuevaVentana = window.open("", "_blank")
+    if (!nuevaVentana) return setError("El navegador bloqueó la nueva ventana. Habilitá las ventanas emergentes e intentá nuevamente.")
+    nuevaVentana.document.title = "Generando comprobante..."
+    nuevaVentana.document.body.innerHTML = "<p style='font-family:sans-serif;padding:30px'>Generando comprobante...</p>"
+    setGenerandoComprobanteId(cobro.id)
+    setError("")
+    try {
+      const comprobanteId = await crearComprobantePublico({ cobro, evento, userId: auth.currentUser.uid })
+      nuevaVentana.location.replace(`${window.location.origin}/comprobante/${comprobanteId}`)
+    } catch (receiptError) {
+      console.error(receiptError)
+      nuevaVentana.close()
+      setError("No se pudo generar el comprobante.")
+    } finally { setGenerandoComprobanteId("") }
   }
 
   if (cargando) return <div style={mensaje}>Cargando evento...</div>
@@ -144,7 +164,7 @@ export default function EventoDetalle() {
         </div>
         <Tabla columnas={["Fecha", "Concepto", "Descripción", "Cuenta", "Usuario", "Monto cobrado", "Acciones"]}>
           {cobros.map((cobro) => <tr key={cobro.id} style={cobro.anulado ? { opacity: .62, background: "#fff1f2" } : undefined}>
-            <td style={td}>{cobro.fecha?.toDate ? fechaTexto.format(cobro.fecha.toDate()) : "—"}</td>
+            <td style={td}><button onClick={() => abrirComprobante(cobro)} disabled={generandoComprobanteId === cobro.id} style={fechaComprobanteBtn}>{generandoComprobanteId === cobro.id ? "Generando..." : cobro.fecha?.toDate ? fechaTexto.format(cobro.fecha.toDate()) : "—"}</button></td>
             <td style={td}>{cobro.concepto || "Cobro de evento"}{cobro.anulado && <div style={anuladoBadge}>ANULADO</div>}</td>
             <td style={td}>{cobro.anulado ? cobro.motivoAnulacion || "Sin motivo" : cobro.descripcion || "—"}</td>
             <td style={td}>{cobro.metodoPago || "—"}</td>
@@ -196,3 +216,4 @@ const whatsappLink = { color: "#168c52", fontWeight: 700, textDecoration: "none"
 const clienteLink = { color: "#4e2581", fontWeight: 700, textDecoration: "none" }
 const anuladoBadge = { display: "inline-block", marginLeft: 7, padding: "2px 6px", borderRadius: 999, background: "#fee2e2", color: "#b42339", fontSize: 10, fontWeight: 800 }
 const anularBtn = { padding: "7px 11px", border: 0, borderRadius: 7, background: "#fff0f2", color: "#b42339", fontWeight: 700, cursor: "pointer" }
+const fechaComprobanteBtn = { padding: 0, border: 0, background: "transparent", color: "#4e2581", fontWeight: 700, textDecoration: "underline", cursor: "pointer", boxShadow: "none" }

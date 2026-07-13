@@ -105,11 +105,13 @@ export async function anularCobro({ cobroId, motivo, userId }) {
     const eventoRef = doc(db, "eventos", cobro.eventoId)
     const cuentaRef = doc(db, "cuentas", cobro.cuentaId)
     const movimientoOriginalRef = doc(db, "movimientos", cobro.movimientoId)
-    const [eventoSnap, cuentaSnap, movimientoSnap, usuarioSnap] = await Promise.all([
+    const comprobantePublicoRef = doc(db, "comprobantesPublicos", cobroId)
+    const [eventoSnap, cuentaSnap, movimientoSnap, usuarioSnap, comprobanteSnap] = await Promise.all([
       transaction.get(eventoRef),
       transaction.get(cuentaRef),
       transaction.get(movimientoOriginalRef),
-      transaction.get(usuarioRef)
+      transaction.get(usuarioRef),
+      transaction.get(comprobantePublicoRef)
     ])
 
     if (!eventoSnap.exists()) throw new Error("evento-no-disponible")
@@ -171,6 +173,10 @@ export async function anularCobro({ cobroId, motivo, userId }) {
       anuladoEn: serverTimestamp(),
       movimientoAnulacionId: movimientoAnulacionRef.id
     })
+
+    if (comprobanteSnap.exists()) {
+      transaction.update(comprobantePublicoRef, { anulado: true, anuladoEn: serverTimestamp() })
+    }
 
     transaction.update(eventoRef, {
       sena: nuevoTotalCobrado,

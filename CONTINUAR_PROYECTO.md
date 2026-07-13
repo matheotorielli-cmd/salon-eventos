@@ -27,6 +27,7 @@
 - El usuario completó una prueba real del circuito financiero: registró un cobro parcial, confirmó su aparición en el evento y en la cuenta, completó el saldo y verificó que el evento quedara pagado correctamente.
 - Se corrigió la edición de fechas de eventos: los valores antiguos de `start` y `end` ya no sobrescriben la fecha nueva y el calendario prioriza `fecha`, `fechaFin`, `hora` y `horaFin`. La corrección fue compilada y publicada en Firebase Hosting.
 - Se normalizó la presentación de movimientos: tipo, concepto y descripción ahora aparecen en columnas separadas en movimientos generales, detalle de cuenta y ficha del cliente. El concepto escrito al registrar un cobro se muestra sin ser reemplazado por “Cobro de evento”. Cambio publicado en Firebase Hosting.
+- Se agregó el comprobante público de cobro. Al tocar la fecha de un cobro se abre una ventana nueva con dos copias (cliente y comercio), preparada para imprimir en A4. Incluye acciones para imprimir, copiar el enlace y compartir por WhatsApp. El enlace se puede abrir sin iniciar sesión y solo expone los datos del comprobante; no permite listar comprobantes. Si el cobro se anula, el comprobante público queda marcado como anulado. Reglas y Hosting publicados.
 
 ### Pendiente para la próxima sesión
 

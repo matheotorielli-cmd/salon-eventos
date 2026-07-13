@@ -279,6 +279,31 @@ service cloud.firestore {
       allow delete: if admin();
     }
 
+    match /comprobantesPublicos/{documentId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if hasPermission('eventosVer')
+        && request.resource.data.keys().hasOnly([
+          'cobroId', 'numero', 'eventoId', 'eventoNombre', 'clienteNombre',
+          'fechaComprobante', 'fechaEvento', 'fechaFinEvento', 'horaInicio', 'horaFin',
+          'concepto', 'descripcion', 'monto', 'moneda', 'cuentaNombre', 'emitidoPor',
+          'anulado', 'creadoPor', 'creadoEn'
+        ])
+        && request.resource.data.cobroId == documentId
+        && request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.creadoEn == request.time
+        && request.resource.data.monto is number
+        && request.resource.data.monto > 0
+        && request.resource.data.moneda == 'ARS'
+        && get(/databases/$(database)/documents/cobros/$(documentId)).data.eventoId == request.resource.data.eventoId;
+      allow update: if admin()
+        && resource.data.anulado == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anulado', 'anuladoEn'])
+        && request.resource.data.anulado == true
+        && request.resource.data.anuladoEn == request.time;
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
