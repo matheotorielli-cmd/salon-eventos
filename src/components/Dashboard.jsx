@@ -1,17 +1,10 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 export default function Dashboard() {
 
-  const [eventos, setEventos] = useState([])
-
-  useEffect(() => {
-
-    const guardados =
-      JSON.parse(localStorage.getItem("eventos")) || []
-
-    setEventos(guardados)
-
-  }, [])
+  const [eventos] = useState(() =>
+    JSON.parse(localStorage.getItem("eventos")) || []
+  )
 
   const totalEventos = eventos.length
 

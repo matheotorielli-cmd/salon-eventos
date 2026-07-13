@@ -1,69 +1,33 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
+
+const tiposIniciales = [
+  { nombre: "Cumpleaños", precio: 300000 },
+  { nombre: "Casamiento", precio: 1200000 },
+  { nombre: "15 años", precio: 900000 }
+]
+
+function cargarTiposEventos() {
+  try {
+    const guardados = JSON.parse(localStorage.getItem("tiposEventos"))
+    if (Array.isArray(guardados)) return guardados
+
+    localStorage.setItem("tiposEventos", JSON.stringify(tiposIniciales))
+    return tiposIniciales
+  } catch {
+    localStorage.removeItem("tiposEventos")
+    return tiposIniciales
+  }
+}
 
 export default function TiposEventos() {
 
-  const [tipos, setTipos] = useState([])
+  const [tipos, setTipos] = useState(cargarTiposEventos)
 
   const [nuevoNombre, setNuevoNombre] =
     useState("")
 
   const [nuevoPrecio, setNuevoPrecio] =
     useState("")
-
-  useEffect(() => {
-
-    try {
-
-      const guardados = JSON.parse(
-        localStorage.getItem("tiposEventos")
-      )
-
-      if (
-        guardados &&
-        Array.isArray(guardados)
-      ) {
-
-        setTipos(guardados)
-
-      } else {
-
-        const iniciales = [
-
-          {
-            nombre: "Cumpleaños",
-            precio: 300000
-          },
-
-          {
-            nombre: "Casamiento",
-            precio: 1200000
-          },
-
-          {
-            nombre: "15 años",
-            precio: 900000
-          }
-
-        ]
-
-        setTipos(iniciales)
-
-        localStorage.setItem(
-          "tiposEventos",
-          JSON.stringify(iniciales)
-        )
-
-      }
-
-    } catch {
-
-      localStorage.removeItem(
-        "tiposEventos"
-      )
-
-    }
-
-  }, [])
 
   function guardar(lista) {
 
@@ -135,7 +99,7 @@ export default function TiposEventos() {
 
       <h1
         style={{
-          color: "#1e3a8a",
+          color: "#4e2581",
           marginBottom: "25px"
         }}
       >
@@ -263,7 +227,7 @@ const input = {
 }
 
 const botonAzul = {
-  background: "#2563eb",
+  background: "#4e2581",
   color: "white",
   border: "none",
   borderRadius: "8px",

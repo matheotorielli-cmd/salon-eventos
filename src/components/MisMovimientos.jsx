@@ -1,372 +1,90 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { observarMovimientos } from "../services/movimientos"
+
+const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
+const fechaTexto = new Intl.DateTimeFormat("es-AR")
 
 export default function MisMovimientos() {
-
+  const navigate = useNavigate()
   const [movimientos, setMovimientos] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState("")
+  const [filtros, setFiltros] = useState({ desde: "", hasta: "", cuenta: "", categoria: "" })
 
-  const [fechaDesde, setFechaDesde] = useState("")
-  const [fechaHasta, setFechaHasta] = useState("")
-  const [cuentaFiltro, setCuentaFiltro] = useState("")
-  const [tipoFiltro, setTipoFiltro] = useState("")
+  useEffect(() => observarMovimientos(
+    (data) => { setMovimientos(data); setCargando(false) },
+    (loadError) => { console.error(loadError); setError("No se pudieron cargar los movimientos."); setCargando(false) }
+  ), [])
 
-  useEffect(() => {
-    const guardados =
-      JSON.parse(localStorage.getItem("movimientos")) || []
-
-    guardados.sort(
-      (a, b) => new Date(b.fecha) - new Date(a.fecha)
-    )
-
-    setMovimientos(guardados)
-  }, [])
-
-  const cuentas = [
-    ...new Set(
-      movimientos.map((m) => m.cuenta).filter(Boolean)
-    )
-  ]
-
-  const tipos = [
-    ...new Set(
-      movimientos.map((m) => m.tipo).filter(Boolean)
-    )
-  ]
-
+  const cuentas = useMemo(() => [...new Set(movimientos.flatMap((m) => [m.cuentaNombre, m.cuentaOrigenNombre, m.cuentaDestinoNombre]).filter(Boolean))].sort(), [movimientos])
   const filtrados = movimientos.filter((mov) => {
-    const cumpleFecha =
-      fechaDesde && fechaHasta
-        ? mov.fecha >= fechaDesde && mov.fecha <= fechaHasta
-        : true
-
-    const cumpleCuenta =
-      cuentaFiltro
-        ? mov.cuenta === cuentaFiltro
-        : true
-
-    const cumpleTipo =
-      tipoFiltro
-        ? mov.tipo === tipoFiltro
-        : true
-
-    return cumpleFecha && cumpleCuenta && cumpleTipo
+    const fecha = mov.fecha?.toDate?.().toISOString().slice(0, 10) || ""
+    const coincideCuenta = !filtros.cuenta || [mov.cuentaNombre, mov.cuentaOrigenNombre, mov.cuentaDestinoNombre].includes(filtros.cuenta)
+    return (!filtros.desde || fecha >= filtros.desde) && (!filtros.hasta || fecha <= filtros.hasta) && coincideCuenta && (!filtros.categoria || mov.categoria === filtros.categoria)
   })
-
-  function eliminarMovimiento(id) {
-    const confirmar = confirm("¿Seguro querés eliminar este movimiento?")
-
-    if (!confirmar) return
-
-    const nuevos = movimientos.filter((m) => m.id !== id)
-
-    localStorage.setItem(
-      "movimientos",
-      JSON.stringify(nuevos)
-    )
-
-    setMovimientos(nuevos)
-  }
-
-  function colorTipo(mov) {
-    if (mov.categoria === "Ingreso") return "#16a34a"
-    if (mov.categoria === "Egreso") return "#64748b"
-    return "#2563eb"
-  }
-
-  function formatearMonto(mov) {
-    const monto = Number(mov.monto || 0)
-
-    const signo =
-      mov.categoria === "Egreso"
-        ? "-"
-        : ""
-
-    return `${signo}$${monto.toLocaleString("es-AR")}`
-  }
+  const ingresos = filtrados.filter((m) => m.categoria === "ingreso").reduce((total, m) => total + Number(m.monto), 0)
+  const egresos = filtrados.filter((m) => m.categoria === "egreso").reduce((total, m) => total + Number(m.monto), 0)
 
   return (
-    <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-
-      {/* FILTROS */}
-      <div
-        style={{
-          background: "white",
-          padding: "18px",
-          borderRadius: "10px",
-          marginBottom: "20px",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))",
-          gap: "16px",
-          alignItems: "end"
-        }}
-      >
-
-        <div>
-          <label style={label}>Fecha desde</label>
-          <input
-            type="date"
-            value={fechaDesde}
-            onChange={(e) => setFechaDesde(e.target.value)}
-            style={input}
-          />
-        </div>
-
-        <div>
-          <label style={label}>Fecha hasta</label>
-          <input
-            type="date"
-            value={fechaHasta}
-            onChange={(e) => setFechaHasta(e.target.value)}
-            style={input}
-          />
-        </div>
-
-        <div>
-          <label style={label}>Cuenta</label>
-          <select
-            value={cuentaFiltro}
-            onChange={(e) => setCuentaFiltro(e.target.value)}
-            style={input}
-          >
-            <option value="">Todas</option>
-
-            {cuentas.map((cuenta) => (
-              <option key={cuenta} value={cuenta}>
-                {cuenta}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label style={label}>Tipo de movimiento</label>
-          <select
-            value={tipoFiltro}
-            onChange={(e) => setTipoFiltro(e.target.value)}
-            style={input}
-          >
-            <option value="">Todos</option>
-
-            {tipos.map((tipo) => (
-              <option key={tipo} value={tipo}>
-                {tipo}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <button
-          onClick={() => {
-            setFechaDesde("")
-            setFechaHasta("")
-            setCuentaFiltro("")
-            setTipoFiltro("")
-          }}
-          style={botonAzul}
-        >
-          Limpiar
-        </button>
-
+    <div style={pagina}>
+      <div style={cabecera}>
+        <div><span style={sobreTitulo}>FINANZAS</span><h1 style={{ margin: "3px 0 0" }}>Movimientos de cuentas</h1></div>
+        <button onClick={() => navigate("/nuevo-movimiento")} style={nuevoBtn}>+ Nuevo movimiento</button>
       </div>
 
-      {/* TABLA */}
-      <div
-        style={{
-          background: "white",
-          borderRadius: "10px",
-          overflow: "hidden",
-          border: "1px solid #dbeafe"
-        }}
-      >
-
-        <div
-          style={{
-            background: "#2563eb",
-            color: "white",
-            padding: "16px 20px",
-            fontSize: "22px",
-            fontWeight: "600"
-          }}
-        >
-          Movimientos
-        </div>
-
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse"
-            }}
-          >
-            <thead>
-              <tr style={{ background: "#f3f4f6" }}>
-                <th style={th}>Fecha</th>
-                <th style={th}>Tipo de movimiento</th>
-                <th style={th}>Concepto</th>
-                <th style={th}>Divisa</th>
-                <th style={th}>Monto</th>
-                <th style={th}>Referencia</th>
-                <th style={th}>Cuenta</th>
-                <th style={th}>Usuario</th>
-                <th style={th}>Acciones</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filtrados.map((mov) => (
-                <tr key={mov.id}>
-                  <td style={td}>{mov.fecha}</td>
-
-                  <td style={td}>
-                    <span
-                      style={{
-                        background: colorTipo(mov),
-                        color: "white",
-                        padding: "5px 9px",
-                        borderRadius: "6px",
-                        fontSize: "12px",
-                        fontWeight: "700"
-                      }}
-                    >
-                      {mov.tipo}
-                    </span>
-                  </td>
-
-                  <td style={td}>
-                    {mov.concepto || mov.descripcion || "-"}
-                  </td>
-
-                  <td style={td}>Peso</td>
-
-                  <td
-                    style={{
-                      ...td,
-                      color:
-                        mov.categoria === "Ingreso"
-                          ? "#16a34a"
-                          : "#dc2626",
-                      fontWeight: "700"
-                    }}
-                  >
-                    {formatearMonto(mov)}
-                  </td>
-
-                  <td style={td}>
-                    {mov.referencia || "-"}
-                  </td>
-
-                  <td style={td}>
-                    {mov.cuenta || "-"}
-                  </td>
-
-                  <td style={td}>
-                    {mov.usuario || "FunSpace"}
-                  </td>
-
-                  <td style={td}>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        flexWrap: "wrap"
-                      }}
-                    >
-                      <button style={botonEditar}>
-                        Editar
-                      </button>
-
-                      <button
-                        onClick={() => eliminarMovimiento(mov.id)}
-                        style={botonEliminar}
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
-              {filtrados.length === 0 && (
-                <tr>
-                  <td
-                    colSpan="9"
-                    style={{
-                      padding: "35px",
-                      textAlign: "center",
-                      color: "#6b7280"
-                    }}
-                  >
-                    No hay movimientos cargados
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
+      <div style={resumen}>
+        <Resumen label="Ingresos" valor={ingresos} color="#16865c" fondo="#e8f8f1" />
+        <Resumen label="Egresos" valor={egresos} color="#c0394b" fondo="#fff0f2" />
+        <Resumen label="Resultado" valor={ingresos - egresos} color="#4e2581" fondo="#eee7f7" />
       </div>
 
+      <div style={filtrosBox}>
+        <Filtro label="Desde"><input type="date" value={filtros.desde} onChange={(e) => setFiltros({ ...filtros, desde: e.target.value })} /></Filtro>
+        <Filtro label="Hasta"><input type="date" value={filtros.hasta} onChange={(e) => setFiltros({ ...filtros, hasta: e.target.value })} /></Filtro>
+        <Filtro label="Cuenta"><select value={filtros.cuenta} onChange={(e) => setFiltros({ ...filtros, cuenta: e.target.value })}><option value="">Todas las cuentas</option>{cuentas.map((cuenta) => <option key={cuenta}>{cuenta}</option>)}</select></Filtro>
+        <Filtro label="Categoría"><select value={filtros.categoria} onChange={(e) => setFiltros({ ...filtros, categoria: e.target.value })}><option value="">Todas</option><option value="ingreso">Ingresos</option><option value="egreso">Egresos</option><option value="transferencia">Transferencias</option></select></Filtro>
+        <button onClick={() => setFiltros({ desde: "", hasta: "", cuenta: "", categoria: "" })} style={limpiar}>Limpiar</button>
+      </div>
+
+      {error && <div style={errorBox}>{error}</div>}
+      <div style={tablaBox}><div style={{ overflowX: "auto" }}><table style={tabla}>
+        <thead><tr><th style={th}>Fecha</th><th style={th}>Categoría</th><th style={th}>Concepto</th><th style={th}>Cuenta</th><th style={th}>Monto</th><th style={th}>Usuario</th></tr></thead>
+        <tbody>
+          {cargando && <FilaMensaje texto="Cargando movimientos..." />}
+          {!cargando && filtrados.map((mov) => <tr key={mov.id}>
+            <td style={td}>{mov.fecha?.toDate ? fechaTexto.format(mov.fecha.toDate()) : "—"}</td>
+            <td style={td}><span style={badge[mov.categoria] || badge.ingreso}>{mov.categoria}</span></td>
+            <td style={td}><strong>{mov.tipoMovimientoNombre || "Movimiento"}</strong><div style={detalle}>{mov.concepto || mov.descripcion || "Sin detalle"}</div></td>
+            <td style={td}>{mov.categoria === "transferencia" ? `${mov.cuentaOrigenNombre} → ${mov.cuentaDestinoNombre}` : mov.cuentaNombre}</td>
+            <td style={{ ...td, fontWeight: 700, color: mov.categoria === "egreso" ? "#c0394b" : mov.categoria === "ingreso" ? "#16865c" : "#4e2581" }}>{mov.categoria === "egreso" ? "− " : mov.categoria === "ingreso" ? "+ " : ""}{pesos.format(Number(mov.monto || 0))}</td>
+            <td style={td}>{mov.creadoPorNombre || mov.creadoPorEmail || mov.creadoPor?.slice?.(0, 8) || "—"}</td>
+          </tr>)}
+          {!cargando && filtrados.length === 0 && <FilaMensaje texto="No hay movimientos para mostrar" />}
+        </tbody>
+      </table></div></div>
     </div>
   )
 }
 
-const label = {
-  display: "block",
-  marginBottom: "8px",
-  fontWeight: "600",
-  color: "#374151"
-}
+function Resumen({ label, valor, color, fondo }) { return <div style={{ ...resumenCard, background: fondo }}><span style={resumenLabel}>{label}</span><strong style={{ color, fontSize: 24 }}>{pesos.format(valor)}</strong></div> }
+function Filtro({ label, children }) { return <label><span style={labelStyle}>{label}</span>{children}</label> }
+function FilaMensaje({ texto }) { return <tr><td colSpan="6" style={{ padding: 35, textAlign: "center", color: "#776d83" }}>{texto}</td></tr> }
 
-const input = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "8px",
-  border: "1px solid #d1d5db",
-  fontSize: "15px",
-  boxSizing: "border-box"
-}
-
-const th = {
-  textAlign: "left",
-  padding: "14px",
-  fontSize: "14px",
-  color: "#374151",
-  borderBottom: "1px solid #e5e7eb",
-  whiteSpace: "nowrap"
-}
-
-const td = {
-  padding: "14px",
-  borderBottom: "1px solid #f3f4f6",
-  fontSize: "14px",
-  whiteSpace: "nowrap"
-}
-
-const botonAzul = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  padding: "12px 18px",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: "600"
-}
-
-const botonEditar = {
-  background: "#0284c7",
-  color: "white",
-  border: "none",
-  padding: "8px 12px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontWeight: "600"
-}
-
-const botonEliminar = {
-  background: "#dc2626",
-  color: "white",
-  border: "none",
-  padding: "8px 12px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontWeight: "600"
-}
+const pagina = { maxWidth: 1400, margin: "0 auto" }
+const cabecera = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, flexWrap: "wrap", padding: "22px 25px", borderRadius: 18, color: "white", background: "linear-gradient(100deg,#4e2581,#63349a)", boxShadow: "0 12px 28px rgba(78,37,129,.15)" }
+const sobreTitulo = { color: "#bfe8ff", fontSize: 12, fontWeight: 700, letterSpacing: ".12em" }
+const nuevoBtn = { padding: "11px 18px", border: 0, borderRadius: 999, background: "#f4d00c", color: "#38145f", fontWeight: 700, cursor: "pointer" }
+const resumen = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 14, margin: "18px 0" }
+const resumenCard = { display: "flex", flexDirection: "column", gap: 7, padding: 18, borderRadius: 15, border: "1px solid rgba(78,37,129,.07)" }
+const resumenLabel = { color: "#665b71", fontSize: 13, fontWeight: 600 }
+const filtrosBox = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, alignItems: "end", padding: 18, marginBottom: 18, background: "white", border: "1px solid #e8e1ee", borderRadius: 15 }
+const labelStyle = { display: "block", marginBottom: 7, color: "#665b71", fontSize: 13, fontWeight: 600 }
+const limpiar = { padding: 11, border: 0, borderRadius: 10, background: "#eee9f1", color: "#4e2581", fontWeight: 600, cursor: "pointer" }
+const tablaBox = { overflow: "hidden", background: "white", border: "1px solid #e8e1ee", borderRadius: 16, boxShadow: "0 12px 30px rgba(78,37,129,.07)" }
+const tabla = { width: "100%", borderCollapse: "collapse" }
+const th = { padding: 14, textAlign: "left", background: "#f7f5fb", color: "#665b71", fontSize: 13, whiteSpace: "nowrap" }
+const td = { padding: 14, borderTop: "1px solid #f0eaf4", fontSize: 14, whiteSpace: "nowrap" }
+const detalle = { marginTop: 3, color: "#8c8295", fontSize: 12, fontWeight: 400 }
+const badge = { ingreso: { padding: "5px 9px", borderRadius: 999, color: "#166747", background: "#dcf7eb", fontSize: 12, fontWeight: 700, textTransform: "capitalize" }, egreso: { padding: "5px 9px", borderRadius: 999, color: "#a12d3e", background: "#ffe3e8", fontSize: 12, fontWeight: 700, textTransform: "capitalize" }, transferencia: { padding: "5px 9px", borderRadius: 999, color: "#4e2581", background: "#eee7f7", fontSize: 12, fontWeight: 700, textTransform: "capitalize" } }
+const errorBox = { marginBottom: 16, padding: 12, borderRadius: 10, background: "#fff1f2", color: "#be123c" }

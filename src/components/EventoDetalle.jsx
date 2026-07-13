@@ -1,562 +1,171 @@
-import { useNavigate, useParams } from "react-router-dom"
 import { useEffect, useState } from "react"
-import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore"
-import { db } from "../firebase"
+import { Link, useNavigate, useParams } from "react-router-dom"
+import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore"
+import { auth, db } from "../firebase"
+import { observarCobrosEvento } from "../services/cobros"
+import { useUserRole } from "../hooks/useUserRole"
+import { enlaceWhatsApp } from "../utils/whatsapp"
+
+const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
+const fechaTexto = new Intl.DateTimeFormat("es-AR")
 
 export default function EventoDetalle() {
-
   const { id } = useParams()
-
   const navigate = useNavigate()
-
+  const { hasPermission } = useUserRole(auth.currentUser)
   const [evento, setEvento] = useState(null)
+  const [cobros, setCobros] = useState([])
   const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-
-    async function cargarEvento() {
-
-      try {
-
-        const ref = doc(db, "eventos", id)
-
-        const snap = await getDoc(ref)
-
-        if (snap.exists()) {
-
-          setEvento({
-            id: snap.id,
-            ...snap.data()
-          })
-
-        } else {
-
-          setEvento(null)
-
-        }
-
-      } catch (error) {
-
-        console.error(error)
-
-        setEvento(null)
-
-      } finally {
-
-        setCargando(false)
-
-      }
-
-    }
-
-    cargarEvento()
-
+    getDoc(doc(db, "eventos", id)).then((snapshot) => {
+      setEvento(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null)
+      setCargando(false)
+    }).catch(() => { setError("No se pudo cargar el evento."); setCargando(false) })
+    return observarCobrosEvento(id, setCobros, (loadError) => {
+      console.error(loadError)
+      setError("No se pudieron cargar los cobros del evento.")
+    })
   }, [id])
 
-  if (cargando) {
-    return <h2>Cargando evento...</h2>
-  }
-
-  if (!evento) {
-    return <h2>Evento no encontrado</h2>
-  }
-
-  async function cambiarEstado(nuevoEstado) {
-
-    const ref = doc(db, "eventos", id)
-
-    await updateDoc(ref, {
-      estado: nuevoEstado
-    })
-
-    setEvento({
-      ...evento,
-      estado: nuevoEstado
-    })
+  async function cambiarEstado(estado) {
+    try {
+      await updateDoc(doc(db, "eventos", id), { estado })
+      setEvento({ ...evento, estado })
+    } catch { setError("No se pudo cambiar el estado.") }
   }
 
   async function eliminarEvento() {
-
-    const confirmar =
-      confirm("¿Seguro querés eliminar este evento?")
-
-    if (!confirmar) return
-
-    await deleteDoc(doc(db, "eventos", id))
-
-    navigate("/eventos")
+    if (!confirm("¿Seguro querés eliminar este evento?")) return
+    try { await deleteDoc(doc(db, "eventos", id)); navigate("/eventos") }
+    catch { setError("No se pudo eliminar el evento.") }
   }
 
-  const estadoColor = {
-    Presupuestado: "#f59e0b",
-    Confirmado: "#2563eb",
-    Pagado: "#16a34a",
-    Cancelado: "#dc2626"
-  }
+  if (cargando) return <div style={mensaje}>Cargando evento...</div>
+  if (!evento) return <div style={mensaje}>Evento no encontrado.</div>
+
+  const total = Number(evento.total || 0)
+  const cobrado = Number(evento.totalCobrado ?? evento.sena ?? 0)
+  const saldo = Number(evento.saldo ?? total - cobrado)
+  const porcentaje = total > 0 ? Math.min(100, Math.round((cobrado / total) * 100)) : 0
+  const prestadores = evento.prestadores || []
 
   return (
+    <div style={pagina}>
+      <div style={cabecera}>
+        <div><span style={sobreTitulo}>DETALLE DEL EVENTO</span><h1 style={{ margin: "3px 0 4px" }}>{evento.cliente || evento.title}</h1><span style={{ color: "#e9dcf6" }}>Código {evento.id}</span></div>
+        <div style={acciones}>
+          <button onClick={() => navigate(`/evento/${id}/editar`)} style={botonClaro}>Editar</button>
+          <button onClick={() => navigate(`/evento/${id}/cobro`)} style={botonAmarillo}>Registrar cobro</button>
+          <button onClick={() => cambiarEstado("Confirmado")} style={botonClaro}>Confirmar</button>
+          <button onClick={() => cambiarEstado("Cancelado")} style={botonPeligro}>Cancelar evento</button>
+          {hasPermission("eventosEliminar") && <button onClick={eliminarEvento} style={botonPeligro}>Eliminar</button>}
+        </div>
+      </div>
 
-    <div
-      style={{
-        maxWidth: "1100px",
-        margin: "0 auto",
-        background: "white",
-        borderRadius: "12px",
-        padding: "30px"
-      }}
-    >
-<div
-  style={{
-    background: "#2563eb",
-    color: "white",
-    padding: "12px 18px",
-    borderRadius: "6px",
-    marginBottom: "20px",
-    fontWeight: "700",
-    fontSize: "16px"
-  }}
->
-  Acciones y etiquetas
-</div>
-      {/* CABECERA */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "15px",
-          marginBottom: "30px"
-        }}
-      >
+      {error && <div role="alert" style={errorBox}>{error}</div>}
 
-        <div>
-
-          <h1
-            style={{
-              margin: 0,
-              color: "#1e3a8a"
-            }}
-          >
-            Evento #{evento.id}
-          </h1>
-
-          <div
-            style={{
-              marginTop: "10px",
-              display: "inline-block",
-              background:
-                estadoColor[evento.estado] || "#6b7280",
-              color: "white",
-              padding: "6px 14px",
-              borderRadius: "999px",
-              fontSize: "13px",
-              fontWeight: "600"
-            }}
-          >
-            {evento.estado}
+      <Seccion titulo={`Datos del evento · ${evento.cliente || evento.title}`}>
+        <div style={dosColumnas}>
+          <div style={panelInterno}>
+            <h3 style={subtitulo}>Información básica</h3>
+            <Dato label="Cliente" valor={evento.clienteId ? <Link to={`/clientes/${evento.clienteId}`} style={clienteLink}>{evento.cliente || evento.title}</Link> : evento.cliente || evento.title} />
+            <Dato label="Teléfono" valor={evento.telefono ? <a href={enlaceWhatsApp(evento.telefono)} target="_blank" rel="noreferrer" style={whatsappLink}>{evento.telefono}</a> : null} />
+            <Dato label="Dirección" valor={evento.direccion} />
+            <Dato label="Tipo de evento" valor={evento.tipoEventoNombre || evento.tipoEvento} />
+            <Dato label="Estado" valor={evento.estado} badge />
+            <Dato label="Fecha" valor={evento.fecha} />
+            <Dato label="Horario" valor={`${evento.hora || evento.horaInicio || "—"} a ${evento.horaFin || "—"}`} />
+            <Dato label="Personas" valor={evento.personas} />
+            <Dato label="Niños" valor={evento.cantidadNinos} />
           </div>
-
-        </div>
-
-        {/* BOTONES */}
-        <div
-          style={{
-            display: "flex",
-            gap: "10px",
-            flexWrap: "wrap"
-          }}
-        >
-
-          <button
-            onClick={() =>
-              navigate(`/evento/${id}/editar`)
-            }
-            style={botonAzul}
-          >
-            Editar
-          </button>
-
-          <button
-            onClick={() =>
-              cambiarEstado("Confirmado")
-            }
-            style={botonAzul}
-          >
-            Confirmar
-          </button>
-
-          <button
-            onClick={() =>
-              cambiarEstado("Pagado")
-            }
-            style={botonVerde}
-          >
-            Marcar pagado
-          </button>
-
-          <button
-            onClick={() =>
-              cambiarEstado("Cancelado")
-            }
-            style={botonRojo}
-          >
-            Cancelar
-          </button>
-
-          <button
-            onClick={() =>
-              navigate(`/evento/${id}/cobro`)
-            }
-            style={botonGris}
-          >
-            Registrar pago
-          </button>
-
-          <button
-            onClick={eliminarEvento}
-            style={botonRojo}
-          >
-            Eliminar
-          </button>
-
-        </div>
-
-      </div>
-<div
-  style={{
-    background: "#2563eb",
-    color: "white",
-    padding: "12px 18px",
-    borderRadius: "6px",
-    marginBottom: "20px",
-    marginTop: "25px",
-    fontWeight: "700",
-    fontSize: "16px"
-  }}
->
-  Datos del evento Cód. {evento.id}: {evento.cliente}
-</div>
-
-      {/* INFORMACION */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit,minmax(250px,1fr))",
-          gap: "20px"
-        }}
-      >
-
-        <Card
-          titulo="Cliente"
-          valor={evento.cliente}
-        />
-
-        <Card
-          titulo="Teléfono"
-          valor={evento.telefono}
-        />
-
-        <Card
-          titulo="Dirección"
-          valor={evento.direccion}
-        />
-
-        <Card
-          titulo="Tipo de evento"
-          valor={evento.tipoEvento}
-        />
-
-        <Card
-          titulo="Fecha"
-          valor={evento.fecha}
-        />
-
-        <Card
-          titulo="Hora inicio"
-          valor={evento.hora}
-        />
-
-        <Card
-          titulo="Hora finalización"
-          valor={evento.horaFin}
-        />
-        <Card
-          titulo="Cantidad personas"
-          valor={evento.personas}
-        />
-
-        <Card
-          titulo="Cantidad niños"
-          valor={evento.cantidadNinos}
-        />
-
-        <Card
-          titulo="Escuela"
-          valor={evento.escuela}
-        />
-
-        <Card
-          titulo="Monto total"
-          valor={`$${evento.total}`}
-        />
-
-        <Card
-          titulo="Seña"
-          valor={`$${evento.sena}`}
-        />
-
-        <Card
-          titulo="Saldo"
-          valor={`$${evento.saldo}`}
-        />
-
-      </div>
-<div
-  style={{
-    background: "#2563eb",
-    color: "white",
-    padding: "12px 18px",
-    borderRadius: "6px",
-    marginBottom: "20px",
-    marginTop: "30px",
-    fontWeight: "700",
-    fontSize: "16px"
-  }}
->
-  Prestadores
-</div>
-      {/* PRESTADORES */}
-      {evento.prestadores?.length > 0 && (
-
-        <div
-          style={{
-            marginTop: "35px"
-          }}
-        >
-
-          <h2
-            style={{
-              marginBottom: "20px",
-              color: "#111827"
-            }}
-          >
-            Prestadores
-          </h2>
-
-          <div
-            style={{
-              overflowX: "auto"
-            }}
-          >
-
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse"
-              }}
-            >
-
-              <thead>
-
-                <tr
-                  style={{
-                    background: "#f3f4f6"
-                  }}
-                >
-
-                  <th style={th}>
-                    Nombre
-                  </th>
-
-                  <th style={th}>
-                    Apellido
-                  </th>
-
-                  <th style={th}>
-                    Actividad
-                  </th>
-
-                  <th style={th}>
-                    Costo
-                  </th>
-
-                  <th style={th}>
-                    Precio
-                  </th>
-
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {evento.prestadores.map(
-                  (p, index) => (
-
-                    <tr key={index}>
-
-                      <td style={td}>
-                        {p.nombre}
-                      </td>
-
-                      <td style={td}>
-                        {p.apellido}
-                      </td>
-
-                      <td style={td}>
-                        {p.actividad}
-                      </td>
-
-                      <td style={td}>
-                        ${p.costo}
-                      </td>
-
-                      <td style={td}>
-                        ${p.precio}
-                      </td>
-
-                    </tr>
-
-                  )
-                )}
-
-              </tbody>
-
-            </table>
-
+          <div style={panelInterno}>
+            <h3 style={subtitulo}>Contabilidad</h3>
+            <FilaContable label="Moneda" valor="Peso argentino" />
+            <FilaContable label="Precio total" valor={pesos.format(total)} />
+            <FilaContable label="Cobrado" valor={pesos.format(cobrado)} />
+            <FilaContable label="Saldo pendiente" valor={pesos.format(saldo)} destacado={saldo > 0} />
+            <FilaContable label="Porcentaje pagado" valor={`${porcentaje}%`} />
+            <div style={barra}><div style={{ ...progreso, width: `${porcentaje}%` }} /></div>
           </div>
-
         </div>
+        <div style={{ ...panelInterno, marginTop: 16 }}><h3 style={subtitulo}>Detalle y notas</h3><p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{evento.observaciones || "Sin observaciones"}</p></div>
+      </Seccion>
 
-      )}
+      <Seccion titulo="Servicio contratado">
+        <Tabla columnas={["Servicio", "Cantidad", "Precio", "Total"]}>
+          <tr><td style={td}><strong>{evento.tipoEventoNombre || evento.tipoEvento || "Servicio del salón"}</strong></td><td style={td}>1</td><td style={td}>{pesos.format(total)}</td><td style={td}>{pesos.format(total)}</td></tr>
+        </Tabla>
+      </Seccion>
 
-      {/* OBSERVACIONES */}
-      <div
-        style={{
-          marginTop: "35px"
-        }}
-      >
+      <Seccion titulo="Prestadores">
+        <Tabla columnas={["Nombre", "Actividad", "Costo", "Precio"]}>
+          {prestadores.map((prestador, index) => <tr key={prestador.id || index}>
+            <td style={td}>{[prestador.nombre, prestador.apellido].filter(Boolean).join(" ") || "—"}</td>
+            <td style={td}>{prestador.actividad || "—"}</td>
+            <td style={td}>{pesos.format(Number(prestador.costo || 0))}</td>
+            <td style={td}>{pesos.format(Number(prestador.precio || prestador.precioAcordado || 0))}</td>
+          </tr>)}
+          {prestadores.length === 0 && <FilaVacia columnas="4" texto="No hay prestadores asignados" />}
+        </Tabla>
+      </Seccion>
 
-        <h2
-          style={{
-            color: "#111827"
-          }}
-        >
-          Observaciones
-        </h2>
-
-        <div
-          style={{
-            background: "#f9fafb",
-            border: "1px solid #e5e7eb",
-            borderRadius: "10px",
-            padding: "20px",
-            marginTop: "15px",
-            color: "#374151",
-            lineHeight: "1.6"
-          }}
-        >
-          {evento.observaciones ||
-            "Sin observaciones"}
+      <Seccion titulo="Movimientos y cobros">
+        <div style={resumenCobros}>
+          <MiniResumen label="Precio total" valor={pesos.format(total)} />
+          <MiniResumen label="Cobrado" valor={pesos.format(cobrado)} />
+          <MiniResumen label="Saldo" valor={pesos.format(saldo)} />
+          <MiniResumen label="Pagado" valor={`${porcentaje}%`} />
         </div>
-
-      </div>
-
+        <Tabla columnas={["Fecha", "Concepto", "Descripción", "Cuenta", "Usuario", "Monto cobrado"]}>
+          {cobros.map((cobro) => <tr key={cobro.id}>
+            <td style={td}>{cobro.fecha?.toDate ? fechaTexto.format(cobro.fecha.toDate()) : "—"}</td>
+            <td style={td}>{cobro.concepto || "Cobro de evento"}</td>
+            <td style={td}>{cobro.descripcion || "—"}</td>
+            <td style={td}>{cobro.metodoPago || "—"}</td>
+            <td style={td}>{cobro.creadoPorNombre || cobro.creadoPorEmail || cobro.creadoPor?.slice?.(0, 8) || "—"}</td>
+            <td style={{ ...td, color: "#16865c", fontWeight: 700 }}>{pesos.format(Number(cobro.monto || 0))}</td>
+          </tr>)}
+          {cobros.length === 0 && <FilaVacia columnas="6" texto="Todavía no hay cobros registrados en el historial" />}
+        </Tabla>
+      </Seccion>
     </div>
   )
 }
 
-function Card({
-  titulo,
-  valor
-}) {
+function Seccion({ titulo, children }) { return <section style={seccion}><div style={seccionTitulo}>{titulo}</div><div style={seccionContenido}>{children}</div></section> }
+function Dato({ label, valor, badge }) { return <div style={dato}><strong>{label}:</strong><span style={badge ? estadoBadge : undefined}>{valor || "—"}</span></div> }
+function FilaContable({ label, valor, destacado }) { return <div style={filaContable}><span>{label}</span><strong style={destacado ? { color: "#c0394b" } : undefined}>{valor}</strong></div> }
+function Tabla({ columnas, children }) { return <div style={{ overflowX: "auto" }}><table style={tabla}><thead><tr>{columnas.map((columna) => <th key={columna} style={th}>{columna}</th>)}</tr></thead><tbody>{children}</tbody></table></div> }
+function FilaVacia({ columnas, texto }) { return <tr><td colSpan={columnas} style={mensaje}>{texto}</td></tr> }
+function MiniResumen({ label, valor }) { return <div style={miniResumen}><span>{label}</span><strong>{valor}</strong></div> }
 
-  return (
-
-    <div
-      style={{
-        background: "#f9fafb",
-        border: "1px solid #e5e7eb",
-        borderRadius: "10px",
-        padding: "18px"
-      }}
-    >
-
-      <div
-        style={{
-          fontSize: "13px",
-          color: "#6b7280",
-          marginBottom: "8px"
-        }}
-      >
-        {titulo}
-      </div>
-
-      <div
-        style={{
-          fontSize: "17px",
-          fontWeight: "600",
-          color: "#111827"
-        }}
-      >
-        {valor || "-"}
-      </div>
-
-    </div>
-  )
-}
-
-const th = {
-  textAlign: "left",
-  padding: "14px",
-  borderBottom: "1px solid #e5e7eb",
-  fontSize: "14px",
-  color: "#374151"
-}
-
-const td = {
-  padding: "14px",
-  borderBottom: "1px solid #f3f4f6"
-}
-
-const botonAzul = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  padding: "10px 16px",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: "600"
-}
-
-const botonVerde = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  padding: "10px 16px",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: "600"
-}
-
-const botonRojo = {
-  background: "#dc2626",
-  color: "white",
-  border: "none",
-  padding: "10px 16px",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: "600"
-}
-
-const botonGris = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  padding: "10px 16px",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: "600"
-}
+const pagina = { maxWidth: 1400, margin: "0 auto" }
+const cabecera = { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 18, padding: "22px 25px", borderRadius: 18, color: "white", background: "linear-gradient(100deg,#4e2581,#63349a)", boxShadow: "0 14px 30px rgba(78,37,129,.16)" }
+const sobreTitulo = { color: "#bfe8ff", fontSize: 12, fontWeight: 700, letterSpacing: ".12em" }
+const acciones = { display: "flex", gap: 8, flexWrap: "wrap" }
+const botonBase = { padding: "9px 13px", border: 0, borderRadius: 9, fontWeight: 700, cursor: "pointer" }
+const botonClaro = { ...botonBase, background: "rgba(255,255,255,.15)", color: "white", border: "1px solid rgba(255,255,255,.25)" }
+const botonAmarillo = { ...botonBase, background: "#f4d00c", color: "#38145f" }
+const botonPeligro = { ...botonBase, background: "#fff0f2", color: "#b42339" }
+const seccion = { marginTop: 20, overflow: "hidden", borderRadius: 16, background: "white", border: "1px solid #e8e1ee", boxShadow: "0 10px 27px rgba(78,37,129,.06)" }
+const seccionTitulo = { padding: "13px 18px", color: "white", background: "linear-gradient(90deg,#4e2581,#63349a)", fontFamily: "Fredoka", fontSize: 17 }
+const seccionContenido = { padding: 18 }
+const dosColumnas = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(330px,1fr))", gap: 16 }
+const panelInterno = { padding: 17, border: "1px solid #e8e1ee", borderRadius: 12, background: "#fcfbfd" }
+const subtitulo = { margin: "0 0 15px", color: "#4e2581", fontSize: 18 }
+const dato = { display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", marginBottom: 10, fontSize: 14 }
+const estadoBadge = { padding: "4px 8px", borderRadius: 999, color: "#4e2581", background: "#eee7f7", fontSize: 12, fontWeight: 700 }
+const filaContable = { display: "flex", justifyContent: "space-between", gap: 15, padding: "12px 10px", borderBottom: "1px solid #e8e1ee", fontSize: 14 }
+const barra = { height: 8, marginTop: 17, overflow: "hidden", borderRadius: 999, background: "#eee7f7" }
+const progreso = { height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#57b6ee,#4e2581)" }
+const tabla = { width: "100%", borderCollapse: "collapse" }
+const th = { padding: 12, textAlign: "left", color: "#4b4058", background: "#f7f5fb", border: "1px solid #e8e1ee", fontSize: 13, whiteSpace: "nowrap" }
+const td = { padding: 12, border: "1px solid #e8e1ee", fontSize: 13, whiteSpace: "nowrap" }
+const resumenCobros = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 18 }
+const miniResumen = { display: "flex", flexDirection: "column", gap: 5, padding: 14, borderRadius: 11, color: "#4e2581", background: "#f7f5fb", border: "1px solid #e8e1ee" }
+const mensaje = { padding: 32, textAlign: "center", color: "#776d83" }
+const errorBox = { marginTop: 16, padding: 12, borderRadius: 10, background: "#fff1f2", color: "#be123c" }
+const whatsappLink = { color: "#168c52", fontWeight: 700, textDecoration: "none" }
+const clienteLink = { color: "#4e2581", fontWeight: 700, textDecoration: "none" }

@@ -5,6 +5,7 @@ import {
 } from "react-router-dom"
 import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { db } from "../firebase"
+import { observarEscuelas } from "../services/escuelas"
 
 export default function EditarEvento() {
 
@@ -24,10 +25,12 @@ export default function EditarEvento() {
       localStorage.getItem("prestadores")
     ) || []
 
-  const escuelasGuardadas =
-    JSON.parse(
-      localStorage.getItem("escuelas")
-    ) || []
+  const [escuelasGuardadas, setEscuelasGuardadas] = useState([])
+
+  useEffect(() => observarEscuelas(
+    (datos) => setEscuelasGuardadas(datos.filter((escuela) => escuela.activa !== false)),
+    console.error
+  ), [])
 
  useEffect(() => {
 
@@ -79,6 +82,11 @@ export default function EditarEvento() {
 
     setForm(nuevoForm)
 
+  }
+
+  function seleccionarEscuela(escuelaId) {
+    const seleccionada = escuelasGuardadas.find((escuela) => escuela.id === escuelaId)
+    setForm({ ...form, escuelaId: seleccionada?.id || "", escuela: seleccionada?.nombre || "" })
   }
 
  async function guardarCambios(e) {
@@ -173,7 +181,7 @@ export default function EditarEvento() {
 <div
   style={{
     background:
-      "linear-gradient(90deg,#2563eb,#1d4ed8)",
+      "linear-gradient(90deg,#4e2581,#63349a)",
     color: "white",
     padding: "18px 22px",
     borderRadius: "14px",
@@ -275,9 +283,8 @@ export default function EditarEvento() {
               </label>
 
               <select
-                name="escuela"
-                value={form.escuela || ""}
-                onChange={handleChange}
+                value={form.escuelaId || escuelasGuardadas.find((escuela) => escuela.nombre === form.escuela)?.id || ""}
+                onChange={(e) => seleccionarEscuela(e.target.value)}
                 style={input}
               >
 
@@ -290,7 +297,7 @@ export default function EditarEvento() {
 
                     <option
                       key={escuela.id}
-                      value={escuela.nombre}
+                      value={escuela.id}
                     >
                       {escuela.nombre}
                     </option>
@@ -529,19 +536,27 @@ export default function EditarEvento() {
             />
 
             <Input
-              type="time"
+              type="text"
               name="hora"
-              label="Hora inicio"
+              label="Hora inicio (24 h)"
               value={form.hora}
               onChange={handleChange}
+              placeholder="19:00"
+              pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+              title="Ingresá la hora en formato de 24 horas, por ejemplo 19:00"
+              maxLength="5"
             />
 
             <Input
-              type="time"
+              type="text"
               name="horaFin"
-              label="Hora finalización"
+              label="Hora finalización (24 h)"
               value={form.horaFin}
               onChange={handleChange}
+              placeholder="22:30"
+              pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+              title="Ingresá la hora en formato de 24 horas, por ejemplo 22:30"
+              maxLength="5"
             />
 
           </Grid>
@@ -627,7 +642,7 @@ export default function EditarEvento() {
           type="submit"
           style={{
   background:
-    "linear-gradient(90deg,#2563eb,#1d4ed8)",
+    "linear-gradient(90deg,#4e2581,#63349a)",
   color: "white",
   border: "none",
   padding: "15px 30px",
@@ -672,7 +687,7 @@ function Section({
       <div
         style={{
           background:
-            "linear-gradient(90deg,#2563eb,#1d4ed8)",
+            "linear-gradient(90deg,#4e2581,#63349a)",
           color: "white",
           padding: "14px 20px",
           fontWeight: "700",
@@ -692,22 +707,6 @@ function Section({
 
     </div>
   )
-}
-
-async function guardarCambios(e) {
-
-  e.preventDefault()
-
-  const ref = doc(db, "eventos", id)
-
-  await updateDoc(ref, {
-    ...form,
-    saldo:
-      Number(form.total || 0) -
-      Number(form.sena || 0)
-  })
-
-  navigate(`/evento/${id}`)
 }
 
 function Grid({ children }) {

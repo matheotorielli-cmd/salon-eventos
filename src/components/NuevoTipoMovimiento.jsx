@@ -1,15 +1,21 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 
 export default function NuevoTipoMovimiento() {
 
   const navigate = useNavigate()
+  const { id } = useParams()
+  const editando = Boolean(id)
 
-  const [form, setForm] = useState({
-    nombre: "",
-    descripcion: "",
-    categoria: "",
-    deshabilitado: false
+  const [form, setForm] = useState(() => {
+    if (!editando) return { nombre: "", descripcion: "", categoria: "", deshabilitado: false }
+
+    const guardados = JSON.parse(localStorage.getItem("tiposMovimientos")) || []
+    const tipo = guardados.find((item) => String(item.id) === String(id))
+
+    return tipo
+      ? { nombre: tipo.nombre || "", descripcion: tipo.descripcion || "", categoria: tipo.categoria || "", deshabilitado: tipo.activo === false }
+      : { nombre: "", descripcion: "", categoria: "", deshabilitado: false }
   })
 
   function handleChange(e) {
@@ -31,7 +37,7 @@ export default function NuevoTipoMovimiento() {
 
   }
 
-  function crear() {
+  function guardar() {
 
     if (!form.nombre.trim())
       return
@@ -43,17 +49,14 @@ export default function NuevoTipoMovimiento() {
         )
       ) || []
 
-    const nuevo = {
-      id: Date.now(),
+    const datos = {
       ...form,
-      activo:
-        !form.deshabilitado
+      activo: !form.deshabilitado
     }
 
-    const nuevos = [
-      ...guardados,
-      nuevo
-    ]
+    const nuevos = editando
+      ? guardados.map((tipo) => String(tipo.id) === String(id) ? { ...tipo, ...datos } : tipo)
+      : [...guardados, { id: Date.now(), ...datos }]
 
     localStorage.setItem(
       "tiposMovimientos",
@@ -78,7 +81,7 @@ export default function NuevoTipoMovimiento() {
       {/* CABECERA */}
       <div
         style={{
-          background: "#2563eb",
+          background: "#4e2581",
           color: "white",
           padding: "16px 20px",
           borderRadius:
@@ -91,7 +94,7 @@ export default function NuevoTipoMovimiento() {
             margin: 0
           }}
         >
-          Nuevo tipo de movimiento
+          {editando ? "Editar tipo de movimiento" : "Nuevo tipo de movimiento"}
         </h2>
 
       </div>
@@ -228,9 +231,9 @@ export default function NuevoTipoMovimiento() {
       >
 
         <button
-          onClick={crear}
+          onClick={guardar}
           style={{
-            background: "#2563eb",
+            background: "#4e2581",
             color: "white",
             border: "none",
             padding: "12px 24px",
@@ -238,7 +241,7 @@ export default function NuevoTipoMovimiento() {
             cursor: "pointer"
           }}
         >
-          Crear
+          {editando ? "Guardar cambios" : "Crear"}
         </button>
 
       </div>

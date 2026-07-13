@@ -16,7 +16,6 @@ import Calendario from "./components/Calendario"
 import Eventos from "./components/MisEventos"
 import NuevoEvento from "./components/NuevoEvento"
 import EventoDetalle from "./components/EventoDetalle"
-import EditarEvento from "./components/EditarEvento"
 import RegistrarCobro from "./components/RegistrarCobro"
 import NuevoTipoMovimiento from "./components/NuevoTipoMovimiento"
 
@@ -25,10 +24,15 @@ import Prestadores from "./components/Prestadores"
 import TiposEventos from "./components/TiposEventos"
 import Escuelas from "./components/Escuelas"
 import Cuentas from "./components/Cuentas"
+import CuentaDetalle from "./components/CuentaDetalle"
 import NuevaCuenta from "./components/NuevaCuenta"
 import NuevoMovimiento from "./components/NuevoMovimiento"
 import TiposMovimientos from "./components/TiposMovimientos"
 import MisMovimientos from "./components/MisMovimientos"
+import UsuariosPermisos from "./components/UsuariosPermisos"
+import Usuarios from "./components/Usuarios"
+import Clientes from "./components/Clientes"
+import ClienteDetalle from "./components/ClienteDetalle"
 
 import { auth } from "./firebase"
 
@@ -59,7 +63,7 @@ function Layout() {
     <div
       style={{
         minHeight: "100vh",
-        background: "#f3f4f6"
+        background: "transparent"
       }}
     >
 
@@ -100,7 +104,7 @@ function Layout() {
 
           <Route
             path="/evento/:id/editar"
-            element={<EditarEvento />}
+            element={<NuevoEvento />}
           />
 
           <Route
@@ -129,6 +133,11 @@ function Layout() {
           />
 
           <Route
+            path="/tipo-movimiento/:id/editar"
+            element={<NuevoTipoMovimiento />}
+          />
+
+          <Route
             path="/escuelas"
             element={<Escuelas />}
           />
@@ -136,6 +145,11 @@ function Layout() {
           <Route
             path="/cuentas"
             element={<Cuentas />}
+          />
+
+          <Route
+            path="/cuentas/:id"
+            element={<CuentaDetalle />}
           />
 
           <Route
@@ -151,6 +165,26 @@ function Layout() {
           <Route
             path="/movimientos"
             element={<MisMovimientos />}
+          />
+
+          <Route
+            path="/usuarios-permisos"
+            element={<UsuariosPermisos />}
+          />
+
+          <Route
+            path="/usuarios"
+            element={<Usuarios />}
+          />
+
+          <Route
+            path="/clientes"
+            element={<Clientes />}
+          />
+
+          <Route
+            path="/clientes/:id"
+            element={<ClienteDetalle />}
           />
 
         </Routes>

@@ -1,21 +1,21 @@
 import { useEffect, useRef, useState } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { auth } from "../firebase"
 import { signOut } from "firebase/auth"
+import { useUserRole } from "../hooks/useUserRole"
 
 export default function Navbar() {
 
   const navigate = useNavigate()
-  const location = useLocation()
-
   const [openMenu, setOpenMenu] = useState(null)
   const [openUser, setOpenUser] = useState(false)
   const [openConfig, setOpenConfig] = useState(false)
+  const mostrarMenuAnterior = Boolean(import.meta.env.VITE_MENU_ANTERIOR)
 
-  const [openSection, setOpenSection] =
-    useState(null)
+  const [openSection, setOpenSection] = useState(["usuarios", "configuracion"])
 
   const user = auth.currentUser
+  const { role } = useUserRole(user)
   const menuRef = useRef()
 
   async function cerrarSesion() {
@@ -37,21 +37,10 @@ export default function Navbar() {
   }
 
   function toggleSection(section) {
-
-    setOpenSection(
-      openSection === section
-        ? null
-        : section
-    )
-
+    setOpenSection((sections) => sections.includes(section)
+      ? sections.filter((item) => item !== section)
+      : [...sections, section])
   }
-
-  useEffect(() => {
-
-    setOpenMenu(null)
-    setOpenUser(false)
-
-  }, [location.pathname])
 
   useEffect(() => {
 
@@ -159,9 +148,10 @@ export default function Navbar() {
       `}</style>
 
       <div
+        className="navbar-main"
         ref={menuRef}
         style={{
-          background: "#1d4ed8",
+          background: "linear-gradient(90deg,#3b1765,#4E2581 58%,#623598)",
           padding: "14px 20px",
           display: "flex",
           justifyContent:
@@ -177,6 +167,7 @@ export default function Navbar() {
 
         {/* IZQUIERDA */}
         <div
+          className="navbar-links"
           style={{
             display: "flex",
             gap: "10px",
@@ -486,6 +477,15 @@ export default function Navbar() {
 
       {/* PANEL CONFIG */}
       {openConfig && (
+        <ConfigPanel
+          role={role}
+          navigate={navigate}
+          onClose={() => setOpenConfig(false)}
+          openSections={openSection}
+          onToggle={toggleSection}
+        />
+      )}
+      {mostrarMenuAnterior && openConfig && (
 
         <div
           onClick={() =>
@@ -532,11 +532,23 @@ export default function Navbar() {
                 fontSize:
                   "22px",
                 color:
-                  "#1e3a8a"
+                  "#4e2581"
               }}
             >
               Configuración
             </div>
+
+            {role === "admin" && (
+              <div
+                onClick={() => {
+                  navigate("/usuarios-permisos")
+                  setOpenConfig(false)
+                }}
+                style={{ ...configSub, fontWeight: "700", color: "#4e2581" }}
+              >
+                Usuarios, roles y permisos
+              </div>
+            )}
 
             {/* CLIENTES */}
             <div>
@@ -562,6 +574,10 @@ export default function Navbar() {
                     style={
                       configSub
                     }
+                    onClick={() => {
+                      navigate("/clientes")
+                      setOpenConfig(false)
+                    }}
                   >
                     Historial
                   </div>
@@ -724,47 +740,20 @@ export default function Navbar() {
 >
   Tipos de movimiento
 </div>
-            {/* ETIQUETAS */}
+            {/* ESCUELAS */}
             <div>
 
               <div
                 style={
                   configTitle
                 }
-                onClick={() =>
-                  toggleSection(
-                    "etiquetas"
-                  )
-                }
+                onClick={() => {
+                  navigate("/escuelas")
+                  setOpenConfig(false)
+                }}
               >
-                Etiquetas ▾
+                Escuelas
               </div>
-
-              {openSection ===
-                "etiquetas" && (
-                <>
-
-                  <div
-                    style={
-                      configSub
-                    }
-                    onClick={() => {
-
-                      navigate(
-                        "/escuelas"
-                      )
-
-                      setOpenConfig(
-                        false
-                      )
-
-                    }}
-                  >
-                    Escuelas
-                  </div>
-
-                </>
-              )}
 
             </div>
 
@@ -778,3 +767,86 @@ export default function Navbar() {
 
   )
 }
+
+function ConfigPanel({ role, navigate, onClose, openSections, onToggle }) {
+  function abrir(ruta) {
+    navigate(ruta)
+    onClose()
+  }
+
+  return (
+    <div onClick={onClose} style={panelOverlay}>
+      <aside onClick={(e) => e.stopPropagation()} style={panelLateral}>
+        <div style={panelHeader}>
+          <span>Configuración</span>
+          <button onClick={onClose} style={botonCerrar} aria-label="Cerrar menú">×</button>
+        </div>
+
+        <MenuItem icon="♟" label="Clientes" onClick={() => abrir("/clientes")} />
+        <MenuItem icon="♞" label="Prestadores" onClick={() => abrir("/prestadores")} />
+        <MenuItem icon="▰" label="Proveedores" />
+        <MenuItem icon="♨" label="Servicios" />
+        <MenuItem icon="▦" label="Agenda" expandable open={openSections.includes("agenda")} onClick={() => onToggle("agenda")} />
+        {openSections.includes("agenda") && <SubItem label="Calendario" onClick={() => abrir("/")} />}
+        <MenuItem icon="◆" label="Listas de precios" />
+        <MenuItem icon="✉" label="Tarjetas Digitales" />
+
+        {role === "admin" && (
+          <>
+            <MenuItem icon="♣" label="Gestión de usuarios" expandable open={openSections.includes("usuarios")} onClick={() => onToggle("usuarios")} />
+            {openSections.includes("usuarios") && (
+              <div style={subGrupo}>
+                <SubItem icon="●" label="Usuarios" onClick={() => abrir("/usuarios")} />
+                <SubItem icon="♟" label="Roles y permisos" onClick={() => abrir("/usuarios-permisos")} />
+              </div>
+            )}
+          </>
+        )}
+
+        <MenuItem icon="▥" label="Configuración" expandable open={openSections.includes("configuracion")} onClick={() => onToggle("configuracion")} />
+        {openSections.includes("configuracion") && (
+          <div style={subGrupo}>
+            <SubItem icon="⚑" label="Perfil Organización" />
+            <SubItem label="Perfil Organización (nuevo)" badge="BETA" />
+            <SubItem icon="◇" label="Escuelas" onClick={() => abrir("/escuelas")} />
+            <SubItem icon="●" label="Tipo de eventos" onClick={() => abrir("/tipos-eventos")} />
+            <SubItem icon="●" label="Tipo de servicios" />
+            <SubItem icon="●" label="Tipo de movimientos" onClick={() => abrir("/tipos-movimientos")} />
+          </div>
+        )}
+      </aside>
+    </div>
+  )
+}
+
+function MenuItem({ icon, label, onClick, expandable = false, open = false }) {
+  return (
+    <button type="button" onClick={onClick} style={menuLateralItem}>
+      <span style={menuIcon}>{icon}</span>
+      <span style={{ flex: 1, textAlign: "left" }}>{label}</span>
+      {expandable && <span style={flecha}>{open ? "▴" : "▾"}</span>}
+    </button>
+  )
+}
+
+function SubItem({ icon, label, onClick, badge }) {
+  return (
+    <button type="button" onClick={onClick} style={subItem}>
+      {icon && <span style={subIcon}>{icon}</span>}
+      <span>{label}</span>
+      {badge && <span style={beta}>{badge}</span>}
+    </button>
+  )
+}
+
+const panelOverlay = { position: "fixed", inset: 0, background: "rgba(15,23,42,.38)", zIndex: 99999 }
+const panelLateral = { position: "absolute", top: 0, right: 0, width: "min(340px,90vw)", height: "100%", padding: "8px 0 24px", background: "linear-gradient(180deg,#4E2581,#38145f)", boxShadow: "-12px 0 35px rgba(78,37,129,.3)", overflowY: "auto", animation: "slide .2s ease-out", color: "white" }
+const panelHeader = { height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px 0 27px", fontSize: 23, borderBottom: "1px solid rgba(255,255,255,.18)" }
+const botonCerrar = { border: 0, background: "transparent", color: "white", fontSize: 28, cursor: "pointer", lineHeight: 1 }
+const menuLateralItem = { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 26px", border: 0, background: "transparent", color: "white", fontSize: 18, cursor: "pointer" }
+const menuIcon = { width: 25, color: "white", fontSize: 20, textAlign: "center" }
+const flecha = { fontSize: 15, marginRight: 12 }
+const subGrupo = { margin: "0 18px 8px 55px", paddingLeft: 12, borderLeft: "2px solid rgba(255,255,255,.16)" }
+const subItem = { width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "10px 0", border: 0, background: "transparent", color: "white", fontSize: 17, lineHeight: 1.35, textAlign: "left", cursor: "pointer" }
+const subIcon = { width: 20, textAlign: "center", fontSize: 16 }
+const beta = { marginLeft: 2, padding: "2px 5px", background: "#facc15", color: "#111827", borderRadius: 4, fontSize: 10, fontWeight: 800 }

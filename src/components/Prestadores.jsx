@@ -1,23 +1,16 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 export default function Prestadores() {
 
-  const [prestadores, setPrestadores] = useState([])
+  const [prestadores, setPrestadores] = useState(() =>
+    JSON.parse(localStorage.getItem("prestadores")) || []
+  )
 
   const [form, setForm] = useState({
     nombre: "",
     apellido: "",
     telefono: ""
   })
-
-  useEffect(() => {
-
-    const guardados =
-      JSON.parse(localStorage.getItem("prestadores")) || []
-
-    setPrestadores(guardados)
-
-  }, [])
 
   function handleChange(e) {
 
@@ -92,7 +85,7 @@ export default function Prestadores() {
 
       <h1
         style={{
-          color: "#1e3a8a",
+          color: "#4e2581",
           marginBottom: "25px"
         }}
       >
@@ -147,7 +140,7 @@ export default function Prestadores() {
           type="submit"
           style={{
             marginTop: "20px",
-            background: "#2563eb",
+            background: "#4e2581",
             color: "white",
             border: "none",
             padding: "12px 20px",

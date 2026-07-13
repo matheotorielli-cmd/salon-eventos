@@ -1,488 +1,97 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { auth } from "../firebase"
+import { observarCuentas } from "../services/cuentas"
+import { registrarMovimiento } from "../services/movimientos"
+
+const categorias = [
+  { id: "ingreso", label: "Ingreso" },
+  { id: "egreso", label: "Egreso" },
+  { id: "transferencia", label: "Transferencia" }
+]
 
 export default function NuevoMovimiento() {
-
   const navigate = useNavigate()
+  const [cuentas, setCuentas] = useState([])
+  const [error, setError] = useState("")
+  const [guardando, setGuardando] = useState(false)
+  const tipos = useMemo(() => (JSON.parse(localStorage.getItem("tiposMovimientos")) || []).filter((item) => item.activo !== false), [])
+  const [form, setForm] = useState({ categoria: "", tipo: "", cuentaId: "", cuentaOrigenId: "", cuentaDestinoId: "", descripcion: "", concepto: "", monto: "", fecha: new Date().toISOString().split("T")[0] })
 
-  const [categoria, setCategoria] =
-    useState("")
+  useEffect(() => observarCuentas(
+    (data) => setCuentas(data.filter((cuenta) => cuenta.activa !== false)),
+    () => setError("No se pudieron cargar las cuentas.")
+  ), [])
 
-  const [tipo, setTipo] =
-    useState("")
+  const tiposFiltrados = tipos.filter((item) => !form.categoria || String(item.categoria).toLowerCase() === form.categoria)
+  function cambiar(name, value) { setForm((actual) => ({ ...actual, [name]: value })) }
 
-  const [tiposMovimientos, setTiposMovimientos] =
-    useState([])
-
-  const [cuentas, setCuentas] =
-    useState([])
-
-  const [form, setForm] =
-    useState({
-      cuenta: "",
-      descripcion: "",
-      concepto: "",
-      monto: "",
-      fecha:
-        new Date()
-          .toISOString()
-          .split("T")[0]
-    })
-
-  useEffect(() => {
-
-    const guardados =
-      JSON.parse(
-        localStorage.getItem("tiposMovimientos")
-      ) || []
-
-    const activos =
-      guardados.filter(
-        (tipo) => tipo.activo !== false
-      )
-
-    setTiposMovimientos(activos)
-
-    const cuentasGuardadas =
-      JSON.parse(
-        localStorage.getItem("cuentas")
-      ) || []
-
-    setCuentas(cuentasGuardadas)
-
-  }, [])
-
-  const categorias =
-    [
-      ...new Set(
-        tiposMovimientos.map(
-          (tipo) => tipo.categoria
-        )
-      )
-    ].filter(Boolean)
-
-  const tiposFiltrados =
-    categoria
-      ? tiposMovimientos.filter(
-          (tipo) =>
-            tipo.categoria === categoria
-        )
-      : tiposMovimientos
-
-  function handleChange(e) {
-
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value
-    })
-
-  }
-
-  function guardarMovimiento(e) {
-
+  async function guardar(e) {
     e.preventDefault()
+    setError("")
+    const monto = Number(form.monto)
+    if (!form.categoria || !form.tipo) return setError("Seleccioná la categoría y el tipo de movimiento.")
+    if (form.categoria === "transferencia" ? (!form.cuentaOrigenId || !form.cuentaDestinoId) : !form.cuentaId) return setError("Seleccioná la cuenta correspondiente.")
+    if (!Number.isFinite(monto) || monto <= 0) return setError("El monto debe ser mayor que cero.")
+    if (!auth.currentUser) return setError("La sesión no está disponible.")
 
-    if (!categoria) {
-      alert("Seleccioná una categoría")
-      return
-    }
-
-    if (!tipo) {
-      alert("Seleccioná un tipo de movimiento")
-      return
-    }
-
-    if (!form.cuenta) {
-      alert("Seleccioná una cuenta")
-      return
-    }
-
-    if (!form.monto) {
-      alert("Ingresá un monto")
-      return
-    }
-
-    const movimientos =
-      JSON.parse(
-        localStorage.getItem("movimientos")
-      ) || []
-
-    const nuevoMovimiento = {
-      id: Date.now(),
-      categoria,
-      tipo,
-      cuenta: form.cuenta,
-      descripcion: form.descripcion,
-      concepto: form.concepto,
-      monto: Number(form.monto),
-      fecha: form.fecha
-    }
-
-    movimientos.push(nuevoMovimiento)
-
-    localStorage.setItem(
-      "movimientos",
-      JSON.stringify(movimientos)
-    )
-
-    navigate("/movimientos")
+    setGuardando(true)
+    try {
+      await registrarMovimiento({ ...form, monto, userId: auth.currentUser.uid })
+      navigate("/movimientos")
+    } catch (saveError) {
+      console.error(saveError)
+      const mensajes = {
+        "saldo-insuficiente": "La cuenta de origen no tiene saldo suficiente.",
+        "cuentas-iguales": "La cuenta de origen y destino deben ser diferentes.",
+        "cuenta-no-disponible": "La cuenta seleccionada no está disponible.",
+        "cuenta-destino-no-disponible": "La cuenta de destino no está disponible."
+      }
+      setError(mensajes[saveError.message] || "No se pudo registrar el movimiento.")
+    } finally { setGuardando(false) }
   }
 
   return (
-
-    <div
-      style={{
-        maxWidth: "1200px",
-        margin: "0 auto"
-      }}
-    >
-
-      <div
-        style={{
-          background: "#2563eb",
-          color: "white",
-          padding: "16px 20px",
-          borderRadius: "10px 10px 0 0",
-          fontWeight: "600",
-          fontSize: "18px"
-        }}
-      >
-        Agregar movimiento
-      </div>
-
-      <form onSubmit={guardarMovimiento}>
-
-        <div
-          style={{
-            background: "white",
-            padding: "25px",
-            borderRadius: "0 0 10px 10px",
-            border: "1px solid #e5e7eb"
-          }}
-        >
-
-          <div style={{ marginBottom: "20px" }}>
-
-            <label style={label}>
-              Categoría
-            </label>
-
-            <select
-              value={categoria}
-              onChange={(e) => {
-                setCategoria(e.target.value)
-                setTipo("")
-              }}
-              style={input}
-            >
-
-              <option value="">
-                Seleccione la categoría
-              </option>
-
-              {categorias.map((cat) => (
-
-                <option
-                  key={cat}
-                  value={cat}
-                >
-                  {cat}
-                </option>
-
-              ))}
-
-            </select>
-
-          </div>
-
-          <div style={{ marginBottom: "30px" }}>
-
-            <label style={label}>
-              Tipo de movimiento
-            </label>
-
-            <select
-              value={tipo}
-              onChange={(e) =>
-                setTipo(
-                  e.target.value
-                )
-              }
-              style={input}
-            >
-
-              <option value="">
-                Seleccione el tipo
-              </option>
-
-              {tiposFiltrados.map((item) => (
-
-                <option
-                  key={item.id}
-                  value={item.nombre}
-                >
-                  {item.nombre}
-                </option>
-
-              ))}
-
-            </select>
-
-          </div>
-
-          {categoria && tipo && (
-
-            <div>
-
-              <div
-                style={{
-                  background: "#f3f4f6",
-                  padding: "14px 18px",
-                  borderRadius: "10px",
-                  marginBottom: "20px",
-                  fontWeight: "600",
-                  color: "#1f2937"
-                }}
-              >
-                Registrar {tipo}
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "repeat(auto-fit,minmax(250px,1fr))",
-                  gap: "20px"
-                }}
-              >
-
-                <div>
-
-                  {tipo === "Transferencia" ? (
-
-  <>
-
-    <div>
-
-      <label style={label}>
-        Cuenta de origen
-      </label>
-
-      <select
-        name="cuentaOrigen"
-        value={form.cuentaOrigen || ""}
-        onChange={handleChange}
-        style={input}
-      >
-
-        <option value="">
-          Seleccione la cuenta
-        </option>
-
-        {cuentas.map((cuenta) => (
-
-          <option
-            key={cuenta.id}
-            value={cuenta.nombre}
-          >
-            {cuenta.nombre}
-          </option>
-
-        ))}
-
-      </select>
-
-    </div>
-
-    <div>
-
-      <label style={label}>
-        Cuenta destino
-      </label>
-
-      <select
-        name="cuentaDestino"
-        value={form.cuentaDestino || ""}
-        onChange={handleChange}
-        style={input}
-      >
-
-        <option value="">
-          Seleccione la cuenta
-        </option>
-
-        {cuentas.map((cuenta) => (
-
-          <option
-            key={cuenta.id}
-            value={cuenta.nombre}
-          >
-            {cuenta.nombre}
-          </option>
-
-        ))}
-
-      </select>
-
-    </div>
-
-  </>
-
-) : (
-
-  <div>
-
-    <label style={label}>
-      Cuenta
-    </label>
-
-    <select
-      name="cuenta"
-      value={form.cuenta}
-      onChange={handleChange}
-      style={input}
-    >
-
-      <option value="">
-        Seleccione la cuenta
-      </option>
-
-      {cuentas.map((cuenta) => (
-
-        <option
-          key={cuenta.id}
-          value={cuenta.nombre}
-        >
-          {cuenta.nombre}
-        </option>
-
-      ))}
-
-    </select>
-
-  </div>
-
-)}
-
-                </div>
-
-                <div>
-
-                  <label style={label}>
-                    Descripción
-                  </label>
-
-                  <input
-                    name="descripcion"
-                    value={form.descripcion}
-                    onChange={handleChange}
-                    placeholder="Ingrese la descripción del movimiento"
-                    style={input}
-                  />
-
-                </div>
-
-                <div>
-
-                  <label style={label}>
-                    Concepto
-                  </label>
-
-                  <input
-                    name="concepto"
-                    value={form.concepto}
-                    onChange={handleChange}
-                    placeholder="Ingrese el concepto del movimiento"
-                    style={input}
-                  />
-
-                </div>
-
-                <div>
-
-                  <label style={label}>
-                    Monto
-                  </label>
-
-                  <input
-                    type="number"
-                    name="monto"
-                    value={form.monto}
-                    onChange={handleChange}
-                    placeholder="Ingrese el monto"
-                    style={input}
-                  />
-
-                </div>
-
-                <div>
-
-                  <label style={label}>
-                    Fecha
-                  </label>
-
-                  <input
-                    type="date"
-                    name="fecha"
-                    value={form.fecha}
-                    onChange={handleChange}
-                    style={input}
-                  />
-
-                </div>
-
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  marginTop: "30px"
-                }}
-              >
-
-                <button
-                  type="submit"
-                  style={{
-                    background: "#2563eb",
-                    color: "white",
-                    border: "none",
-                    padding: "12px 22px",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    fontSize: "15px"
-                  }}
-                >
-                  Agregar movimiento
-                </button>
-
-              </div>
-
-            </div>
-
-          )}
-
+    <div style={pagina}>
+      <div style={cabecera}><div><span style={sobreTitulo}>FINANZAS</span><h1 style={{ margin: "3px 0 0" }}>Nuevo movimiento</h1></div></div>
+      <form onSubmit={guardar} style={tarjeta}>
+        <div style={grillaCategorias}>
+          {categorias.map((categoria) => <button key={categoria.id} type="button" onClick={() => setForm({ ...form, categoria: categoria.id, tipo: "" })} style={form.categoria === categoria.id ? categoriaActiva : categoriaBoton}>{categoria.label}</button>)}
         </div>
 
-      </form>
+        <div style={grilla}>
+          <Campo label="Tipo de movimiento"><select value={form.tipo} onChange={(e) => cambiar("tipo", e.target.value)} required><option value="">Seleccionar tipo</option>{tiposFiltrados.map((tipo) => <option key={tipo.id} value={tipo.nombre}>{tipo.nombre}</option>)}</select></Campo>
+          {form.categoria === "transferencia" ? <>
+            <CuentaSelect label="Cuenta de origen" name="cuentaOrigenId" value={form.cuentaOrigenId} cuentas={cuentas} cambiar={cambiar} />
+            <CuentaSelect label="Cuenta de destino" name="cuentaDestinoId" value={form.cuentaDestinoId} cuentas={cuentas} cambiar={cambiar} />
+          </> : <CuentaSelect label="Cuenta" name="cuentaId" value={form.cuentaId} cuentas={cuentas} cambiar={cambiar} />}
+          <Campo label="Monto"><input type="number" min="1" step="1" value={form.monto} onChange={(e) => cambiar("monto", e.target.value)} placeholder="$ 0" required /></Campo>
+          <Campo label="Fecha"><input type="date" value={form.fecha} onChange={(e) => cambiar("fecha", e.target.value)} required /></Campo>
+          <Campo label="Concepto"><input value={form.concepto} onChange={(e) => cambiar("concepto", e.target.value)} placeholder="Ej.: Pago de servicio" /></Campo>
+          <Campo label="Descripción"><input value={form.descripcion} onChange={(e) => cambiar("descripcion", e.target.value)} placeholder="Detalle opcional" /></Campo>
+        </div>
 
+        {error && <div role="alert" style={errorBox}>{error}</div>}
+        <div style={acciones}><button type="button" onClick={() => navigate("/movimientos")} style={cancelar}>Cancelar</button><button disabled={guardando} style={guardarBtn}>{guardando ? "Guardando..." : "Registrar movimiento"}</button></div>
+      </form>
     </div>
   )
 }
 
-const label = {
-  display: "block",
-  marginBottom: "8px",
-  fontWeight: "600",
-  color: "#374151"
-}
+function Campo({ label, children }) { return <label style={campo}><span style={labelStyle}>{label}</span>{children}</label> }
+function CuentaSelect({ label, name, value, cuentas, cambiar }) { return <Campo label={label}><select value={value} onChange={(e) => cambiar(name, e.target.value)} required><option value="">Seleccionar cuenta</option>{cuentas.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.nombre}</option>)}</select></Campo> }
 
-const input = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "8px",
-  border: "1px solid #d1d5db",
-  fontSize: "15px",
-  boxSizing: "border-box"
-}
+const pagina = { maxWidth: 1050, margin: "0 auto" }
+const cabecera = { padding: "22px 25px", borderRadius: "18px 18px 0 0", color: "white", background: "linear-gradient(100deg,#4e2581,#63349a)", boxShadow: "0 12px 28px rgba(78,37,129,.15)" }
+const sobreTitulo = { color: "#bfe8ff", fontSize: 12, fontWeight: 700, letterSpacing: ".12em" }
+const tarjeta = { padding: 26, background: "white", border: "1px solid #e8e1ee", borderRadius: "0 0 18px 18px", boxShadow: "0 14px 35px rgba(78,37,129,.08)" }
+const grillaCategorias = { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 25 }
+const categoriaBoton = { padding: 14, border: "1px solid #e8e1ee", borderRadius: 12, background: "#f7f5fb", color: "#665b71", fontWeight: 700, cursor: "pointer" }
+const categoriaActiva = { ...categoriaBoton, color: "white", borderColor: "#4e2581", background: "#4e2581" }
+const grilla = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 20 }
+const campo = { display: "block" }
+const labelStyle = { display: "block", marginBottom: 8, fontSize: 14, fontWeight: 600, color: "#4b4058" }
+const errorBox = { marginTop: 20, padding: 12, borderRadius: 10, background: "#fff1f2", color: "#be123c" }
+const acciones = { display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 26 }
+const cancelar = { padding: "11px 18px", border: 0, borderRadius: 10, color: "#665b71", background: "#eee9f1", cursor: "pointer" }
+const guardarBtn = { padding: "11px 20px", border: 0, borderRadius: 10, color: "white", background: "#4e2581", fontWeight: 700, cursor: "pointer" }

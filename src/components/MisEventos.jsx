@@ -99,7 +99,7 @@ export default function MisEventos() {
     }
 
     if (estado === "Confirmado") {
-      return "#2563eb"
+      return "#4e2581"
     }
 
     if (
@@ -117,14 +117,14 @@ export default function MisEventos() {
 
   return (
 
-    <div>
+    <div style={{ maxWidth: "1250px", margin: "0 auto" }}>
 
       <h1
         style={{
           marginTop: 0,
           marginBottom: "25px",
-          color: "#1e3a8a",
-          textAlign: "center",
+          color: "#4e2581",
+          textAlign: "left",
           fontSize: "34px"
         }}
       >
@@ -139,7 +139,12 @@ export default function MisEventos() {
           gridTemplateColumns:
             "repeat(auto-fit,minmax(220px,1fr))",
           gap: "15px",
-          marginBottom: "25px"
+          marginBottom: "25px",
+          padding: "18px",
+          background: "white",
+          border: "1px solid #e8e1ee",
+          borderRadius: "16px",
+          boxShadow: "0 8px 22px rgba(78,37,129,.06)"
         }}
       >
 
@@ -236,13 +241,13 @@ export default function MisEventos() {
             style={{
               background: "white",
               padding: "22px",
-              borderRadius: "14px",
+              borderRadius: "16px",
               cursor: "pointer",
               border:
-                "1px solid #e5e7eb",
+                "1px solid #e8e1ee",
               transition: ".2s",
               boxShadow:
-                "0 2px 8px rgba(0,0,0,0.04)"
+                "0 10px 26px rgba(78,37,129,.07)"
             }}
           >
 
@@ -262,7 +267,7 @@ export default function MisEventos() {
                 <h2
                   style={{
                     margin: 0,
-                    color: "#111827"
+                    color: "#4e2581"
                   }}
                 >
                   {ev.cliente}
@@ -304,7 +309,7 @@ export default function MisEventos() {
                 gridTemplateColumns:
                   "repeat(auto-fit,minmax(220px,1fr))",
                 gap: "12px",
-                color: "#374151"
+                color: "#665b71"
               }}
             >
 
@@ -344,7 +349,7 @@ const input = {
   width: "100%",
   padding: "12px",
   borderRadius: "10px",
-  border: "1px solid #d1d5db",
+  border: "1px solid #e8e1ee",
   fontSize: "15px",
   boxSizing: "border-box",
   background: "white"

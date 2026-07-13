@@ -1,14 +1,23 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { collection, addDoc } from "firebase/firestore"
+import { useEffect, useState } from "react"
+import { useNavigate, useParams } from "react-router-dom"
+import { addDoc, collection, doc, getDoc, updateDoc } from "firebase/firestore"
 import { db } from "../firebase"
+import ClienteModal from "./ClienteModal"
+import { nombreCompleto, observarClientes } from "../services/clientes"
+import { observarEscuelas } from "../services/escuelas"
 
 export default function NuevoEvento() {
 
   const navigate = useNavigate()
+  const { id } = useParams()
+  const editando = Boolean(id)
 
   const [error, setError] = useState("")
-const [guardando, setGuardando] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [cargando, setCargando] = useState(editando)
+  const [clientes, setClientes] = useState([])
+  const [escuelas, setEscuelas] = useState([])
+  const [mostrarClienteModal, setMostrarClienteModal] = useState(false)
 
   const tiposEventos =
     JSON.parse(
@@ -21,6 +30,8 @@ const [guardando, setGuardando] = useState(false)
     ) || []
 
   const [form, setForm] = useState({
+    nombreEvento: "",
+    clienteId: "",
     cliente: "",
     telefono: "",
     direccion: "",
@@ -29,11 +40,13 @@ const [guardando, setGuardando] = useState(false)
       tiposEventos[0]?.nombre || "",
 
     fecha: "",
+    fechaFin: "",
     hora: "",
     horaFin: "",
 
     personas: "",
     cantidadNinos: "",
+    escuelaId: "",
     escuela: "",
 
     prestadores: [],
@@ -45,8 +58,85 @@ const [guardando, setGuardando] = useState(false)
 
     estado: "Presupuestado",
 
-    observaciones: ""
+    observaciones: "",
+    detalles: "",
+    notas: ""
   })
+
+  useEffect(() => observarClientes(
+    (datos) => setClientes(datos.filter((cliente) => cliente.activo !== false)),
+    () => setError("No se pudieron cargar los clientes.")
+  ), [])
+
+  useEffect(() => observarEscuelas(
+    (datos) => setEscuelas(datos.filter((escuela) => escuela.activa !== false)),
+    () => setError("No se pudieron cargar las escuelas.")
+  ), [])
+
+  useEffect(() => {
+    if (!editando) return
+
+    async function cargarEvento() {
+      try {
+        const snapshot = await getDoc(doc(db, "eventos", id))
+        if (!snapshot.exists()) {
+          setError("No se encontró el evento.")
+          return
+        }
+
+        const datos = snapshot.data()
+        setForm((actual) => ({
+          ...actual,
+          ...datos,
+          nombreEvento: datos.nombreEvento || "",
+          clienteId: datos.clienteId || "",
+          fechaFin: datos.fechaFin || datos.fecha || "",
+          detalles: datos.detalles || "",
+          notas: datos.notas || "",
+          prestadores: datos.prestadores || []
+        }))
+      } catch (loadError) {
+        console.error(loadError)
+        setError("No se pudo cargar el evento.")
+      } finally {
+        setCargando(false)
+      }
+    }
+
+    cargarEvento()
+  }, [editando, id])
+
+  function seleccionarCliente(clienteId) {
+    const seleccionado = clientes.find((cliente) => cliente.id === clienteId)
+    if (!seleccionado) {
+      setForm((actual) => ({ ...actual, clienteId: "", cliente: "", telefono: "", direccion: "" }))
+      return
+    }
+    setForm((actual) => ({
+      ...actual,
+      clienteId: seleccionado.id,
+      cliente: nombreCompleto(seleccionado),
+      telefono: seleccionado.telefono || "",
+      direccion: seleccionado.direccion || ""
+    }))
+  }
+
+  function clienteCreado(cliente) {
+    setClientes((actuales) => [...actuales, cliente])
+    setMostrarClienteModal(false)
+    setForm((actual) => ({
+      ...actual,
+      clienteId: cliente.id,
+      cliente: nombreCompleto(cliente),
+      telefono: cliente.telefono || "",
+      direccion: cliente.direccion || ""
+    }))
+  }
+
+  function seleccionarEscuela(escuelaId) {
+    const seleccionada = escuelas.find((escuela) => escuela.id === escuelaId)
+    setForm((actual) => ({ ...actual, escuelaId: seleccionada?.id || "", escuela: seleccionada?.nombre || "" }))
+  }
 
   function handleChange(e) {
 
@@ -70,6 +160,12 @@ const [guardando, setGuardando] = useState(false)
     }
 
     setForm(nuevoForm)
+  }
+
+  function cambiarFechaHora(campo, parte, valor) {
+    setForm((actual) => campo === "inicio"
+      ? { ...actual, [parte === "fecha" ? "fecha" : "hora"]: valor }
+      : { ...actual, [parte === "fecha" ? "fechaFin" : "horaFin"]: valor })
   }
 
   function agregarPrestador(valor) {
@@ -136,6 +232,10 @@ const [guardando, setGuardando] = useState(false)
 
     setError("")
 
+    if (!form.nombreEvento.trim()) {
+      return setError("Ingresá el nombre del evento")
+    }
+
     if (!form.cliente.trim()) {
       return setError("Ingresá el cliente")
     }
@@ -146,6 +246,16 @@ const [guardando, setGuardando] = useState(false)
 
     if (!form.fecha) {
       return setError("Seleccioná una fecha")
+    }
+
+    if (!form.hora || !form.horaFin) {
+      return setError("Seleccioná la fecha y hora de inicio y fin")
+    }
+
+    const inicioEvento = new Date(`${form.fecha}T${form.hora}`)
+    const finEvento = new Date(`${form.fechaFin || form.fecha}T${form.horaFin}`)
+    if (finEvento <= inicioEvento) {
+      return setError("La fecha de finalización debe ser posterior al inicio")
     }
 
     if (!form.total) {
@@ -166,7 +276,7 @@ const [guardando, setGuardando] = useState(false)
         localStorage.getItem("eventos")
       ) || []
 
-    const existe = eventos.find(ev =>
+    const existe = !editando && eventos.find(ev =>
 
       ev.fecha === form.fecha &&
 
@@ -185,15 +295,15 @@ const [guardando, setGuardando] = useState(false)
 
     const nuevoEvento = {
 
-      id: Date.now(),
+      id: form.id || Date.now(),
 
-      title: form.cliente,
+      title: form.nombreEvento.trim() || form.cliente,
 
       start:
         `${form.fecha}T${form.hora}`,
 
       end:
-        `${form.fecha}T${form.horaFin}`,
+        `${form.fechaFin || form.fecha}T${form.horaFin}`,
 
       ...form,
 
@@ -204,9 +314,13 @@ const [guardando, setGuardando] = useState(false)
 
     setGuardando(true)
 
-addDoc(collection(db, "eventos"), nuevoEvento)
+const operacion = editando
+  ? updateDoc(doc(db, "eventos", id), nuevoEvento)
+  : addDoc(collection(db, "eventos"), nuevoEvento)
+
+operacion
   .then(() => {
-    navigate("/eventos")
+    navigate(editando ? `/evento/${id}` : "/eventos")
   })
   .catch((error) => {
     console.error(error)
@@ -221,9 +335,12 @@ addDoc(collection(db, "eventos"), nuevoEvento)
     Number(form.total || 0) -
     Number(form.sena || 0)
 
+  if (cargando) return <div style={{ padding: 30, color: "#4e2581", fontWeight: 700 }}>Cargando evento...</div>
+
   return (
 
     <div
+      className="event-form-page"
       style={{
         maxWidth: "1200px",
         margin: "0 auto"
@@ -233,7 +350,7 @@ addDoc(collection(db, "eventos"), nuevoEvento)
 <div
   style={{
     background:
-      "linear-gradient(90deg,#2563eb,#1d4ed8)",
+      "linear-gradient(90deg,#4e2581,#63349a)",
     color: "white",
     padding: "18px 22px",
     borderRadius: "14px",
@@ -244,7 +361,7 @@ addDoc(collection(db, "eventos"), nuevoEvento)
       "0 4px 14px rgba(37,99,235,0.25)"
   }}
 >
-  Crear nuevo evento
+  {editando ? "Editar evento" : "Crear nuevo evento"}
 </div>
 
       {error && (
@@ -266,8 +383,68 @@ addDoc(collection(db, "eventos"), nuevoEvento)
 
       <form onSubmit={guardarEvento}>
 
+        <Section titulo="Información">
+          <Grid>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Input
+                label="Nombre del evento"
+                name="nombreEvento"
+                value={form.nombreEvento}
+                onChange={handleChange}
+                placeholder="Ingrese el nombre del evento"
+                required
+              />
+            </div>
+
+            <div>
+              <label style={label}>Tipo de evento</label>
+              <select name="tipoEvento" value={form.tipoEvento} onChange={handleChange} style={input}>
+                <option value="">Seleccione el tipo</option>
+                {tiposEventos.map((tipo, index) => <option key={index} value={tipo.nombre}>{tipo.nombre}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <div style={clienteLabel}><label style={{ ...label, marginBottom: 0 }}>Cliente</label><button type="button" onClick={() => setMostrarClienteModal(true)} style={agregarClienteBtn}>Agregar cliente</button></div>
+              <select value={form.clienteId} onChange={(e) => seleccionarCliente(e.target.value)} style={input} required>
+                <option value="">Buscar o seleccionar cliente</option>
+                {clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{nombreCompleto(cliente)}{cliente.dni ? ` · DNI ${cliente.dni}` : ""}</option>)}
+              </select>
+            </div>
+            <Input label="Teléfono" name="telefono" value={form.telefono} onChange={handleChange} required />
+            <Input label="Dirección" name="direccion" value={form.direccion} onChange={handleChange} />
+            <div style={fechasFila}>
+              <FechaHoraInput label="Fecha inicio" fecha={form.fecha} hora={form.hora} onFecha={(valor) => cambiarFechaHora("inicio", "fecha", valor)} onHora={(valor) => cambiarFechaHora("inicio", "hora", valor)} />
+              <FechaHoraInput label="Fecha fin" fecha={form.fechaFin || form.fecha} hora={form.horaFin} onFecha={(valor) => cambiarFechaHora("fin", "fecha", valor)} onHora={(valor) => cambiarFechaHora("fin", "hora", valor)} />
+            </div>
+
+            <div style={datosCantidad}>
+              <Input type="number" label="Cantidad de personas" name="personas" value={form.personas} onChange={handleChange} />
+              <Input type="number" label="Cantidad de niños" name="cantidadNinos" value={form.cantidadNinos} onChange={handleChange} />
+              <div>
+                <label style={label}>Escuela</label>
+                <select value={form.escuelaId} onChange={(e) => seleccionarEscuela(e.target.value)} style={input}>
+                  <option value="">Seleccionar escuela</option>
+                  {escuelas.map((escuela) => <option key={escuela.id} value={escuela.id}>{escuela.nombre}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={label}>Detalles</label>
+              <textarea name="detalles" value={form.detalles} onChange={handleChange} rows="4" placeholder="Ingrese un detalle (se visualiza en el comprobante)" style={textarea} />
+            </div>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={label}>Notas</label>
+              <textarea name="notas" value={form.notas} onChange={handleChange} rows="4" placeholder="Puede ingresar notas (no se visualizan en el comprobante)" style={textarea} />
+            </div>
+
+          </Grid>
+        </Section>
+
         {/* CLIENTE */}
-        <Section titulo="Información del cliente">
+        <Section titulo="Información del cliente" hidden>
 
           <Grid>
 
@@ -299,7 +476,7 @@ addDoc(collection(db, "eventos"), nuevoEvento)
         </Section>
 
         {/* EVENTO */}
-        <Section titulo="Información del evento">
+        <Section titulo="Información del evento" hidden>
 
           <Grid>
 
@@ -617,7 +794,7 @@ addDoc(collection(db, "eventos"), nuevoEvento)
         </Section>
 
         {/* FECHA */}
-        <Section titulo="Fecha y horario">
+        <Section titulo="Fecha y horario" hidden>
 
           <Grid>
 
@@ -773,9 +950,10 @@ addDoc(collection(db, "eventos"), nuevoEvento)
 
           <button
             type="submit"
+            disabled={guardando}
             style={{
               background:
-                "#2563eb",
+                "#4e2581",
               color: "white",
               border: "none",
               padding:
@@ -786,12 +964,14 @@ addDoc(collection(db, "eventos"), nuevoEvento)
               cursor: "pointer"
             }}
           >
-            Guardar evento
+            {guardando ? "Guardando..." : editando ? "Guardar cambios" : "Guardar evento"}
           </button>
 
         </div>
 
       </form>
+
+      {mostrarClienteModal && <ClienteModal onClose={() => setMostrarClienteModal(false)} onCreado={clienteCreado} />}
 
     </div>
   )
@@ -801,8 +981,11 @@ addDoc(collection(db, "eventos"), nuevoEvento)
 
 function Section({
   titulo,
-  children
+  children,
+  hidden = false
 }) {
+
+  if (hidden) return null
 
   return (
 
@@ -821,7 +1004,7 @@ function Section({
       <div
         style={{
           background:
-            "linear-gradient(90deg,#2563eb,#1d4ed8)",
+    "linear-gradient(90deg,#4e2581,#63349a)",
           color: "white",
           padding: "14px 20px",
           fontWeight: "700",
@@ -935,3 +1118,48 @@ const tableInput = {
   fontSize: "14px",
   boxSizing: "border-box"
 }
+
+function FechaHoraInput({ label, fecha, hora, onFecha, onHora }) {
+  const [horaValor = "", minutoValor = ""] = (hora || "").split(":")
+  const horas = Array.from({ length: 24 }, (_, indice) => String(indice).padStart(2, "0"))
+  const minutos = Array.from({ length: 60 }, (_, indice) => String(indice).padStart(2, "0"))
+
+  function cambiarHora(nuevaHora, nuevoMinuto) {
+    if (!nuevaHora && !nuevoMinuto) return onHora("")
+    onHora(`${nuevaHora || "00"}:${nuevoMinuto || "00"}`)
+  }
+
+  return <div style={fechaHoraCaja}>
+    <label style={labelStyle}>{label}</label>
+    <input type="date" value={fecha} onChange={(e) => onFecha(e.target.value)} style={input} required />
+    <div style={selectorHora}>
+      <span style={relojLabel}>Hora</span>
+      <select value={horaValor} onChange={(e) => cambiarHora(e.target.value, minutoValor)} style={selectHora} required>
+        <option value="">--</option>{horas.map((valor) => <option key={valor} value={valor}>{valor}</option>)}
+      </select>
+      <span style={dosPuntos}>:</span>
+      <select value={minutoValor} onChange={(e) => cambiarHora(horaValor, e.target.value)} style={selectHora} required>
+        <option value="">--</option>{minutos.map((valor) => <option key={valor} value={valor}>{valor}</option>)}
+      </select>
+      <span style={formato24}>24 h</span>
+    </div>
+  </div>
+}
+
+const textarea = {
+  ...input,
+  minHeight: "105px",
+  resize: "vertical",
+  fontFamily: "inherit"
+}
+
+const clienteLabel = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }
+const agregarClienteBtn = { padding: "6px 10px", border: 0, borderRadius: 8, color: "white", background: "#57b6ee", fontSize: 12, fontWeight: 700, cursor: "pointer" }
+const fechasFila = { gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 20 }
+const datosCantidad = { gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 20 }
+const fechaHoraCaja = { padding: 14, border: "1px solid #e5ddec", borderRadius: 12, background: "#fbf9fd" }
+const selectorHora = { display: "flex", alignItems: "center", gap: 7, marginTop: 10 }
+const relojLabel = { marginRight: 3, color: "#4b4058", fontSize: 13, fontWeight: 700 }
+const selectHora = { padding: "8px 9px", border: "1px solid #d1c6dc", borderRadius: 8, background: "white", color: "#33283d", fontWeight: 600 }
+const dosPuntos = { color: "#4e2581", fontWeight: 800 }
+const formato24 = { marginLeft: 3, color: "#776a82", fontSize: 12, fontWeight: 700 }

@@ -5,67 +5,80 @@ import { useNavigate } from "react-router-dom"
 
 export default function Login() {
   const navigate = useNavigate()
-
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
   async function handleLogin(e) {
     e.preventDefault()
     setError("")
-
+    setLoading(true)
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      await signInWithEmailAndPassword(auth, email.trim(), password)
       navigate("/")
     } catch {
-      setError("Error de login")
+      setError("El correo o la contraseña no son correctos.")
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div style={{
-      height: "100vh",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      background: "#1d4ed8"
-    }}>
-      <form onSubmit={handleLogin} style={{
-        background: "white",
-        padding: "40px",
-        borderRadius: "16px",
-        width: "350px"
-      }}>
+    <main className="login-page" style={pagina}>
+      <section className="login-welcome" style={bienvenida}>
+        <div style={marcaMini}><span style={burbuja}>F</span> FUN SPACE</div>
+        <div>
+          <span style={etiqueta}>GESTIÓN DEL SALÓN</span>
+          <h1 style={titulo}>Diversión asegurada,<br />gestión simplificada.</h1>
+          <p style={descripcion}>Organizá eventos, cobros, cuentas y equipos desde un solo lugar.</p>
+        </div>
+        <div style={formas} aria-hidden="true"><span>★</span><span>●</span><span>✦</span></div>
+      </section>
 
-        <h2>Login</h2>
+      <section style={zonaFormulario}>
+        <form onSubmit={handleLogin} style={tarjeta}>
+          <div className="login-mobile-logo" style={logoMovil}><span style={burbuja}>F</span> FUN SPACE</div>
+          <span style={bienvenido}>¡Hola de nuevo!</span>
+          <h2 style={tituloForm}>Iniciá sesión</h2>
+          <p style={ayuda}>Ingresá tus datos para administrar el salón.</p>
 
-        <input
-          type="email"
-          placeholder="Correo"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{ width: "100%", marginBottom: "10px" }}
-        />
+          <label style={label} htmlFor="email">Correo electrónico</label>
+          <input id="email" type="email" placeholder="nombre@correo.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
 
-        <input
-          type={showPassword ? "text" : "password"}
-          placeholder="Contraseña"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ width: "100%", marginBottom: "10px" }}
-        />
+          <label style={{ ...label, marginTop: 18 }} htmlFor="password">Contraseña</label>
+          <div style={passwordWrap}>
+            <input id="password" type={showPassword ? "text" : "password"} placeholder="Tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required style={{ paddingRight: 76 }} />
+            <button type="button" onClick={() => setShowPassword((value) => !value)} style={verClave}>{showPassword ? "Ocultar" : "Ver"}</button>
+          </div>
 
-        <button type="button" onClick={() => setShowPassword(!showPassword)}>
-          {showPassword ? "Ocultar" : "Ver"}
-        </button>
-
-        <button type="submit" style={{ width: "100%", marginTop: "10px" }}>
-          Entrar
-        </button>
-
-        {error && <p style={{ color: "red" }}>{error}</p>}
-      </form>
-    </div>
+          {error && <div role="alert" style={errorBox}>{error}</div>}
+          <button type="submit" disabled={loading} style={entrar}>{loading ? "Ingresando..." : "Ingresar"}</button>
+          <p style={pie}>Fun Space · Diversión Asegurada</p>
+        </form>
+      </section>
+    </main>
   )
 }
+
+const pagina = { minHeight: "100vh", display: "grid", gridTemplateColumns: "minmax(360px,1.08fr) minmax(380px,.92fr)", background: "#f7f5fb" }
+const bienvenida = { position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "clamp(35px,6vw,80px)", color: "white", background: "linear-gradient(145deg,#38145f 0%,#4e2581 58%,#67369d 100%)" }
+const marcaMini = { display: "flex", alignItems: "center", gap: 11, fontFamily: "Fredoka", fontSize: 22, fontWeight: 700, letterSpacing: ".04em" }
+const burbuja = { display: "inline-grid", placeItems: "center", width: 40, height: 40, borderRadius: 13, background: "#f4d00c", color: "#4e2581", boxShadow: "0 8px 20px rgba(0,0,0,.15)" }
+const etiqueta = { display: "inline-block", padding: "7px 12px", borderRadius: 999, background: "rgba(87,182,238,.2)", color: "#bfe8ff", fontSize: 12, fontWeight: 700, letterSpacing: ".12em" }
+const titulo = { margin: "22px 0 16px", fontSize: "clamp(42px,5.3vw,72px)", lineHeight: 1.02, letterSpacing: "-.025em" }
+const descripcion = { maxWidth: 560, margin: 0, color: "#e9dcf6", fontSize: 18, lineHeight: 1.7 }
+const formas = { display: "flex", gap: 22, alignItems: "center", color: "#f4d00c", fontSize: 28, opacity: .9 }
+const zonaFormulario = { display: "grid", placeItems: "center", padding: "32px" }
+const tarjeta = { width: "min(440px,100%)", padding: "clamp(28px,5vw,48px)", background: "white", border: "1px solid #eee7f4", borderRadius: 24, boxShadow: "0 24px 65px rgba(78,37,129,.13)" }
+const logoMovil = { display: "none", alignItems: "center", gap: 10, color: "#4e2581", fontFamily: "Fredoka", fontWeight: 700, marginBottom: 28 }
+const bienvenido = { color: "#57b6ee", fontWeight: 700 }
+const tituloForm = { margin: "7px 0", color: "#4e2581", fontSize: 36 }
+const ayuda = { margin: "0 0 28px", color: "#776d83", lineHeight: 1.6 }
+const label = { display: "block", marginBottom: 7, color: "#4b4058", fontSize: 14, fontWeight: 600 }
+const passwordWrap = { position: "relative" }
+const verClave = { position: "absolute", right: 8, top: 7, padding: "6px 9px", border: 0, background: "transparent", color: "#4e2581", fontWeight: 700, cursor: "pointer", boxShadow: "none" }
+const errorBox = { marginTop: 18, padding: 11, borderRadius: 10, background: "#fff1f2", color: "#be123c", fontSize: 13 }
+const entrar = { width: "100%", marginTop: 22, padding: 13, border: 0, borderRadius: 11, background: "linear-gradient(90deg,#4e2581,#63349a)", color: "white", fontWeight: 700, cursor: "pointer", boxShadow: "0 10px 22px rgba(78,37,129,.2)" }
+const pie = { margin: "24px 0 0", textAlign: "center", color: "#a096aa", fontSize: 12 }

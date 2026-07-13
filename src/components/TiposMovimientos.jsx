@@ -1,32 +1,40 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+
+const tiposIniciales = [
+  { id: 1, nombre: "Pago prestador", categoria: "Egreso", descripcion: "", activo: true },
+  { id: 2, nombre: "Pago proveedor", categoria: "Egreso", descripcion: "", activo: true },
+  { id: 3, nombre: "Cobro cliente", categoria: "Ingreso", descripcion: "", activo: true },
+  { id: 4, nombre: "Impuestos", categoria: "Egreso", descripcion: "", activo: true },
+  { id: 5, nombre: "Transferencia", categoria: "Transferencia", descripcion: "", activo: true },
+  { id: 6, nombre: "Arqueo", categoria: "Arqueo", descripcion: "", activo: true },
+  { id: 202, nombre: "Retiro Efectivo", categoria: "Retiros", descripcion: "", activo: true },
+  { id: 203, nombre: "Mantenimiento", categoria: "Egreso", descripcion: "Ferretería-Pinturería-otros", activo: true }
+]
+
+function cargarTiposMovimientos() {
+  try {
+    const guardados = JSON.parse(localStorage.getItem("tiposMovimientos"))
+    const limpiezaAnterior = localStorage.getItem("tiposMovimientosLimpieza20260712") === "completada"
+    const tipos = limpiezaAnterior && Array.isArray(guardados) && guardados.length === 0
+      ? tiposIniciales
+      : Array.isArray(guardados) ? guardados : tiposIniciales
+
+    localStorage.removeItem("tiposMovimientosLimpieza20260712")
+    localStorage.setItem("tiposMovimientos", JSON.stringify(tipos))
+    return tipos
+  } catch {
+    localStorage.removeItem("tiposMovimientosLimpieza20260712")
+    localStorage.setItem("tiposMovimientos", JSON.stringify(tiposIniciales))
+    return tiposIniciales
+  }
+}
 
 export default function TiposMovimientos() {
 
   const navigate = useNavigate()
 
-  const [tipos, setTipos] = useState([])
-
-  useEffect(() => {
-    const guardados =
-      JSON.parse(localStorage.getItem("tiposMovimientos")) || [
-        { id: 1, nombre: "Pago prestador", categoria: "Egreso", descripcion: "", activo: true },
-        { id: 2, nombre: "Pago proveedor", categoria: "Egreso", descripcion: "", activo: true },
-        { id: 3, nombre: "Cobro cliente", categoria: "Ingreso", descripcion: "", activo: true },
-        { id: 4, nombre: "Impuestos", categoria: "Egreso", descripcion: "", activo: true },
-        { id: 5, nombre: "Transferencia", categoria: "Transferencia", descripcion: "", activo: true },
-        { id: 6, nombre: "Arqueo", categoria: "Arqueo", descripcion: "", activo: true },
-        { id: 202, nombre: "Retiro Efectivo", categoria: "Retiros", descripcion: "", activo: true },
-        { id: 203, nombre: "Mantenimiento", categoria: "Egreso", descripcion: "Ferretería-Pinturería-otros", activo: true }
-      ]
-
-    setTipos(guardados)
-
-    localStorage.setItem(
-      "tiposMovimientos",
-      JSON.stringify(guardados)
-    )
-  }, [])
+  const [tipos, setTipos] = useState(cargarTiposMovimientos)
 
   function cambiarEstado(id) {
     const nuevos = tipos.map((tipo) => {
@@ -48,12 +56,20 @@ export default function TiposMovimientos() {
     )
   }
 
+  function borrarTipo(id) {
+    if (!window.confirm("¿Seguro que querés borrar este tipo de movimiento?")) return
+
+    const nuevos = tipos.filter((tipo) => tipo.id !== id)
+    setTipos(nuevos)
+    localStorage.setItem("tiposMovimientos", JSON.stringify(nuevos))
+  }
+
   return (
     <div style={{ maxWidth: "1250px", margin: "0 auto" }}>
 
       <div
         style={{
-          background: "#2563eb",
+          background: "#4e2581",
           color: "white",
           padding: "16px 20px",
           borderRadius: "10px 10px 0 0",
@@ -72,7 +88,7 @@ export default function TiposMovimientos() {
           }
           style={{
             background: "white",
-            color: "#2563eb",
+            color: "#4e2581",
             border: "none",
             padding: "10px 18px",
             borderRadius: "20px",
@@ -110,9 +126,8 @@ export default function TiposMovimientos() {
                 <td style={td}>{tipo.descripcion}</td>
 
                 <td style={td}>
-                  {tipo.id >= 200 && (
-                    <div style={{ display: "flex", gap: "10px" }}>
-                      <button style={botonAzul}>
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                      <button onClick={() => navigate(`/tipo-movimiento/${tipo.id}/editar`)} style={botonAzul}>
                         Editar
                       </button>
 
@@ -128,8 +143,14 @@ export default function TiposMovimientos() {
                           ? "Deshabilitar"
                           : "Habilitar"}
                       </button>
+
+                      <button
+                        onClick={() => borrarTipo(tipo.id)}
+                        style={botonBorrar}
+                      >
+                        Borrar
+                      </button>
                     </div>
-                  )}
                 </td>
               </tr>
             ))}
@@ -143,7 +164,7 @@ export default function TiposMovimientos() {
           textAlign: "center",
           padding: "20px",
           borderRadius: "0 0 10px 10px",
-          color: "#60a5fa"
+          color: "#bfe8ff"
         }}
       >
         « Anterior &nbsp;&nbsp; Siguiente »
@@ -166,7 +187,7 @@ const td = {
 }
 
 const botonAzul = {
-  background: "#0ea5e9",
+  background: "#57b6ee",
   color: "white",
   border: "none",
   padding: "10px 16px",
@@ -185,6 +206,15 @@ const botonRojo = {
 
 const botonVerde = {
   background: "#22c55e",
+  color: "white",
+  border: "none",
+  padding: "10px 16px",
+  borderRadius: "6px",
+  cursor: "pointer"
+}
+
+const botonBorrar = {
+  background: "#991b1b",
   color: "white",
   border: "none",
   padding: "10px 16px",

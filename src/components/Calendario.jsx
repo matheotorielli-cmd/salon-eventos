@@ -20,6 +20,13 @@ export default function Calendario() {
 
   const [eventos, setEventos] =
     useState([])
+  const [esMovil, setEsMovil] = useState(() => window.innerWidth <= 760)
+
+  useEffect(() => {
+    const actualizar = () => setEsMovil(window.innerWidth <= 760)
+    window.addEventListener("resize", actualizar)
+    return () => window.removeEventListener("resize", actualizar)
+  }, [])
 
   useEffect(() => {
 
@@ -35,25 +42,12 @@ export default function Calendario() {
   id: doc.id
 }
 
-            let color = "#3b82f6"
-
-            if (ev.estado === "Pagado") {
-              color = "#84cc16"
-            }
-
-            if (ev.estado === "Confirmado") {
-              color = "#2563eb"
-            }
-
-            if (
-              ev.estado === "Presupuestado"
-            ) {
-              color = "#facc15"
-            }
-
-            if (ev.estado === "Cancelado") {
-              color = "#ef4444"
-            }
+            const total = Number(ev.total || 0)
+            const cobrado = Number(ev.totalCobrado ?? ev.sena ?? 0)
+            const porcentajePagado = total > 0 ? Math.round((cobrado / total) * 100) : 0
+            const cancelado = String(ev.estado || "").toLowerCase() === "cancelado"
+            const color = cancelado ? COLORES_PAGO.cancelado : (COLORES_PAGO[porcentajePagado] || COLORES_PAGO[0])
+            const colorTexto = porcentajePagado === 50 && !cancelado ? "#443900" : "#ffffff"
 
             const horaInicio =
               ev.hora || "12:00"
@@ -66,7 +60,7 @@ export default function Calendario() {
               ...ev,
 
               title:
-                ev.cliente || "Evento",
+                ev.nombreEvento || ev.title || ev.cliente || "Evento",
 
               start:
                 ev.start ||
@@ -78,7 +72,8 @@ export default function Calendario() {
 
               backgroundColor: color,
               borderColor: color,
-              textColor: "#ffffff"
+              textColor: colorTexto,
+              porcentajePagado
             }
 
           })
@@ -99,18 +94,41 @@ export default function Calendario() {
 
   }
 
+  function aplicarColorEvento(info) {
+    const color = info.event.backgroundColor
+    const colorTexto = info.event.textColor || "#ffffff"
+    info.el.style.setProperty("background-color", color, "important")
+    info.el.style.setProperty("border-color", color, "important")
+    info.el.style.setProperty("color", colorTexto, "important")
+    info.el.style.setProperty("--fc-event-bg-color", color)
+    info.el.style.setProperty("--fc-event-border-color", color)
+    info.el.style.setProperty("--fc-event-text-color", colorTexto)
+
+    const interior = info.el.querySelector(".fc-event-main")
+    if (interior) {
+      interior.style.setProperty("background-color", color, "important")
+      interior.style.setProperty("color", colorTexto, "important")
+      interior.style.setProperty("border-radius", "8px", "important")
+    }
+  }
+
   return (
 
     <div
+      className="calendar-page"
+      translate="no"
       style={{
+        maxWidth: "1250px",
+        margin: "0 auto",
         background: "white",
-        padding: "20px",
-        borderRadius: "14px",
+        padding: "24px",
+        borderRadius: "18px",
         height: "calc(100vh - 120px)",
         display: "flex",
         flexDirection: "column",
         boxShadow:
-          "0 2px 10px rgba(0,0,0,0.05)"
+          "0 12px 32px rgba(78,37,129,.10)",
+        border: "1px solid #e8e1ee"
       }}
     >
 
@@ -118,17 +136,17 @@ export default function Calendario() {
 
         .fc {
           height: 100%;
-          font-family: Arial;
+          font-family: "Poppins", sans-serif;
         }
 
         .fc-toolbar-title {
           font-size: 28px !important;
           font-weight: 700;
-          color: #374151;
+          color: #4e2581;
         }
 
         .fc-button {
-          background: #2563eb !important;
+          background: #4e2581 !important;
           border: none !important;
           padding: 8px 14px !important;
           font-weight: 600 !important;
@@ -136,7 +154,7 @@ export default function Calendario() {
         }
 
         .fc-button:hover {
-          background: #1d4ed8 !important;
+          background: #38145f !important;
         }
 
         .fc-event {
@@ -158,7 +176,7 @@ export default function Calendario() {
 
         .fc-day-today {
           background:
-            rgba(37,99,235,0.06)
+            rgba(78,37,129,0.06)
             !important;
         }
 
@@ -168,7 +186,7 @@ export default function Calendario() {
         style={{
           marginTop: 0,
           marginBottom: "35px",
-          color: "#1e3a8a",
+          color: "#4e2581",
           fontSize: "36px",
           fontWeight: "700",
           textAlign: "center",
@@ -178,9 +196,10 @@ export default function Calendario() {
         Calendario
       </h1>
 
-      <div style={{ flex: 1 }}>
+      <div className="calendar-wrapper" style={{ flex: 1 }}>
 
         <FullCalendar
+          key={esMovil ? "movil" : "escritorio"}
 
           plugins={[
             dayGridPlugin,
@@ -193,14 +212,18 @@ export default function Calendario() {
           locales={[esLocale]}
           locale="es"
 
-          initialView="timeGridWeek"
+          initialView={esMovil ? "dayGridMonth" : "timeGridWeek"}
 
-          height="100%"
+          height={esMovil ? "auto" : "100%"}
 
           slotMinTime="09:00:00"
           slotMaxTime="23:00:00"
 
           allDaySlot={false}
+
+          fixedWeekCount={false}
+
+          dayHeaderFormat={esMovil ? { weekday: "narrow" } : undefined}
 
           nowIndicator={true}
 
@@ -208,9 +231,15 @@ export default function Calendario() {
 
           eventClick={abrirEvento}
 
+          eventDidMount={aplicarColorEvento}
+
           events={eventos}
 
-          headerToolbar={{
+          headerToolbar={esMovil ? {
+            left: "prev,next",
+            center: "title",
+            right: "today,multiMonthYear,dayGridMonth,timeGridWeek,timeGridDay,listWeek"
+          } : {
             left:
               "prev,next today",
 
@@ -247,6 +276,7 @@ export default function Calendario() {
       </div>
 
       <div
+        className="calendar-legend"
         style={{
           display: "flex",
           gap: "18px",
@@ -256,25 +286,12 @@ export default function Calendario() {
         }}
       >
 
-        <Leyenda
-          color="#84cc16"
-          texto="Pagado"
-        />
-
-        <Leyenda
-          color="#2563eb"
-          texto="Confirmado"
-        />
-
-        <Leyenda
-          color="#facc15"
-          texto="Presupuestado"
-        />
-
-        <Leyenda
-          color="#ef4444"
-          texto="Cancelado"
-        />
+        <Leyenda color={COLORES_PAGO[0]} texto="0% · Sin pago" />
+        <Leyenda color={COLORES_PAGO[25]} texto="25% · Seña" />
+        <Leyenda color={COLORES_PAGO[50]} texto="50% · Mitad pagada" />
+        <Leyenda color={COLORES_PAGO[75]} texto="75% · Pago avanzado" />
+        <Leyenda color={COLORES_PAGO[100]} texto="100% · Pagado" />
+        <Leyenda color={COLORES_PAGO.cancelado} texto="Cancelado" />
 
       </div>
 
@@ -310,4 +327,13 @@ function Leyenda({
 
     </div>
   )
+}
+
+const COLORES_PAGO = {
+  0: "#6b7280",
+  25: "#f97316",
+  50: "#f4d00c",
+  75: "#57b6ee",
+  100: "#22c55e",
+  cancelado: "#dc2626"
 }

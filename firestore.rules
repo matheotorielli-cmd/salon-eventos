@@ -1,0 +1,223 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath() {
+      return /databases/$(database)/documents/usuarios/$(request.auth.uid);
+    }
+
+    function userData() {
+      return get(userPath()).data;
+    }
+
+    function activeUser() {
+      return signedIn()
+        && exists(userPath())
+        && (!('activo' in userData()) || userData().activo == true);
+    }
+
+    function admin() {
+      return signedIn() && (
+        request.auth.token.email == 'nahuel@hui.com'
+        || (activeUser() && userData().rol == 'admin')
+      );
+    }
+
+    function hasPermission(permission) {
+      return activeUser() && (
+        admin()
+        || ('permisos' in userData()
+          && permission in userData().permisos
+          && userData().permisos[permission] == true)
+      );
+    }
+
+    function validAuditOnCreate() {
+      return request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.creadoEn == request.time
+        && request.resource.data.actualizadoEn == request.time;
+    }
+
+    function validAuditOnUpdate() {
+      return request.resource.data.creadoPor == resource.data.creadoPor
+        && request.resource.data.creadoEn == resource.data.creadoEn
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time;
+    }
+
+    function validFinancialAccountUpdate(accountId) {
+      let movement = getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.ultimaOperacionId)).data;
+      let amount = movement.monto;
+      return ((movement.origen == 'manual' && hasPermission('movimientosCrear'))
+          || (movement.origen == 'cobro' && hasPermission('cobrosRegistrar')))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'saldoActual', 'ultimaOperacionId', 'actualizadoPor', 'actualizadoEn'
+        ])
+        && request.resource.data.saldoActual is number
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time
+        && movement.creadoPor == request.auth.uid
+        && movement.anulado == false
+        && amount is number && amount > 0
+        && (
+          (movement.categoria == 'ingreso' && movement.cuentaId == accountId && request.resource.data.saldoActual == resource.data.saldoActual + amount)
+          || (movement.categoria == 'egreso' && movement.cuentaId == accountId && request.resource.data.saldoActual == resource.data.saldoActual - amount)
+          || (movement.categoria == 'transferencia' && movement.cuentaOrigenId == accountId && request.resource.data.saldoActual == resource.data.saldoActual - amount)
+          || (movement.categoria == 'transferencia' && movement.cuentaDestinoId == accountId && request.resource.data.saldoActual == resource.data.saldoActual + amount)
+        );
+    }
+
+    match /usuarios/{uid} {
+      allow get: if (activeUser() && request.auth.uid == uid) || admin();
+      allow list, create, update, delete: if admin();
+    }
+
+    match /eventos/{eventoId} {
+      allow read: if hasPermission('eventosVer');
+      allow create: if hasPermission('eventosCrear');
+      allow update: if hasPermission('eventosEditar') || (
+        hasPermission('cobrosRegistrar')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'sena', 'totalCobrado', 'saldo', 'estado', 'ultimoCobroId', 'actualizadoPor', 'actualizadoEn'
+        ])
+        && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.eventoId == eventoId
+        && request.resource.data.saldo == resource.data.saldo - getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.monto
+        && request.resource.data.sena == request.resource.data.totalCobrado
+        && request.resource.data.totalCobrado is number
+        && request.resource.data.totalCobrado >= getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.monto
+        && request.resource.data.saldo >= 0
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time
+      );
+      allow delete: if hasPermission('eventosEliminar');
+    }
+
+    match /clientes/{clienteId} {
+      allow read: if hasPermission('eventosVer') || hasPermission('eventosCrear') || hasPermission('configuracionAdministrar');
+      allow create: if (hasPermission('eventosCrear') || hasPermission('configuracionAdministrar'))
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.telefono is string
+        && request.resource.data.telefono.size() > 0
+        && request.resource.data.activo == true
+        && validAuditOnCreate();
+      allow update: if (hasPermission('eventosCrear') || hasPermission('configuracionAdministrar'))
+        && request.resource.data.telefono is string
+        && request.resource.data.telefono.size() > 0
+        && validAuditOnUpdate();
+      allow delete: if false;
+    }
+
+    match /escuelas/{escuelaId} {
+      allow read: if hasPermission('eventosVer') || hasPermission('eventosCrear') || hasPermission('configuracionAdministrar');
+      allow create: if hasPermission('configuracionAdministrar')
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.activa == true
+        && validAuditOnCreate();
+      allow update: if hasPermission('configuracionAdministrar')
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && validAuditOnUpdate();
+      allow delete: if admin();
+    }
+
+    match /cuentas/{cuentaId} {
+      allow read: if hasPermission('cuentasVer');
+
+      allow create: if hasPermission('cuentasCrear')
+        && request.resource.data.keys().hasOnly([
+          'nombre', 'descripcion', 'moneda', 'saldoInicial', 'saldoActual',
+          'activa', 'creadoPor', 'actualizadoPor', 'creadoEn', 'actualizadoEn'
+        ])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.descripcion is string
+        && request.resource.data.moneda == 'ARS'
+        && request.resource.data.saldoInicial is number
+        && request.resource.data.saldoInicial >= 0
+        && request.resource.data.saldoActual == request.resource.data.saldoInicial
+        && request.resource.data.activa == true
+        && validAuditOnCreate();
+
+      // Por ahora la unica edicion directa es habilitar o deshabilitar una cuenta.
+      // Los cambios de saldo se habilitaran junto con la transaccion de cobros.
+      allow update: if (
+        hasPermission('cuentasAdministrar')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activa', 'actualizadoPor', 'actualizadoEn'])
+          && request.resource.data.activa is bool
+          && validAuditOnUpdate()
+        ) || validFinancialAccountUpdate(cuentaId);
+
+      allow delete: if false;
+    }
+
+    // Estas escrituras se habilitaran junto con las operaciones transaccionales.
+    match /cobros/{cobroId} {
+      allow read: if hasPermission('eventosVer') || hasPermission('cobrosRegistrar') || hasPermission('cobrosAnular');
+      allow create: if hasPermission('cobrosRegistrar')
+        && request.resource.data.eventoId is string
+        && request.resource.data.cuentaId is string
+        && request.resource.data.movimientoId is string
+        && request.resource.data.monto is number
+        && request.resource.data.monto > 0
+        && request.resource.data.moneda == 'ARS'
+        && request.resource.data.fecha is timestamp
+        && request.resource.data.anulado == false
+        && request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.creadoEn == request.time
+        && getAfter(/databases/$(database)/documents/eventos/$(request.resource.data.eventoId)).data.ultimoCobroId == cobroId
+        && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaId)).data.ultimaOperacionId == request.resource.data.movimientoId
+        && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoId)).data.referenciaId == cobroId;
+      allow update, delete: if false;
+    }
+
+    match /movimientos/{movimientoId} {
+      allow read: if hasPermission('movimientosVer');
+      allow create: if ((request.resource.data.origen == 'manual' && hasPermission('movimientosCrear'))
+          || (request.resource.data.origen == 'cobro' && hasPermission('cobrosRegistrar')))
+        && request.resource.data.keys().hasAll([
+          'categoria', 'tipoMovimientoNombre', 'monto', 'moneda', 'fecha',
+          'origen', 'anulado', 'creadoPor', 'creadoEn'
+        ])
+        && request.resource.data.categoria in ['ingreso', 'egreso', 'transferencia']
+        && request.resource.data.monto is number
+        && request.resource.data.monto > 0
+        && request.resource.data.moneda == 'ARS'
+        && request.resource.data.fecha is timestamp
+        && request.resource.data.origen in ['manual', 'cobro']
+        && request.resource.data.anulado == false
+        && request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.creadoEn == request.time
+        && (
+          (request.resource.data.categoria in ['ingreso', 'egreso']
+            && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaId)).data.ultimaOperacionId == movimientoId)
+          || (request.resource.data.categoria == 'transferencia'
+            && request.resource.data.cuentaOrigenId != request.resource.data.cuentaDestinoId
+            && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaOrigenId)).data.ultimaOperacionId == movimientoId
+            && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaDestinoId)).data.ultimaOperacionId == movimientoId)
+        );
+      allow update, delete: if false;
+    }
+
+    match /{collectionName}/{documentId} {
+      allow read, create, update: if hasPermission('configuracionAdministrar') && collectionName in [
+        'tiposEventos', 'tiposMovimientos', 'prestadores',
+        'configuraciones'
+      ];
+      allow delete: if admin() && collectionName in [
+        'tiposEventos', 'tiposMovimientos', 'prestadores',
+        'configuraciones'
+      ];
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

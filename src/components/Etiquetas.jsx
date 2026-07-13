@@ -1,23 +1,13 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 export default function Etiquetas() {
 
   const [escuela, setEscuela] =
     useState("")
 
-  const [escuelas, setEscuelas] =
-    useState([])
-
-  useEffect(() => {
-
-    const guardadas =
-      JSON.parse(
-        localStorage.getItem("escuelas")
-      ) || []
-
-    setEscuelas(guardadas)
-
-  }, [])
+  const [escuelas, setEscuelas] = useState(() =>
+    JSON.parse(localStorage.getItem("escuelas")) || []
+  )
 
   function agregarEscuela() {
 
@@ -68,7 +58,7 @@ export default function Etiquetas() {
       <h1
         style={{
           marginBottom: "25px",
-          color: "#1e3a8a"
+          color: "#4e2581"
         }}
       >
         Etiquetas
@@ -117,7 +107,7 @@ export default function Etiquetas() {
           <button
             onClick={agregarEscuela}
             style={{
-              background: "#2563eb",
+            background: "#4e2581",
               color: "white",
               border: "none",
               padding: "12px 20px",
