@@ -24,14 +24,14 @@
 - Rutas principales del servidor local: responden HTTP 200.
 - Reglas de Firestore: compilación aprobada mediante `firebase deploy --dry-run`.
 - Después de desplegar las reglas nuevas, el usuario probó nuevamente la anulación de un cobro y confirmó que funciona correctamente.
+- El usuario completó una prueba real del circuito financiero: registró un cobro parcial, confirmó su aparición en el evento y en la cuenta, completó el saldo y verificó que el evento quedara pagado correctamente.
 
 ### Pendiente para la próxima sesión
 
 - Revisar visualmente con una sesión autenticada las pantallas modificadas en computadora y celular.
 - Revisar visualmente el resto de las pantallas modificadas en computadora y celular.
-- Confirmar con otra prueba completa: crear evento, registrar cobro parcial y completar el pago.
-- Confirmar en Firestore que evento, cuenta, cobro y ambos movimientos coincidan.
-- Las reglas nuevas de Firestore se desplegaron el 13 de julio de 2026 y la anulación quedó verificada. Hosting todavía no fue desplegado.
+- Continuar con la revisión visual general en computadora y celular sobre la versión publicada.
+- Las reglas nuevas de Firestore y Firebase Hosting se desplegaron el 13 de julio de 2026. La anulación y el circuito de cobro parcial/completo quedaron verificados.
 
 ## Cierre del 12 de julio de 2026 - segunda sesión
 
