@@ -1,240 +1,80 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate
-} from "react-router-dom"
-
-import {
-  useEffect,
-  useState
-} from "react"
-
+import { lazy, Suspense, useEffect, useState } from "react"
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
+import { auth } from "./firebase"
+import { useUserRole } from "./hooks/useUserRole"
 import Navbar from "./components/Navbar"
 
-import Calendario from "./components/Calendario"
-import Eventos from "./components/MisEventos"
-import NuevoEvento from "./components/NuevoEvento"
-import EventoDetalle from "./components/EventoDetalle"
-import RegistrarCobro from "./components/RegistrarCobro"
-import NuevoTipoMovimiento from "./components/NuevoTipoMovimiento"
+const Calendario = lazy(() => import("./components/Calendario"))
+const Eventos = lazy(() => import("./components/MisEventos"))
+const NuevoEvento = lazy(() => import("./components/NuevoEvento"))
+const EventoDetalle = lazy(() => import("./components/EventoDetalle"))
+const RegistrarCobro = lazy(() => import("./components/RegistrarCobro"))
+const NuevoTipoMovimiento = lazy(() => import("./components/NuevoTipoMovimiento"))
+const Login = lazy(() => import("./components/Login"))
+const Prestadores = lazy(() => import("./components/Prestadores"))
+const TiposEventos = lazy(() => import("./components/TiposEventos"))
+const Escuelas = lazy(() => import("./components/Escuelas"))
+const Cuentas = lazy(() => import("./components/Cuentas"))
+const CuentaDetalle = lazy(() => import("./components/CuentaDetalle"))
+const NuevaCuenta = lazy(() => import("./components/NuevaCuenta"))
+const NuevoMovimiento = lazy(() => import("./components/NuevoMovimiento"))
+const TiposMovimientos = lazy(() => import("./components/TiposMovimientos"))
+const MisMovimientos = lazy(() => import("./components/MisMovimientos"))
+const UsuariosPermisos = lazy(() => import("./components/UsuariosPermisos"))
+const Usuarios = lazy(() => import("./components/Usuarios"))
+const Clientes = lazy(() => import("./components/Clientes"))
+const ClienteDetalle = lazy(() => import("./components/ClienteDetalle"))
 
-import Login from "./components/Login"
-import Prestadores from "./components/Prestadores"
-import TiposEventos from "./components/TiposEventos"
-import Escuelas from "./components/Escuelas"
-import Cuentas from "./components/Cuentas"
-import CuentaDetalle from "./components/CuentaDetalle"
-import NuevaCuenta from "./components/NuevaCuenta"
-import NuevoMovimiento from "./components/NuevoMovimiento"
-import TiposMovimientos from "./components/TiposMovimientos"
-import MisMovimientos from "./components/MisMovimientos"
-import UsuariosPermisos from "./components/UsuariosPermisos"
-import Usuarios from "./components/Usuarios"
-import Clientes from "./components/Clientes"
-import ClienteDetalle from "./components/ClienteDetalle"
-
-import { auth } from "./firebase"
-
-function RutaPrivada({
-  children,
-  user
-}) {
-
-  if (user === undefined) {
-
-    return (
-      <div style={{ padding: 30 }}>
-        Cargando...
-      </div>
-    )
-
-  }
-
-  return user
-    ? children
-    : <Navigate to="/login" />
+function RutaPrivada({ children, user }) {
+  if (user === undefined) return <div style={{ padding: 30 }}>Cargando...</div>
+  return user ? children : <Navigate to="/login" replace />
 }
 
 function Layout() {
+  const { hasPermission, loading } = useUserRole(auth.currentUser)
+  const permitir = (permiso, contenido) => loading
+    ? <div style={{ padding: 30 }}>Cargando permisos...</div>
+    : hasPermission(permiso) ? contenido : <div style={{ padding: 30, color: "#776d83" }}>No tenés permiso para acceder a esta sección.</div>
 
-  return (
-
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "transparent"
-      }}
-    >
-
-      <Navbar />
-
-      <div
-        style={{
-          padding: "15px",
-          paddingTop: "80px",
-          width: "100%",
-          maxWidth: "1400px",
-          margin: "0 auto",
-          boxSizing: "border-box"
-        }}
-      >
-
-        <Routes>
-
-          <Route
-            path="/"
-            element={<Calendario />}
-          />
-
-          <Route
-            path="/eventos"
-            element={<Eventos />}
-          />
-
-          <Route
-            path="/nuevo"
-            element={<NuevoEvento />}
-          />
-
-          <Route
-            path="/evento/:id"
-            element={<EventoDetalle />}
-          />
-
-          <Route
-            path="/evento/:id/editar"
-            element={<NuevoEvento />}
-          />
-
-          <Route
-            path="/evento/:id/cobro"
-            element={<RegistrarCobro />}
-          />
-
-          <Route
-            path="/prestadores"
-            element={<Prestadores />}
-          />
-
-          <Route
-            path="/tipos-eventos"
-            element={<TiposEventos />}
-          />
-
-          <Route
-            path="/tipos-movimientos"
-            element={<TiposMovimientos />}
-          />
-
-          <Route
-            path="/nuevo-tipo-movimiento"
-            element={<NuevoTipoMovimiento />}
-          />
-
-          <Route
-            path="/tipo-movimiento/:id/editar"
-            element={<NuevoTipoMovimiento />}
-          />
-
-          <Route
-            path="/escuelas"
-            element={<Escuelas />}
-          />
-
-          <Route
-            path="/cuentas"
-            element={<Cuentas />}
-          />
-
-          <Route
-            path="/cuentas/:id"
-            element={<CuentaDetalle />}
-          />
-
-          <Route
-            path="/nueva-cuenta"
-            element={<NuevaCuenta />}
-          />
-
-          <Route
-            path="/nuevo-movimiento"
-            element={<NuevoMovimiento />}
-          />
-
-          <Route
-            path="/movimientos"
-            element={<MisMovimientos />}
-          />
-
-          <Route
-            path="/usuarios-permisos"
-            element={<UsuariosPermisos />}
-          />
-
-          <Route
-            path="/usuarios"
-            element={<Usuarios />}
-          />
-
-          <Route
-            path="/clientes"
-            element={<Clientes />}
-          />
-
-          <Route
-            path="/clientes/:id"
-            element={<ClienteDetalle />}
-          />
-
-        </Routes>
-
-      </div>
-
-    </div>
-  )
+  return <div style={{ minHeight: "100vh", background: "transparent" }}>
+    <Navbar />
+    <main style={{ padding: 15, paddingTop: 80, width: "100%", maxWidth: 1400, margin: "0 auto", boxSizing: "border-box" }}>
+      <Suspense fallback={<div style={{ padding: 30 }}>Cargando sección...</div>}><Routes>
+        <Route path="/" element={permitir("eventosVer", <Calendario />)} />
+        <Route path="/eventos" element={permitir("eventosVer", <Eventos />)} />
+        <Route path="/nuevo" element={permitir("eventosCrear", <NuevoEvento />)} />
+        <Route path="/evento/:id" element={permitir("eventosVer", <EventoDetalle />)} />
+        <Route path="/evento/:id/editar" element={permitir("eventosEditar", <NuevoEvento />)} />
+        <Route path="/evento/:id/cobro" element={permitir("cobrosRegistrar", <RegistrarCobro />)} />
+        <Route path="/prestadores" element={permitir("configuracionAdministrar", <Prestadores />)} />
+        <Route path="/tipos-eventos" element={permitir("configuracionAdministrar", <TiposEventos />)} />
+        <Route path="/tipos-movimientos" element={permitir("configuracionAdministrar", <TiposMovimientos />)} />
+        <Route path="/nuevo-tipo-movimiento" element={permitir("configuracionAdministrar", <NuevoTipoMovimiento />)} />
+        <Route path="/tipo-movimiento/:id/editar" element={permitir("configuracionAdministrar", <NuevoTipoMovimiento />)} />
+        <Route path="/escuelas" element={permitir("configuracionAdministrar", <Escuelas />)} />
+        <Route path="/cuentas" element={permitir("cuentasVer", <Cuentas />)} />
+        <Route path="/cuentas/:id" element={permitir("cuentasVer", <CuentaDetalle />)} />
+        <Route path="/nueva-cuenta" element={permitir("cuentasCrear", <NuevaCuenta />)} />
+        <Route path="/nuevo-movimiento" element={permitir("movimientosCrear", <NuevoMovimiento />)} />
+        <Route path="/movimientos" element={permitir("movimientosVer", <MisMovimientos />)} />
+        <Route path="/usuarios-permisos" element={permitir("usuariosAdministrar", <UsuariosPermisos />)} />
+        <Route path="/usuarios" element={permitir("usuariosAdministrar", <Usuarios />)} />
+        <Route path="/clientes" element={permitir("eventosVer", <Clientes />)} />
+        <Route path="/clientes/:id" element={permitir("eventosVer", <ClienteDetalle />)} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes></Suspense>
+    </main>
+  </div>
 }
 
 export default function App() {
+  const [user, setUser] = useState(undefined)
+  useEffect(() => auth.onAuthStateChanged(setUser), [])
 
-  const [user, setUser] =
-    useState(undefined)
-
-  useEffect(() => {
-
-    const unsub =
-      auth.onAuthStateChanged(
-        (u) => {
-          setUser(u)
-        }
-      )
-
-    return () => unsub()
-
-  }, [])
-
-  return (
-
-    <BrowserRouter>
-
-      <Routes>
-
-        <Route
-          path="/login"
-          element={<Login />}
-        />
-
-        <Route
-          path="/*"
-          element={
-            <RutaPrivada user={user}>
-              <Layout />
-            </RutaPrivada>
-          }
-        />
-
-      </Routes>
-
-    </BrowserRouter>
-  )
+  return <BrowserRouter>
+    <Suspense fallback={<div style={{ padding: 30 }}>Cargando...</div>}><Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/*" element={<RutaPrivada user={user}><Layout /></RutaPrivada>} />
+    </Routes></Suspense>
+  </BrowserRouter>
 }

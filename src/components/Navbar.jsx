@@ -15,7 +15,7 @@ export default function Navbar() {
   const [openSection, setOpenSection] = useState(["usuarios", "configuracion"])
 
   const user = auth.currentUser
-  const { role } = useUserRole(user)
+  const { role, hasPermission } = useUserRole(user)
   const menuRef = useRef()
 
   async function cerrarSesion() {
@@ -479,6 +479,7 @@ export default function Navbar() {
       {openConfig && (
         <ConfigPanel
           role={role}
+          puedeConfigurar={hasPermission("configuracionAdministrar")}
           navigate={navigate}
           onClose={() => setOpenConfig(false)}
           openSections={openSection}
@@ -768,7 +769,7 @@ export default function Navbar() {
   )
 }
 
-function ConfigPanel({ role, navigate, onClose, openSections, onToggle }) {
+function ConfigPanel({ role, puedeConfigurar, navigate, onClose, openSections, onToggle }) {
   function abrir(ruta) {
     navigate(ruta)
     onClose()
@@ -783,7 +784,7 @@ function ConfigPanel({ role, navigate, onClose, openSections, onToggle }) {
         </div>
 
         <MenuItem icon="♟" label="Clientes" onClick={() => abrir("/clientes")} />
-        <MenuItem icon="♞" label="Prestadores" onClick={() => abrir("/prestadores")} />
+        {puedeConfigurar && <MenuItem icon="♞" label="Prestadores" onClick={() => abrir("/prestadores")} />}
         <MenuItem icon="▰" label="Proveedores" />
         <MenuItem icon="♨" label="Servicios" />
         <MenuItem icon="▦" label="Agenda" expandable open={openSections.includes("agenda")} onClick={() => onToggle("agenda")} />
@@ -803,8 +804,8 @@ function ConfigPanel({ role, navigate, onClose, openSections, onToggle }) {
           </>
         )}
 
-        <MenuItem icon="▥" label="Configuración" expandable open={openSections.includes("configuracion")} onClick={() => onToggle("configuracion")} />
-        {openSections.includes("configuracion") && (
+        {puedeConfigurar && <MenuItem icon="▥" label="Configuración" expandable open={openSections.includes("configuracion")} onClick={() => onToggle("configuracion")} />}
+        {puedeConfigurar && openSections.includes("configuracion") && (
           <div style={subGrupo}>
             <SubItem icon="⚑" label="Perfil Organización" />
             <SubItem label="Perfil Organización (nuevo)" badge="BETA" />

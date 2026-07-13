@@ -1,5 +1,38 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Avance del 13 de julio de 2026
+
+- Se migraron `tiposEventos`, `tiposMovimientos` y `prestadores` para que Firestore sea su fuente de verdad.
+- Se agregó una importación automática y de una sola vez desde los datos anteriores de `localStorage` cuando la colección de Firestore está vacía. Después de importar, la copia local se elimina.
+- Nuevo evento y nuevo movimiento ahora consumen esas configuraciones desde Firestore en tiempo real.
+- La validación de eventos repetidos por cliente y fecha ahora consulta Firestore.
+- Se eliminó el ingreso directo de señas desde el formulario de eventos. Todo dinero nuevo debe registrarse mediante el flujo transaccional de cobros y una cuenta receptora.
+- Se implementó la anulación de cobros únicamente para administradores:
+  1. exige motivo y confirmación;
+  2. marca el cobro y su movimiento original como anulados;
+  3. crea un movimiento inverso;
+  4. revierte el saldo de la cuenta;
+  5. actualiza cobrado, saldo y estado del evento;
+  6. conserva usuario, fecha y trazabilidad.
+- Los historiales del evento, movimientos y detalle de cuenta identifican registros anulados.
+- Se reforzaron permisos tanto en rutas como en botones y reglas de Firestore.
+- Las configuraciones administrativas dejaron de mostrarse a usuarios sin permiso.
+- Se agregó carga diferida de rutas y separación de paquetes. El bundle único de aproximadamente 994 KB se dividió en archivos menores; ya no aparece la advertencia de chunks mayores a 500 KB.
+- Se reemplazó el README genérico de Vite por documentación del proyecto.
+- `npm run lint`: aprobado.
+- `npm run build`: aprobado.
+- Rutas principales del servidor local: responden HTTP 200.
+- Reglas de Firestore: compilación aprobada mediante `firebase deploy --dry-run`.
+- Después de desplegar las reglas nuevas, el usuario probó nuevamente la anulación de un cobro y confirmó que funciona correctamente.
+
+### Pendiente para la próxima sesión
+
+- Revisar visualmente con una sesión autenticada las pantallas modificadas en computadora y celular.
+- Revisar visualmente el resto de las pantallas modificadas en computadora y celular.
+- Confirmar con otra prueba completa: crear evento, registrar cobro parcial y completar el pago.
+- Confirmar en Firestore que evento, cuenta, cobro y ambos movimientos coincidan.
+- Las reglas nuevas de Firestore se desplegaron el 13 de julio de 2026 y la anulación quedó verificada. Hosting todavía no fue desplegado.
+
 ## Cierre del 12 de julio de 2026 - segunda sesión
 
 - La aplicación quedó publicada en `https://salon-eventos-ef008.web.app` mediante Firebase Hosting.

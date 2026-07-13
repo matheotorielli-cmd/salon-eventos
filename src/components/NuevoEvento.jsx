@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { addDoc, collection, doc, getDoc, updateDoc } from "firebase/firestore"
+import { addDoc, collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore"
 import { db } from "../firebase"
 import ClienteModal from "./ClienteModal"
 import { nombreCompleto, observarClientes } from "../services/clientes"
 import { observarEscuelas } from "../services/escuelas"
+import { observarPrestadores, observarTiposEventos } from "../services/configuracion"
 
 export default function NuevoEvento() {
 
@@ -17,17 +18,9 @@ export default function NuevoEvento() {
   const [cargando, setCargando] = useState(editando)
   const [clientes, setClientes] = useState([])
   const [escuelas, setEscuelas] = useState([])
+  const [tiposEventos, setTiposEventos] = useState([])
+  const [prestadoresGuardados, setPrestadoresGuardados] = useState([])
   const [mostrarClienteModal, setMostrarClienteModal] = useState(false)
-
-  const tiposEventos =
-    JSON.parse(
-      localStorage.getItem("tiposEventos")
-    ) || []
-
-  const prestadoresGuardados =
-    JSON.parse(
-      localStorage.getItem("prestadores")
-    ) || []
 
   const [form, setForm] = useState({
     nombreEvento: "",
@@ -36,8 +29,7 @@ export default function NuevoEvento() {
     telefono: "",
     direccion: "",
 
-    tipoEvento:
-      tiposEventos[0]?.nombre || "",
+    tipoEvento: "",
 
     fecha: "",
     fechaFin: "",
@@ -51,10 +43,10 @@ export default function NuevoEvento() {
 
     prestadores: [],
 
-    total:
-      tiposEventos[0]?.precio || 0,
+    total: 0,
 
-    sena: "",
+    sena: 0,
+    totalCobrado: 0,
 
     estado: "Presupuestado",
 
@@ -71,6 +63,26 @@ export default function NuevoEvento() {
   useEffect(() => observarEscuelas(
     (datos) => setEscuelas(datos.filter((escuela) => escuela.activa !== false)),
     () => setError("No se pudieron cargar las escuelas.")
+  ), [])
+
+  useEffect(() => observarTiposEventos(
+    (datos) => {
+      const activos = datos.filter((tipo) => tipo.activo !== false)
+      setTiposEventos(activos)
+      if (!editando && activos.length > 0) {
+        setForm((actual) => actual.tipoEvento ? actual : {
+          ...actual,
+          tipoEvento: activos[0].nombre,
+          total: Number(activos[0].precioBase ?? activos[0].precio ?? 0)
+        })
+      }
+    },
+    () => setError("No se pudieron cargar los tipos de eventos.")
+  ), [editando])
+
+  useEffect(() => observarPrestadores(
+    (datos) => setPrestadoresGuardados(datos.filter((prestador) => prestador.activo !== false)),
+    () => setError("No se pudieron cargar los prestadores.")
   ), [])
 
   useEffect(() => {
@@ -155,7 +167,7 @@ export default function NuevoEvento() {
         )
 
       nuevoForm.total =
-        tipoSeleccionado?.precio || 0
+        tipoSeleccionado?.precioBase ?? tipoSeleccionado?.precio ?? 0
 
     }
 
@@ -226,7 +238,7 @@ export default function NuevoEvento() {
     })
   }
 
-  function guardarEvento(e) {
+  async function guardarEvento(e) {
 
     e.preventDefault()
 
@@ -263,7 +275,7 @@ export default function NuevoEvento() {
     }
 
     if (
-      Number(form.sena || 0) >
+      Number(form.totalCobrado ?? form.sena ?? 0) >
       Number(form.total || 0)
     ) {
       return setError(
@@ -271,19 +283,20 @@ export default function NuevoEvento() {
       )
     }
 
-    const eventos =
-      JSON.parse(
-        localStorage.getItem("eventos")
-      ) || []
-
-    const existe = !editando && eventos.find(ev =>
-
-      ev.fecha === form.fecha &&
-
-      ev.cliente.toLowerCase() ===
-      form.cliente.toLowerCase()
-
-    )
+    let existe = false
+    if (!editando && form.clienteId) {
+      try {
+        const coincidencias = await getDocs(query(
+          collection(db, "eventos"),
+          where("clienteId", "==", form.clienteId),
+          where("fecha", "==", form.fecha)
+        ))
+        existe = !coincidencias.empty
+      } catch (validationError) {
+        console.error(validationError)
+        return setError("No se pudo validar si el cliente ya tiene un evento ese día")
+      }
+    }
 
     if (existe) {
 
@@ -307,33 +320,29 @@ export default function NuevoEvento() {
 
       ...form,
 
+      sena: Number(form.totalCobrado ?? form.sena ?? 0),
+      totalCobrado: Number(form.totalCobrado ?? form.sena ?? 0),
       saldo:
         Number(form.total || 0) -
-        Number(form.sena || 0)
+        Number(form.totalCobrado ?? form.sena ?? 0)
     }
 
     setGuardando(true)
-
-const operacion = editando
-  ? updateDoc(doc(db, "eventos", id), nuevoEvento)
-  : addDoc(collection(db, "eventos"), nuevoEvento)
-
-operacion
-  .then(() => {
-    navigate(editando ? `/evento/${id}` : "/eventos")
-  })
-  .catch((error) => {
-    console.error(error)
-    setError("No se pudo guardar el evento")
-  })
-  .finally(() => {
-    setGuardando(false)
-  })
+    try {
+      if (editando) await updateDoc(doc(db, "eventos", id), nuevoEvento)
+      else await addDoc(collection(db, "eventos"), nuevoEvento)
+      navigate(editando ? `/evento/${id}` : "/eventos")
+    } catch (saveError) {
+      console.error(saveError)
+      setError("No se pudo guardar el evento")
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const saldo =
     Number(form.total || 0) -
-    Number(form.sena || 0)
+    Number(form.totalCobrado ?? form.sena ?? 0)
 
   if (cargando) return <div style={{ padding: 30, color: "#4e2581", fontWeight: 700 }}>Cargando evento...</div>
 
@@ -843,10 +852,10 @@ operacion
 
             <Input
               type="number"
-              label="Seña"
-              name="sena"
-              value={form.sena}
-              onChange={handleChange}
+              label="Cobrado (usar Registrar cobro)"
+              name="totalCobrado"
+              value={form.totalCobrado ?? form.sena ?? 0}
+              disabled
             />
 
             <div>

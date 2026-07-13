@@ -66,10 +66,10 @@ export default function CuentaDetalle() {
               const tipo = obtenerTipo(mov, id)
               const transferencia = mov.categoria === "transferencia"
               const detalle = transferencia ? (tipo === "ingreso" ? `Desde ${mov.cuentaOrigenNombre}` : `Hacia ${mov.cuentaDestinoNombre}`) : mov.descripcion
-              return <tr key={mov.id}>
+              return <tr key={mov.id} style={mov.anulado ? { opacity: .62, background: "#fff1f2" } : undefined}>
                 <td style={td}>{mov.fecha?.toDate ? fechaTexto.format(mov.fecha.toDate()) : "—"}</td>
                 <td style={td}><span style={tipo === "ingreso" ? badgeIngreso : badgeEgreso}>{transferencia ? "Transferencia" : tipo === "ingreso" ? "Ingreso" : "Egreso"}</span></td>
-                <td style={td}>{mov.tipoMovimientoNombre || mov.concepto || "Movimiento"}</td>
+                <td style={td}>{mov.tipoMovimientoNombre || mov.concepto || "Movimiento"}{mov.anulado && <span style={anuladoBadge}>ANULADO</span>}</td>
                 <td style={td}>{detalle || mov.concepto || "—"}</td>
                 <td style={td}>{mov.creadoPorNombre || mov.creadoPorEmail || mov.creadoPor?.slice?.(0, 8) || "—"}</td>
                 <td style={{ ...td, color: tipo === "ingreso" ? "#16865c" : "#c0394b", fontWeight: 700 }}>{tipo === "ingreso" ? "+ " : "− "}{pesos.format(Number(mov.monto || 0))}</td>
@@ -110,3 +110,4 @@ const badgeIngreso = { padding: "5px 9px", borderRadius: 999, color: "#166747", 
 const badgeEgreso = { padding: "5px 9px", borderRadius: 999, color: "#a12d3e", background: "#ffe3e8", fontSize: 12, fontWeight: 700 }
 const mensaje = { padding: 35, textAlign: "center", color: "#776d83" }
 const errorBox = { marginBottom: 16, padding: 12, borderRadius: 10, background: "#fff1f2", color: "#be123c" }
+const anuladoBadge = { display: "inline-block", marginLeft: 7, padding: "2px 6px", borderRadius: 999, background: "#fee2e2", color: "#b42339", fontSize: 10, fontWeight: 800 }

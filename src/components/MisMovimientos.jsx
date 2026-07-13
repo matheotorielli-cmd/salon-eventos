@@ -52,10 +52,10 @@ export default function MisMovimientos() {
         <thead><tr><th style={th}>Fecha</th><th style={th}>Categoría</th><th style={th}>Concepto</th><th style={th}>Cuenta</th><th style={th}>Monto</th><th style={th}>Usuario</th></tr></thead>
         <tbody>
           {cargando && <FilaMensaje texto="Cargando movimientos..." />}
-          {!cargando && filtrados.map((mov) => <tr key={mov.id}>
+          {!cargando && filtrados.map((mov) => <tr key={mov.id} style={mov.anulado ? { opacity: .62, background: "#fff1f2" } : undefined}>
             <td style={td}>{mov.fecha?.toDate ? fechaTexto.format(mov.fecha.toDate()) : "—"}</td>
             <td style={td}><span style={badge[mov.categoria] || badge.ingreso}>{mov.categoria}</span></td>
-            <td style={td}><strong>{mov.tipoMovimientoNombre || "Movimiento"}</strong><div style={detalle}>{mov.concepto || mov.descripcion || "Sin detalle"}</div></td>
+            <td style={td}><strong>{mov.tipoMovimientoNombre || "Movimiento"}</strong>{mov.anulado && <span style={anuladoBadge}>ANULADO</span>}<div style={detalle}>{mov.concepto || mov.descripcion || "Sin detalle"}</div></td>
             <td style={td}>{mov.categoria === "transferencia" ? `${mov.cuentaOrigenNombre} → ${mov.cuentaDestinoNombre}` : mov.cuentaNombre}</td>
             <td style={{ ...td, fontWeight: 700, color: mov.categoria === "egreso" ? "#c0394b" : mov.categoria === "ingreso" ? "#16865c" : "#4e2581" }}>{mov.categoria === "egreso" ? "− " : mov.categoria === "ingreso" ? "+ " : ""}{pesos.format(Number(mov.monto || 0))}</td>
             <td style={td}>{mov.creadoPorNombre || mov.creadoPorEmail || mov.creadoPor?.slice?.(0, 8) || "—"}</td>
@@ -88,3 +88,4 @@ const td = { padding: 14, borderTop: "1px solid #f0eaf4", fontSize: 14, whiteSpa
 const detalle = { marginTop: 3, color: "#8c8295", fontSize: 12, fontWeight: 400 }
 const badge = { ingreso: { padding: "5px 9px", borderRadius: 999, color: "#166747", background: "#dcf7eb", fontSize: 12, fontWeight: 700, textTransform: "capitalize" }, egreso: { padding: "5px 9px", borderRadius: 999, color: "#a12d3e", background: "#ffe3e8", fontSize: 12, fontWeight: 700, textTransform: "capitalize" }, transferencia: { padding: "5px 9px", borderRadius: 999, color: "#4e2581", background: "#eee7f7", fontSize: 12, fontWeight: 700, textTransform: "capitalize" } }
 const errorBox = { marginBottom: 16, padding: 12, borderRadius: 10, background: "#fff1f2", color: "#be123c" }
+const anuladoBadge = { display: "inline-block", marginLeft: 7, padding: "2px 6px", borderRadius: 999, background: "#fee2e2", color: "#b42339", fontSize: 10, fontWeight: 800 }

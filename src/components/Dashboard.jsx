@@ -1,10 +1,14 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { collection, onSnapshot } from "firebase/firestore"
+import { db } from "../firebase"
 
 export default function Dashboard() {
 
-  const [eventos] = useState(() =>
-    JSON.parse(localStorage.getItem("eventos")) || []
-  )
+  const [eventos, setEventos] = useState([])
+
+  useEffect(() => onSnapshot(collection(db, "eventos"), (snapshot) => {
+    setEventos(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
+  }), [])
 
   const totalEventos = eventos.length
 

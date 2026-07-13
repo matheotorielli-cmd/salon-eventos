@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { auth } from "../firebase"
 import { observarCuentas } from "../services/cuentas"
 import { registrarMovimiento } from "../services/movimientos"
+import { observarTiposMovimientos } from "../services/configuracion"
 
 const categorias = [
   { id: "ingreso", label: "Ingreso" },
@@ -13,14 +14,19 @@ const categorias = [
 export default function NuevoMovimiento() {
   const navigate = useNavigate()
   const [cuentas, setCuentas] = useState([])
+  const [tipos, setTipos] = useState([])
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
-  const tipos = useMemo(() => (JSON.parse(localStorage.getItem("tiposMovimientos")) || []).filter((item) => item.activo !== false), [])
   const [form, setForm] = useState({ categoria: "", tipo: "", cuentaId: "", cuentaOrigenId: "", cuentaDestinoId: "", descripcion: "", concepto: "", monto: "", fecha: new Date().toISOString().split("T")[0] })
 
   useEffect(() => observarCuentas(
     (data) => setCuentas(data.filter((cuenta) => cuenta.activa !== false)),
     () => setError("No se pudieron cargar las cuentas.")
+  ), [])
+
+  useEffect(() => observarTiposMovimientos(
+    (data) => setTipos(data.filter((item) => item.activo !== false)),
+    () => setError("No se pudieron cargar los tipos de movimientos.")
   ), [])
 
   const tiposFiltrados = tipos.filter((item) => !form.categoria || String(item.categoria).toLowerCase() === form.categoria)

@@ -54,7 +54,8 @@ service cloud.firestore {
       let movement = getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.ultimaOperacionId)).data;
       let amount = movement.monto;
       return ((movement.origen == 'manual' && hasPermission('movimientosCrear'))
-          || (movement.origen == 'cobro' && hasPermission('cobrosRegistrar')))
+          || (movement.origen == 'cobro' && hasPermission('cobrosRegistrar'))
+          || (movement.origen == 'anulacion' && hasPermission('cobrosAnular')))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'saldoActual', 'ultimaOperacionId', 'actualizadoPor', 'actualizadoEn'
         ])
@@ -80,7 +81,13 @@ service cloud.firestore {
     match /eventos/{eventoId} {
       allow read: if hasPermission('eventosVer');
       allow create: if hasPermission('eventosCrear');
-      allow update: if hasPermission('eventosEditar') || (
+      allow update: if (hasPermission('eventosEditar')
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'sena', 'totalCobrado', 'saldo', 'ultimoCobroId', 'ultimaAnulacionCobroId'
+        ])
+        && (!(request.resource.data.estado in ['Cancelado', 'cancelado'])
+          || request.resource.data.estado == resource.data.estado
+          || hasPermission('eventosCancelar'))) || (
         hasPermission('cobrosRegistrar')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'sena', 'totalCobrado', 'saldo', 'estado', 'ultimoCobroId', 'actualizadoPor', 'actualizadoEn'
@@ -93,8 +100,21 @@ service cloud.firestore {
         && request.resource.data.saldo >= 0
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
+      ) || (
+        admin() && hasPermission('cobrosAnular')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'sena', 'totalCobrado', 'saldo', 'estado', 'ultimaAnulacionCobroId', 'actualizadoPor', 'actualizadoEn'
+        ])
+        && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.eventoId == eventoId
+        && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.anulado == true
+        && request.resource.data.totalCobrado == resource.data.totalCobrado - getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.monto
+        && request.resource.data.sena == request.resource.data.totalCobrado
+        && request.resource.data.saldo == resource.data.saldo + getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.monto
+        && request.resource.data.totalCobrado >= 0
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time
       );
-      allow delete: if hasPermission('eventosEliminar');
+      allow delete: if admin();
     }
 
     match /clientes/{clienteId} {
@@ -174,13 +194,26 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/eventos/$(request.resource.data.eventoId)).data.ultimoCobroId == cobroId
         && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaId)).data.ultimaOperacionId == request.resource.data.movimientoId
         && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoId)).data.referenciaId == cobroId;
-      allow update, delete: if false;
+      allow update: if admin() && hasPermission('cobrosAnular')
+        && resource.data.anulado == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'anulado', 'motivoAnulacion', 'anuladoPor', 'anuladoPorNombre', 'anuladoPorEmail', 'anuladoEn', 'movimientoAnulacionId'
+        ])
+        && request.resource.data.anulado == true
+        && request.resource.data.motivoAnulacion is string
+        && request.resource.data.motivoAnulacion.size() > 0
+        && request.resource.data.anuladoPor == request.auth.uid
+        && request.resource.data.anuladoEn == request.time
+        && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoAnulacionId)).data.origen == 'anulacion'
+        && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoAnulacionId)).data.referenciaId == cobroId;
+      allow delete: if false;
     }
 
     match /movimientos/{movimientoId} {
       allow read: if hasPermission('movimientosVer');
       allow create: if ((request.resource.data.origen == 'manual' && hasPermission('movimientosCrear'))
-          || (request.resource.data.origen == 'cobro' && hasPermission('cobrosRegistrar')))
+          || (request.resource.data.origen == 'cobro' && hasPermission('cobrosRegistrar'))
+          || (request.resource.data.origen == 'anulacion' && admin() && hasPermission('cobrosAnular')))
         && request.resource.data.keys().hasAll([
           'categoria', 'tipoMovimientoNombre', 'monto', 'moneda', 'fecha',
           'origen', 'anulado', 'creadoPor', 'creadoEn'
@@ -190,7 +223,7 @@ service cloud.firestore {
         && request.resource.data.monto > 0
         && request.resource.data.moneda == 'ARS'
         && request.resource.data.fecha is timestamp
-        && request.resource.data.origen in ['manual', 'cobro']
+        && request.resource.data.origen in ['manual', 'cobro', 'anulacion']
         && request.resource.data.anulado == false
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.creadoEn == request.time
@@ -201,19 +234,49 @@ service cloud.firestore {
             && request.resource.data.cuentaOrigenId != request.resource.data.cuentaDestinoId
             && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaOrigenId)).data.ultimaOperacionId == movimientoId
             && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaDestinoId)).data.ultimaOperacionId == movimientoId)
-        );
-      allow update, delete: if false;
+        )
+        && (request.resource.data.origen != 'anulacion' || (
+          request.resource.data.categoria == 'egreso'
+          && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.anulado == true
+          && request.resource.data.movimientoOriginalId == getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.movimientoId
+        ));
+      allow update: if admin() && hasPermission('cobrosAnular')
+        && resource.data.origen == 'cobro'
+        && resource.data.anulado == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'anulado', 'anuladoPor', 'anuladoEn', 'movimientoAnulacionId'
+        ])
+        && request.resource.data.anulado == true
+        && request.resource.data.anuladoPor == request.auth.uid
+        && request.resource.data.anuladoEn == request.time
+        && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoAnulacionId)).data.movimientoOriginalId == movimientoId;
+      allow delete: if false;
     }
 
-    match /{collectionName}/{documentId} {
-      allow read, create, update: if hasPermission('configuracionAdministrar') && collectionName in [
-        'tiposEventos', 'tiposMovimientos', 'prestadores',
-        'configuraciones'
-      ];
-      allow delete: if admin() && collectionName in [
-        'tiposEventos', 'tiposMovimientos', 'prestadores',
-        'configuraciones'
-      ];
+    match /tiposEventos/{documentId} {
+      allow read: if hasPermission('eventosVer') || hasPermission('eventosCrear') || hasPermission('eventosEditar') || hasPermission('configuracionAdministrar');
+      allow create: if hasPermission('configuracionAdministrar') && validAuditOnCreate();
+      allow update: if hasPermission('configuracionAdministrar') && validAuditOnUpdate();
+      allow delete: if admin();
+    }
+
+    match /prestadores/{documentId} {
+      allow read: if hasPermission('eventosVer') || hasPermission('eventosCrear') || hasPermission('eventosEditar') || hasPermission('configuracionAdministrar');
+      allow create: if hasPermission('configuracionAdministrar') && validAuditOnCreate();
+      allow update: if hasPermission('configuracionAdministrar') && validAuditOnUpdate();
+      allow delete: if admin();
+    }
+
+    match /tiposMovimientos/{documentId} {
+      allow read: if hasPermission('movimientosVer') || hasPermission('movimientosCrear') || hasPermission('configuracionAdministrar');
+      allow create: if hasPermission('configuracionAdministrar') && validAuditOnCreate();
+      allow update: if hasPermission('configuracionAdministrar') && validAuditOnUpdate();
+      allow delete: if admin();
+    }
+
+    match /configuraciones/{documentId} {
+      allow read, create, update: if hasPermission('configuracionAdministrar');
+      allow delete: if admin();
     }
 
     match /{document=**} {

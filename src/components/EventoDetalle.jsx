@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore"
 import { auth, db } from "../firebase"
-import { observarCobrosEvento } from "../services/cobros"
+import { anularCobro, observarCobrosEvento } from "../services/cobros"
 import { useUserRole } from "../hooks/useUserRole"
 import { enlaceWhatsApp } from "../utils/whatsapp"
 
@@ -12,10 +12,11 @@ const fechaTexto = new Intl.DateTimeFormat("es-AR")
 export default function EventoDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { hasPermission } = useUserRole(auth.currentUser)
+  const { hasPermission, role } = useUserRole(auth.currentUser)
   const [evento, setEvento] = useState(null)
   const [cobros, setCobros] = useState([])
   const [cargando, setCargando] = useState(true)
+  const [anulandoId, setAnulandoId] = useState("")
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -42,6 +43,29 @@ export default function EventoDetalle() {
     catch { setError("No se pudo eliminar el evento.") }
   }
 
+  async function anular(cobro) {
+    const motivo = prompt("Ingresá el motivo de la anulación:")?.trim()
+    if (!motivo) return
+    if (!confirm(`¿Confirmás la anulación del cobro por ${pesos.format(Number(cobro.monto || 0))}?`)) return
+    if (!auth.currentUser) return setError("La sesión no está disponible.")
+    setAnulandoId(cobro.id)
+    setError("")
+    try {
+      await anularCobro({ cobroId: cobro.id, motivo, userId: auth.currentUser.uid })
+      const snapshot = await getDoc(doc(db, "eventos", id))
+      if (snapshot.exists()) setEvento({ id: snapshot.id, ...snapshot.data() })
+    } catch (annulError) {
+      console.error(annulError)
+      const mensajes = {
+        "cobro-ya-anulado": "El cobro ya estaba anulado.",
+        "saldo-cuenta-insuficiente": "La cuenta no tiene saldo suficiente para revertir este cobro.",
+        "cuenta-no-disponible": "La cuenta asociada ya no está disponible.",
+        "evento-no-disponible": "El evento asociado ya no está disponible."
+      }
+      setError(mensajes[annulError.message] || "No se pudo anular el cobro.")
+    } finally { setAnulandoId("") }
+  }
+
   if (cargando) return <div style={mensaje}>Cargando evento...</div>
   if (!evento) return <div style={mensaje}>Evento no encontrado.</div>
 
@@ -56,11 +80,11 @@ export default function EventoDetalle() {
       <div style={cabecera}>
         <div><span style={sobreTitulo}>DETALLE DEL EVENTO</span><h1 style={{ margin: "3px 0 4px" }}>{evento.cliente || evento.title}</h1><span style={{ color: "#e9dcf6" }}>Código {evento.id}</span></div>
         <div style={acciones}>
-          <button onClick={() => navigate(`/evento/${id}/editar`)} style={botonClaro}>Editar</button>
-          <button onClick={() => navigate(`/evento/${id}/cobro`)} style={botonAmarillo}>Registrar cobro</button>
-          <button onClick={() => cambiarEstado("Confirmado")} style={botonClaro}>Confirmar</button>
-          <button onClick={() => cambiarEstado("Cancelado")} style={botonPeligro}>Cancelar evento</button>
-          {hasPermission("eventosEliminar") && <button onClick={eliminarEvento} style={botonPeligro}>Eliminar</button>}
+          {hasPermission("eventosEditar") && <button onClick={() => navigate(`/evento/${id}/editar`)} style={botonClaro}>Editar</button>}
+          {hasPermission("cobrosRegistrar") && saldo > 0 && <button onClick={() => navigate(`/evento/${id}/cobro`)} style={botonAmarillo}>Registrar cobro</button>}
+          {hasPermission("eventosEditar") && <button onClick={() => cambiarEstado("Confirmado")} style={botonClaro}>Confirmar</button>}
+          {hasPermission("eventosCancelar") && <button onClick={() => cambiarEstado("Cancelado")} style={botonPeligro}>Cancelar evento</button>}
+          {role === "admin" && <button onClick={eliminarEvento} style={botonPeligro}>Eliminar</button>}
         </div>
       </div>
 
@@ -118,16 +142,17 @@ export default function EventoDetalle() {
           <MiniResumen label="Saldo" valor={pesos.format(saldo)} />
           <MiniResumen label="Pagado" valor={`${porcentaje}%`} />
         </div>
-        <Tabla columnas={["Fecha", "Concepto", "Descripción", "Cuenta", "Usuario", "Monto cobrado"]}>
-          {cobros.map((cobro) => <tr key={cobro.id}>
+        <Tabla columnas={["Fecha", "Concepto", "Descripción", "Cuenta", "Usuario", "Monto cobrado", "Acciones"]}>
+          {cobros.map((cobro) => <tr key={cobro.id} style={cobro.anulado ? { opacity: .62, background: "#fff1f2" } : undefined}>
             <td style={td}>{cobro.fecha?.toDate ? fechaTexto.format(cobro.fecha.toDate()) : "—"}</td>
-            <td style={td}>{cobro.concepto || "Cobro de evento"}</td>
-            <td style={td}>{cobro.descripcion || "—"}</td>
+            <td style={td}>{cobro.concepto || "Cobro de evento"}{cobro.anulado && <div style={anuladoBadge}>ANULADO</div>}</td>
+            <td style={td}>{cobro.anulado ? cobro.motivoAnulacion || "Sin motivo" : cobro.descripcion || "—"}</td>
             <td style={td}>{cobro.metodoPago || "—"}</td>
             <td style={td}>{cobro.creadoPorNombre || cobro.creadoPorEmail || cobro.creadoPor?.slice?.(0, 8) || "—"}</td>
-            <td style={{ ...td, color: "#16865c", fontWeight: 700 }}>{pesos.format(Number(cobro.monto || 0))}</td>
+            <td style={{ ...td, color: cobro.anulado ? "#b42339" : "#16865c", fontWeight: 700, textDecoration: cobro.anulado ? "line-through" : "none" }}>{pesos.format(Number(cobro.monto || 0))}</td>
+            <td style={td}>{role === "admin" && hasPermission("cobrosAnular") && !cobro.anulado ? <button onClick={() => anular(cobro)} disabled={anulandoId === cobro.id} style={anularBtn}>{anulandoId === cobro.id ? "Anulando..." : "Anular"}</button> : "—"}</td>
           </tr>)}
-          {cobros.length === 0 && <FilaVacia columnas="6" texto="Todavía no hay cobros registrados en el historial" />}
+          {cobros.length === 0 && <FilaVacia columnas="7" texto="Todavía no hay cobros registrados en el historial" />}
         </Tabla>
       </Seccion>
     </div>
@@ -169,3 +194,5 @@ const mensaje = { padding: 32, textAlign: "center", color: "#776d83" }
 const errorBox = { marginTop: 16, padding: 12, borderRadius: 10, background: "#fff1f2", color: "#be123c" }
 const whatsappLink = { color: "#168c52", fontWeight: 700, textDecoration: "none" }
 const clienteLink = { color: "#4e2581", fontWeight: 700, textDecoration: "none" }
+const anuladoBadge = { display: "inline-block", marginLeft: 7, padding: "2px 6px", borderRadius: 999, background: "#fee2e2", color: "#b42339", fontSize: 10, fontWeight: 800 }
+const anularBtn = { padding: "7px 11px", border: 0, borderRadius: 7, background: "#fff0f2", color: "#b42339", fontWeight: 700, cursor: "pointer" }

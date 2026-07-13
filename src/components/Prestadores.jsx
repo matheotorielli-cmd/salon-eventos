@@ -1,276 +1,98 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { auth } from "../firebase"
+import {
+  actualizarConfiguracion,
+  crearConfiguracion,
+  eliminarConfiguracion,
+  migrarConfiguracionLocal,
+  observarPrestadores
+} from "../services/configuracion"
+
+const inicial = { nombre: "", apellido: "", telefono: "", actividad: "" }
 
 export default function Prestadores() {
+  const [prestadores, setPrestadores] = useState([])
+  const [form, setForm] = useState(inicial)
+  const [error, setError] = useState("")
+  const [guardando, setGuardando] = useState(false)
+  const migracionIntentada = useRef(false)
 
-  const [prestadores, setPrestadores] = useState(() =>
-    JSON.parse(localStorage.getItem("prestadores")) || []
-  )
-
-  const [form, setForm] = useState({
-    nombre: "",
-    apellido: "",
-    telefono: ""
-  })
-
-  function handleChange(e) {
-
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value
-    })
-
-  }
-
-  function guardarPrestador(e) {
-
-    e.preventDefault()
-
-    if (!form.nombre.trim()) return
-    if (!form.apellido.trim()) return
-
-    const nuevoPrestador = {
-      id: Date.now(),
-      ...form
+  useEffect(() => observarPrestadores((datos) => {
+    setPrestadores(datos)
+    if (datos.length === 0 && !migracionIntentada.current && auth.currentUser) {
+      migracionIntentada.current = true
+      migrarConfiguracionLocal("prestadores", "prestadores", (prestador) => ({
+        nombre: prestador.nombre || "", apellido: prestador.apellido || "", telefono: prestador.telefono || "", actividad: prestador.actividad || "", activo: prestador.activo !== false
+      }), auth.currentUser.uid).catch((migrationError) => { console.error(migrationError); setError("No se pudieron importar los prestadores guardados anteriormente.") })
     }
+  }, () => setError("No se pudieron cargar los prestadores.")), [])
 
-    const nuevosPrestadores = [
-      ...prestadores,
-      nuevoPrestador
-    ]
+  function handleChange(e) { setForm((actual) => ({ ...actual, [e.target.name]: e.target.value })) }
 
-    setPrestadores(nuevosPrestadores)
-
-    localStorage.setItem(
-      "prestadores",
-      JSON.stringify(nuevosPrestadores)
-    )
-
-    setForm({
-      nombre: "",
-      apellido: "",
-      telefono: ""
-    })
-
+  async function guardarPrestador(e) {
+    e.preventDefault()
+    if (!form.nombre.trim() || !form.apellido.trim()) return setError("Ingresá nombre y apellido.")
+    if (!auth.currentUser) return setError("La sesión no está disponible.")
+    setGuardando(true)
+    setError("")
+    try {
+      await crearConfiguracion("prestadores", { ...form, nombre: form.nombre.trim(), apellido: form.apellido.trim(), activo: true }, auth.currentUser.uid)
+      setForm(inicial)
+    } catch (saveError) {
+      console.error(saveError)
+      setError("No se pudo guardar el prestador.")
+    } finally { setGuardando(false) }
   }
 
-  function eliminarPrestador(id) {
-
-    const confirmar = confirm(
-      "¿Eliminar prestador?"
-    )
-
-    if (!confirmar) return
-
-    const filtrados = prestadores.filter(
-      p => p.id !== id
-    )
-
-    setPrestadores(filtrados)
-
-    localStorage.setItem(
-      "prestadores",
-      JSON.stringify(filtrados)
-    )
-
+  async function cambiarEstado(prestador) {
+    if (!auth.currentUser) return
+    try { await actualizarConfiguracion("prestadores", prestador.id, { activo: prestador.activo === false }, auth.currentUser.uid) }
+    catch (saveError) { console.error(saveError); setError("No se pudo cambiar el estado del prestador.") }
   }
 
-  return (
+  async function eliminar(prestador) {
+    if (!confirm(`¿Eliminar a ${prestador.nombre} ${prestador.apellido}?`)) return
+    try { await eliminarConfiguracion("prestadores", prestador.id) }
+    catch (deleteError) { console.error(deleteError); setError("No se pudo eliminar el prestador.") }
+  }
 
-    <div
-      style={{
-        maxWidth: "1100px",
-        margin: "0 auto"
-      }}
-    >
-
-      <h1
-        style={{
-          color: "#4e2581",
-          marginBottom: "25px"
-        }}
-      >
-        Prestadores
-      </h1>
-
-      {/* FORMULARIO */}
-      <form
-        onSubmit={guardarPrestador}
-        style={{
-          background: "white",
-          padding: "25px",
-          borderRadius: "12px",
-          marginBottom: "25px",
-          border: "1px solid #e5e7eb"
-        }}
-      >
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit,minmax(220px,1fr))",
-            gap: "15px"
-          }}
-        >
-
-          <Input
-            label="Nombre"
-            name="nombre"
-            value={form.nombre}
-            onChange={handleChange}
-          />
-
-          <Input
-            label="Apellido"
-            name="apellido"
-            value={form.apellido}
-            onChange={handleChange}
-          />
-
-          <Input
-            label="Teléfono"
-            name="telefono"
-            value={form.telefono}
-            onChange={handleChange}
-          />
-
-        </div>
-
-        <button
-          type="submit"
-          style={{
-            marginTop: "20px",
-            background: "#4e2581",
-            color: "white",
-            border: "none",
-            padding: "12px 20px",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "600"
-          }}
-        >
-          Agregar prestador
-        </button>
-
-      </form>
-
-      {/* LISTA */}
-      <div
-        style={{
-          display: "grid",
-          gap: "15px"
-        }}
-      >
-
-        {prestadores.length === 0 && (
-          <div
-            style={{
-              background: "white",
-              padding: "25px",
-              borderRadius: "12px",
-              textAlign: "center",
-              color: "#6b7280"
-            }}
-          >
-            No hay prestadores cargados
-          </div>
-        )}
-
-        {prestadores.map((p) => (
-
-          <div
-            key={p.id}
-            style={{
-              background: "white",
-              padding: "20px",
-              borderRadius: "12px",
-              border: "1px solid #e5e7eb",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "15px"
-            }}
-          >
-
-            <div>
-
-              <div
-                style={{
-                  fontSize: "18px",
-                  fontWeight: "700",
-                  color: "#111827"
-                }}
-              >
-                {p.nombre} {p.apellido}
-              </div>
-
-              <div
-                style={{
-                  marginTop: "6px",
-                  color: "#6b7280"
-                }}
-              >
-                📞 {p.telefono || "Sin teléfono"}
-              </div>
-
-            </div>
-
-            <button
-              onClick={() => eliminarPrestador(p.id)}
-              style={{
-                background: "#dc2626",
-                color: "white",
-                border: "none",
-                padding: "10px 16px",
-                borderRadius: "8px",
-                cursor: "pointer"
-              }}
-            >
-              Eliminar
-            </button>
-
-          </div>
-
-        ))}
-
+  return <div style={pagina}>
+    <h1 style={titulo}>Prestadores</h1>
+    {error && <div role="alert" style={errorBox}>{error}</div>}
+    <form onSubmit={guardarPrestador} style={tarjeta}>
+      <div style={grilla}>
+        <Input label="Nombre" name="nombre" value={form.nombre} onChange={handleChange} />
+        <Input label="Apellido" name="apellido" value={form.apellido} onChange={handleChange} />
+        <Input label="Teléfono" name="telefono" value={form.telefono} onChange={handleChange} />
+        <Input label="Actividad" name="actividad" value={form.actividad} onChange={handleChange} />
       </div>
-
+      <button disabled={guardando} style={botonPrincipal}>{guardando ? "Guardando..." : "Agregar prestador"}</button>
+    </form>
+    <div style={{ display: "grid", gap: 15 }}>
+      {prestadores.map((prestador) => <div key={prestador.id} style={{ ...tarjeta, marginBottom: 0, opacity: prestador.activo === false ? .65 : 1 }}>
+        <div><strong style={{ fontSize: 18 }}>{prestador.nombre} {prestador.apellido}</strong><div style={detalle}>{prestador.actividad || "Sin actividad"} · {prestador.telefono || "Sin teléfono"}</div></div>
+        <div style={acciones}>
+          <button onClick={() => cambiarEstado(prestador)} style={prestador.activo === false ? botonHabilitar : botonDeshabilitar}>{prestador.activo === false ? "Habilitar" : "Deshabilitar"}</button>
+          <button onClick={() => eliminar(prestador)} style={botonEliminar}>Eliminar</button>
+        </div>
+      </div>)}
+      {prestadores.length === 0 && <div style={vacio}>No hay prestadores cargados en Firestore.</div>}
     </div>
-  )
+  </div>
 }
 
-function Input({
-  label,
-  ...props
-}) {
+function Input({ label, ...props }) { return <label><span style={labelStyle}>{label}</span><input {...props} /></label> }
 
-  return (
-
-    <div>
-
-      <label
-        style={{
-          display: "block",
-          marginBottom: "8px",
-          fontWeight: "600",
-          fontSize: "14px"
-        }}
-      >
-        {label}
-      </label>
-
-      <input
-        {...props}
-        style={{
-          width: "100%",
-          padding: "12px",
-          borderRadius: "8px",
-          border: "1px solid #d1d5db",
-          boxSizing: "border-box"
-        }}
-      />
-
-    </div>
-  )
-}
+const pagina = { maxWidth: 1100, margin: "0 auto" }
+const titulo = { color: "#4e2581", marginBottom: 25 }
+const tarjeta = { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 18, padding: 24, marginBottom: 25, background: "white", border: "1px solid #e8e1ee", borderRadius: 14 }
+const grilla = { flex: 1, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 15 }
+const labelStyle = { display: "block", marginBottom: 8, color: "#4b4058", fontSize: 14, fontWeight: 600 }
+const acciones = { display: "flex", gap: 10, flexWrap: "wrap" }
+const botonPrincipal = { border: 0, borderRadius: 8, padding: "11px 17px", background: "#4e2581", color: "white", fontWeight: 700, cursor: "pointer" }
+const botonHabilitar = { ...botonPrincipal, background: "#16865c" }
+const botonDeshabilitar = { ...botonPrincipal, background: "#f59e0b", color: "#38145f" }
+const botonEliminar = { ...botonPrincipal, background: "#b42339" }
+const detalle = { marginTop: 7, color: "#776d83" }
+const errorBox = { marginBottom: 16, padding: 12, borderRadius: 10, background: "#fff1f2", color: "#be123c" }
+const vacio = { padding: 28, textAlign: "center", color: "#776d83", background: "white", borderRadius: 12 }

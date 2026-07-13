@@ -91,6 +91,108 @@ export async function registrarCobro({ eventoId, cuentaId, monto, fecha, concept
   })
 }
 
+export async function anularCobro({ cobroId, motivo, userId }) {
+  const cobroRef = doc(db, "cobros", cobroId)
+  const usuarioRef = doc(db, "usuarios", userId)
+  const movimientoAnulacionRef = doc(collection(db, "movimientos"))
+
+  return runTransaction(db, async (transaction) => {
+    const cobroSnap = await transaction.get(cobroRef)
+    if (!cobroSnap.exists()) throw new Error("cobro-no-disponible")
+    const cobro = cobroSnap.data()
+    if (cobro.anulado === true) throw new Error("cobro-ya-anulado")
+
+    const eventoRef = doc(db, "eventos", cobro.eventoId)
+    const cuentaRef = doc(db, "cuentas", cobro.cuentaId)
+    const movimientoOriginalRef = doc(db, "movimientos", cobro.movimientoId)
+    const [eventoSnap, cuentaSnap, movimientoSnap, usuarioSnap] = await Promise.all([
+      transaction.get(eventoRef),
+      transaction.get(cuentaRef),
+      transaction.get(movimientoOriginalRef),
+      transaction.get(usuarioRef)
+    ])
+
+    if (!eventoSnap.exists()) throw new Error("evento-no-disponible")
+    if (!cuentaSnap.exists()) throw new Error("cuenta-no-disponible")
+    if (!movimientoSnap.exists()) throw new Error("movimiento-no-disponible")
+
+    const evento = eventoSnap.data()
+    const cuenta = cuentaSnap.data()
+    const usuario = usuarioSnap.exists() ? usuarioSnap.data() : {}
+    const usuarioNombre = [usuario.nombre, usuario.apellido].filter(Boolean).join(" ") || usuario.email || "Usuario"
+    const monto = Number(cobro.monto || 0)
+    const saldoCuenta = Number(cuenta.saldoActual || 0)
+    if (!Number.isFinite(monto) || monto <= 0) throw new Error("monto-invalido")
+    if (saldoCuenta < monto) throw new Error("saldo-cuenta-insuficiente")
+
+    const totalCobrado = Number(evento.totalCobrado ?? evento.sena ?? 0)
+    const nuevoTotalCobrado = Math.max(0, totalCobrado - monto)
+    const nuevoSaldo = Number(evento.saldo ?? (Number(evento.total || 0) - totalCobrado)) + monto
+    const estadoActual = String(evento.estado || "")
+    const nuevoEstado = estadoActual.toLowerCase() === "pagado" ? "Confirmado" : estadoActual
+
+    transaction.set(movimientoAnulacionRef, {
+      categoria: "egreso",
+      tipoMovimientoNombre: "Anulación de cobro",
+      cuentaId: cobro.cuentaId,
+      cuentaNombre: cuenta.nombre,
+      cuentaOrigenId: null,
+      cuentaOrigenNombre: "",
+      cuentaDestinoId: null,
+      cuentaDestinoNombre: "",
+      monto,
+      moneda: "ARS",
+      fecha: Timestamp.now(),
+      concepto: `Anulación: ${cobro.concepto || "Cobro de evento"}`,
+      descripcion: motivo.trim(),
+      origen: "anulacion",
+      referenciaId: cobroId,
+      movimientoOriginalId: cobro.movimientoId,
+      anulado: false,
+      creadoPor: userId,
+      creadoPorNombre: usuarioNombre,
+      creadoPorEmail: usuario.email || "",
+      creadoEn: serverTimestamp()
+    })
+
+    transaction.update(movimientoOriginalRef, {
+      anulado: true,
+      anuladoPor: userId,
+      anuladoEn: serverTimestamp(),
+      movimientoAnulacionId: movimientoAnulacionRef.id
+    })
+
+    transaction.update(cobroRef, {
+      anulado: true,
+      motivoAnulacion: motivo.trim(),
+      anuladoPor: userId,
+      anuladoPorNombre: usuarioNombre,
+      anuladoPorEmail: usuario.email || "",
+      anuladoEn: serverTimestamp(),
+      movimientoAnulacionId: movimientoAnulacionRef.id
+    })
+
+    transaction.update(eventoRef, {
+      sena: nuevoTotalCobrado,
+      totalCobrado: nuevoTotalCobrado,
+      saldo: nuevoSaldo,
+      estado: nuevoEstado,
+      ultimaAnulacionCobroId: cobroId,
+      actualizadoPor: userId,
+      actualizadoEn: serverTimestamp()
+    })
+
+    transaction.update(cuentaRef, {
+      saldoActual: saldoCuenta - monto,
+      ultimaOperacionId: movimientoAnulacionRef.id,
+      actualizadoPor: userId,
+      actualizadoEn: serverTimestamp()
+    })
+
+    return movimientoAnulacionRef.id
+  })
+}
+
 export function observarCobrosEvento(eventoId, onData, onError) {
   const consulta = query(collection(db, "cobros"), where("eventoId", "==", eventoId))
   return onSnapshot(consulta, (snapshot) => {
