@@ -49,13 +49,15 @@ export default function MisMovimientos() {
 
       {error && <div style={errorBox}>{error}</div>}
       <div style={tablaBox}><div style={{ overflowX: "auto" }}><table style={tabla}>
-        <thead><tr><th style={th}>Fecha</th><th style={th}>Categoría</th><th style={th}>Concepto</th><th style={th}>Cuenta</th><th style={th}>Monto</th><th style={th}>Usuario</th></tr></thead>
+        <thead><tr><th style={th}>Fecha</th><th style={th}>Categoría</th><th style={th}>Tipo</th><th style={th}>Concepto</th><th style={th}>Descripción</th><th style={th}>Cuenta</th><th style={th}>Monto</th><th style={th}>Usuario</th></tr></thead>
         <tbody>
           {cargando && <FilaMensaje texto="Cargando movimientos..." />}
           {!cargando && filtrados.map((mov) => <tr key={mov.id} style={mov.anulado ? { opacity: .62, background: "#fff1f2" } : undefined}>
             <td style={td}>{mov.fecha?.toDate ? fechaTexto.format(mov.fecha.toDate()) : "—"}</td>
             <td style={td}><span style={badge[mov.categoria] || badge.ingreso}>{mov.categoria}</span></td>
-            <td style={td}><strong>{mov.tipoMovimientoNombre || "Movimiento"}</strong>{mov.anulado && <span style={anuladoBadge}>ANULADO</span>}<div style={detalle}>{mov.concepto || mov.descripcion || "Sin detalle"}</div></td>
+            <td style={td}><strong>{mov.tipoMovimientoNombre || "Movimiento"}</strong>{mov.anulado && <span style={anuladoBadge}>ANULADO</span>}</td>
+            <td style={td}>{mov.concepto || "—"}</td>
+            <td style={td}><div style={detalle}>{mov.descripcion || "—"}</div></td>
             <td style={td}>{mov.categoria === "transferencia" ? `${mov.cuentaOrigenNombre} → ${mov.cuentaDestinoNombre}` : mov.cuentaNombre}</td>
             <td style={{ ...td, fontWeight: 700, color: mov.categoria === "egreso" ? "#c0394b" : mov.categoria === "ingreso" ? "#16865c" : "#4e2581" }}>{mov.categoria === "egreso" ? "− " : mov.categoria === "ingreso" ? "+ " : ""}{pesos.format(Number(mov.monto || 0))}</td>
             <td style={td}>{mov.creadoPorNombre || mov.creadoPorEmail || mov.creadoPor?.slice?.(0, 8) || "—"}</td>
@@ -69,7 +71,7 @@ export default function MisMovimientos() {
 
 function Resumen({ label, valor, color, fondo }) { return <div style={{ ...resumenCard, background: fondo }}><span style={resumenLabel}>{label}</span><strong style={{ color, fontSize: 24 }}>{pesos.format(valor)}</strong></div> }
 function Filtro({ label, children }) { return <label><span style={labelStyle}>{label}</span>{children}</label> }
-function FilaMensaje({ texto }) { return <tr><td colSpan="6" style={{ padding: 35, textAlign: "center", color: "#776d83" }}>{texto}</td></tr> }
+function FilaMensaje({ texto }) { return <tr><td colSpan="8" style={{ padding: 35, textAlign: "center", color: "#776d83" }}>{texto}</td></tr> }
 
 const pagina = { maxWidth: 1400, margin: "0 auto" }
 const cabecera = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, flexWrap: "wrap", padding: "22px 25px", borderRadius: 18, color: "white", background: "linear-gradient(100deg,#4e2581,#63349a)", boxShadow: "0 12px 28px rgba(78,37,129,.15)" }

@@ -26,6 +26,7 @@
 - Después de desplegar las reglas nuevas, el usuario probó nuevamente la anulación de un cobro y confirmó que funciona correctamente.
 - El usuario completó una prueba real del circuito financiero: registró un cobro parcial, confirmó su aparición en el evento y en la cuenta, completó el saldo y verificó que el evento quedara pagado correctamente.
 - Se corrigió la edición de fechas de eventos: los valores antiguos de `start` y `end` ya no sobrescriben la fecha nueva y el calendario prioriza `fecha`, `fechaFin`, `hora` y `horaFin`. La corrección fue compilada y publicada en Firebase Hosting.
+- Se normalizó la presentación de movimientos: tipo, concepto y descripción ahora aparecen en columnas separadas en movimientos generales, detalle de cuenta y ficha del cliente. El concepto escrito al registrar un cobro se muestra sin ser reemplazado por “Cobro de evento”. Cambio publicado en Firebase Hosting.
 
 ### Pendiente para la próxima sesión
 

@@ -60,22 +60,23 @@ export default function CuentaDetalle() {
       <section style={tablaBox}>
         <div style={tablaTitulo}><h2 style={{ margin: 0 }}>Movimientos de {cuenta.nombre}</h2><span>{filtrados.length} registros</span></div>
         <div style={{ overflowX: "auto" }}><table style={tabla}>
-          <thead><tr><th style={th}>Fecha</th><th style={th}>Movimiento</th><th style={th}>Concepto</th><th style={th}>Detalle</th><th style={th}>Usuario</th><th style={th}>Monto</th></tr></thead>
+          <thead><tr><th style={th}>Fecha</th><th style={th}>Movimiento</th><th style={th}>Tipo</th><th style={th}>Concepto</th><th style={th}>Descripción</th><th style={th}>Usuario</th><th style={th}>Monto</th></tr></thead>
           <tbody>
             {filtrados.map((mov) => {
               const tipo = obtenerTipo(mov, id)
               const transferencia = mov.categoria === "transferencia"
-              const detalle = transferencia ? (tipo === "ingreso" ? `Desde ${mov.cuentaOrigenNombre}` : `Hacia ${mov.cuentaDestinoNombre}`) : mov.descripcion
+              const descripcion = transferencia ? (tipo === "ingreso" ? `Desde ${mov.cuentaOrigenNombre}` : `Hacia ${mov.cuentaDestinoNombre}`) : mov.descripcion
               return <tr key={mov.id} style={mov.anulado ? { opacity: .62, background: "#fff1f2" } : undefined}>
                 <td style={td}>{mov.fecha?.toDate ? fechaTexto.format(mov.fecha.toDate()) : "—"}</td>
                 <td style={td}><span style={tipo === "ingreso" ? badgeIngreso : badgeEgreso}>{transferencia ? "Transferencia" : tipo === "ingreso" ? "Ingreso" : "Egreso"}</span></td>
-                <td style={td}>{mov.tipoMovimientoNombre || mov.concepto || "Movimiento"}{mov.anulado && <span style={anuladoBadge}>ANULADO</span>}</td>
-                <td style={td}>{detalle || mov.concepto || "—"}</td>
+                <td style={td}>{mov.tipoMovimientoNombre || "Movimiento"}{mov.anulado && <span style={anuladoBadge}>ANULADO</span>}</td>
+                <td style={td}>{mov.concepto || "—"}</td>
+                <td style={td}>{descripcion || "—"}</td>
                 <td style={td}>{mov.creadoPorNombre || mov.creadoPorEmail || mov.creadoPor?.slice?.(0, 8) || "—"}</td>
                 <td style={{ ...td, color: tipo === "ingreso" ? "#16865c" : "#c0394b", fontWeight: 700 }}>{tipo === "ingreso" ? "+ " : "− "}{pesos.format(Number(mov.monto || 0))}</td>
               </tr>
             })}
-            {filtrados.length === 0 && <tr><td colSpan="6" style={mensaje}>Esta cuenta todavía no tiene movimientos.</td></tr>}
+            {filtrados.length === 0 && <tr><td colSpan="7" style={mensaje}>Esta cuenta todavía no tiene movimientos.</td></tr>}
           </tbody>
         </table></div>
       </section>
