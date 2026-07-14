@@ -284,7 +284,7 @@ service cloud.firestore {
       allow list: if false;
       allow create: if hasPermission('eventosVer')
         && request.resource.data.keys().hasOnly([
-          'cobroId', 'numero', 'eventoId', 'eventoNombre', 'clienteNombre',
+          'cobroId', 'numero', 'eventoId', 'eventoNombre', 'clienteNombre', 'clienteTelefono',
           'fechaComprobante', 'fechaEvento', 'fechaFinEvento', 'horaInicio', 'horaFin',
           'concepto', 'descripcion', 'monto', 'moneda', 'cuentaNombre', 'emitidoPor',
           'anulado', 'creadoPor', 'creadoEn'
@@ -296,11 +296,16 @@ service cloud.firestore {
         && request.resource.data.monto > 0
         && request.resource.data.moneda == 'ARS'
         && get(/databases/$(database)/documents/cobros/$(documentId)).data.eventoId == request.resource.data.eventoId;
-      allow update: if admin()
-        && resource.data.anulado == false
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anulado', 'anuladoEn'])
-        && request.resource.data.anulado == true
-        && request.resource.data.anuladoEn == request.time;
+      allow update: if (admin()
+          && resource.data.anulado == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anulado', 'anuladoEn'])
+          && request.resource.data.anulado == true
+          && request.resource.data.anuladoEn == request.time)
+        || (hasPermission('eventosVer')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clienteTelefono', 'actualizadoEn'])
+          && request.resource.data.clienteTelefono is string
+          && request.resource.data.clienteTelefono.size() > 0
+          && request.resource.data.actualizadoEn == request.time);
       allow delete: if false;
     }
 

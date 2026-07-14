@@ -1,5 +1,6 @@
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
 import { db } from "../firebase"
+import { numeroWhatsApp } from "../utils/whatsapp"
 
 function fechaISO(valor) {
   if (valor?.toDate) return valor.toDate().toISOString().slice(0, 10)
@@ -9,7 +10,13 @@ function fechaISO(valor) {
 export async function crearComprobantePublico({ cobro, evento, userId }) {
   const referencia = doc(db, "comprobantesPublicos", cobro.id)
   const existente = await getDoc(referencia)
-  if (existente.exists()) return cobro.id
+  const clienteTelefono = numeroWhatsApp(evento.telefono)
+  if (existente.exists()) {
+    if (clienteTelefono && existente.data().clienteTelefono !== clienteTelefono) {
+      await updateDoc(referencia, { clienteTelefono, actualizadoEn: serverTimestamp() })
+    }
+    return cobro.id
+  }
 
   await setDoc(referencia, {
     cobroId: cobro.id,
@@ -17,6 +24,7 @@ export async function crearComprobantePublico({ cobro, evento, userId }) {
     eventoId: cobro.eventoId,
     eventoNombre: evento.nombreEvento || evento.title || evento.cliente || "Evento",
     clienteNombre: evento.cliente || "Cliente",
+    clienteTelefono,
     fechaComprobante: fechaISO(cobro.fecha),
     fechaEvento: evento.fecha || "",
     fechaFinEvento: evento.fechaFin || evento.fecha || "",

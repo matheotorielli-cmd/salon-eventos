@@ -29,6 +29,7 @@
 - Se normalizó la presentación de movimientos: tipo, concepto y descripción ahora aparecen en columnas separadas en movimientos generales, detalle de cuenta y ficha del cliente. El concepto escrito al registrar un cobro se muestra sin ser reemplazado por “Cobro de evento”. Cambio publicado en Firebase Hosting.
 - Se agregó el comprobante público de cobro. Al tocar la fecha de un cobro se abre una ventana nueva con dos copias (cliente y comercio), preparada para imprimir en A4. Incluye acciones para imprimir, copiar el enlace y compartir por WhatsApp. El enlace se puede abrir sin iniciar sesión y solo expone los datos del comprobante; no permite listar comprobantes. Si el cobro se anula, el comprobante público queda marcado como anulado. Reglas y Hosting publicados.
 - Se corrigió la generación para eventos antiguos que conservan un ID numérico interno: el comprobante ahora utiliza siempre el `eventoId` real vinculado al cobro.
+- El botón de WhatsApp del comprobante ahora usa el teléfono guardado en el cliente, lo normaliza para Argentina y abre directamente ese chat con el mensaje y enlace preparados. Los comprobantes generados anteriormente incorporan el teléfono al volver a abrirlos desde la fecha del cobro.
 
 ### Pendiente para la próxima sesión
 

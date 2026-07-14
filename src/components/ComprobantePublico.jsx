@@ -34,7 +34,8 @@ export default function ComprobantePublico() {
 
   function compartirWhatsApp() {
     const texto = `Fun Space · Comprobante de cobro\nEvento: ${comprobante.eventoNombre}\nConcepto: ${comprobante.concepto}\nMonto: ${pesos.format(comprobante.monto)}\n${window.location.href}`
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank", "noopener,noreferrer")
+    const destino = comprobante.clienteTelefono ? `/${comprobante.clienteTelefono}` : ""
+    window.open(`https://wa.me${destino}?text=${encodeURIComponent(texto)}`, "_blank", "noopener,noreferrer")
   }
 
   if (cargando) return <div style={mensaje}>Cargando comprobante...</div>
@@ -71,7 +72,7 @@ function Comprobante({ datos, copia }) {
     </div>
     {datos.anulado && <div className="receipt-annulled">COMPROBANTE ANULADO</div>}
     <div className="receipt-info-grid">
-      <div><h2>Destinatario</h2><p><strong>Nombre:</strong> {datos.clienteNombre}</p><p><strong>Evento:</strong> {datos.eventoNombre}</p></div>
+      <div><h2>Destinatario</h2><p><strong>Nombre:</strong> {datos.clienteNombre}</p><p><strong>Teléfono:</strong> {datos.clienteTelefono || "—"}</p><p><strong>Evento:</strong> {datos.eventoNombre}</p></div>
       <div><h2>Detalle del pago</h2><p><strong>Emitido por:</strong> {datos.emitidoPor}</p><p><strong>Fecha de cobro:</strong> {fechaTexto(datos.fechaComprobante)}</p><p><strong>Inicio:</strong> {inicio} · <strong>Fin:</strong> {fin}</p></div>
     </div>
     <div className="receipt-details">
