@@ -48,3 +48,18 @@ export async function obtenerComprobantePublico(comprobanteId) {
   const snapshot = await getDoc(doc(db, "comprobantesPublicos", comprobanteId))
   return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null
 }
+
+export async function crearComprobanteDesdeMovimiento({ movimiento, userId }) {
+  if (!['cobro', 'anulacion'].includes(movimiento.origen) || !movimiento.referenciaId) {
+    throw new Error("movimiento-sin-comprobante")
+  }
+
+  const cobroSnapshot = await getDoc(doc(db, "cobros", movimiento.referenciaId))
+  if (!cobroSnapshot.exists()) throw new Error("cobro-no-disponible")
+  const cobro = { ...cobroSnapshot.data(), id: cobroSnapshot.id }
+  const eventoSnapshot = await getDoc(doc(db, "eventos", cobro.eventoId))
+  if (!eventoSnapshot.exists()) throw new Error("evento-no-disponible")
+  const evento = { ...eventoSnapshot.data(), id: eventoSnapshot.id }
+
+  return crearComprobantePublico({ cobro, evento, userId })
+}

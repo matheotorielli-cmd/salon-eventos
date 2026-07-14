@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { observarCuenta } from "../services/cuentas"
 import { observarMovimientos } from "../services/movimientos"
+import { auth } from "../firebase"
+import { crearComprobanteDesdeMovimiento } from "../services/comprobantes"
 
 const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 const fechaTexto = new Intl.DateTimeFormat("es-AR")
@@ -13,6 +15,7 @@ export default function CuentaDetalle() {
   const [movimientos, setMovimientos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
+  const [generandoId, setGenerandoId] = useState("")
   const [filtros, setFiltros] = useState({ desde: "", hasta: "", tipo: "" })
 
   useEffect(() => {
@@ -31,6 +34,23 @@ export default function CuentaDetalle() {
 
   const creditos = filtrados.reduce((total, mov) => obtenerTipo(mov, id) === "ingreso" ? total + Number(mov.monto || 0) : total, 0)
   const debitos = filtrados.reduce((total, mov) => obtenerTipo(mov, id) === "egreso" ? total + Number(mov.monto || 0) : total, 0)
+
+  async function abrirComprobante(movimiento) {
+    if (!auth.currentUser) return setError("La sesión no está disponible.")
+    const nuevaVentana = window.open("", "_blank")
+    if (!nuevaVentana) return setError("El navegador bloqueó la nueva ventana.")
+    nuevaVentana.document.body.innerHTML = "<p style='font-family:sans-serif;padding:30px'>Generando comprobante...</p>"
+    setGenerandoId(movimiento.id)
+    setError("")
+    try {
+      const comprobanteId = await crearComprobanteDesdeMovimiento({ movimiento, userId: auth.currentUser.uid })
+      nuevaVentana.location.replace(`${window.location.origin}/comprobante/${comprobanteId}`)
+    } catch (receiptError) {
+      console.error(receiptError)
+      nuevaVentana.close()
+      setError("No se pudo generar el comprobante de este movimiento.")
+    } finally { setGenerandoId("") }
+  }
 
   if (cargando) return <div style={mensaje}>Cargando cuenta...</div>
   if (!cuenta) return <div style={mensaje}>La cuenta no existe.</div>
@@ -67,7 +87,7 @@ export default function CuentaDetalle() {
               const transferencia = mov.categoria === "transferencia"
               const descripcion = transferencia ? (tipo === "ingreso" ? `Desde ${mov.cuentaOrigenNombre}` : `Hacia ${mov.cuentaDestinoNombre}`) : mov.descripcion
               return <tr key={mov.id} style={mov.anulado ? { opacity: .62, background: "#fff1f2" } : undefined}>
-                <td style={td}>{mov.fecha?.toDate ? fechaTexto.format(mov.fecha.toDate()) : "—"}</td>
+                <td style={td}>{['cobro', 'anulacion'].includes(mov.origen) ? <button onClick={() => abrirComprobante(mov)} disabled={generandoId === mov.id} style={fechaBtn}>{generandoId === mov.id ? "Generando..." : mov.fecha?.toDate ? fechaTexto.format(mov.fecha.toDate()) : "—"}</button> : mov.fecha?.toDate ? fechaTexto.format(mov.fecha.toDate()) : "—"}</td>
                 <td style={td}><span style={tipo === "ingreso" ? badgeIngreso : badgeEgreso}>{transferencia ? "Transferencia" : tipo === "ingreso" ? "Ingreso" : "Egreso"}</span></td>
                 <td style={td}>{mov.tipoMovimientoNombre || "Movimiento"}{mov.anulado && <span style={anuladoBadge}>ANULADO</span>}</td>
                 <td style={td}>{mov.concepto || "—"}</td>
@@ -112,3 +132,4 @@ const badgeEgreso = { padding: "5px 9px", borderRadius: 999, color: "#a12d3e", b
 const mensaje = { padding: 35, textAlign: "center", color: "#776d83" }
 const errorBox = { marginBottom: 16, padding: 12, borderRadius: 10, background: "#fff1f2", color: "#be123c" }
 const anuladoBadge = { display: "inline-block", marginLeft: 7, padding: "2px 6px", borderRadius: 999, background: "#fee2e2", color: "#b42339", fontSize: 10, fontWeight: 800 }
+const fechaBtn = { padding: 0, border: 0, background: "transparent", color: "#4e2581", fontWeight: 700, textDecoration: "underline", cursor: "pointer", boxShadow: "none" }
