@@ -14,7 +14,7 @@ export async function crearComprobantePublico({ cobro, evento, userId }) {
   await setDoc(referencia, {
     cobroId: cobro.id,
     numero: cobro.id.slice(-8).toUpperCase(),
-    eventoId: evento.id,
+    eventoId: cobro.eventoId,
     eventoNombre: evento.nombreEvento || evento.title || evento.cliente || "Evento",
     clienteNombre: evento.cliente || "Cliente",
     fechaComprobante: fechaISO(cobro.fecha),

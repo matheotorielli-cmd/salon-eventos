@@ -23,7 +23,7 @@ export default function EventoDetalle() {
 
   useEffect(() => {
     getDoc(doc(db, "eventos", id)).then((snapshot) => {
-      setEvento(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null)
+      setEvento(snapshot.exists() ? { ...snapshot.data(), id: snapshot.id } : null)
       setCargando(false)
     }).catch(() => { setError("No se pudo cargar el evento."); setCargando(false) })
     return observarCobrosEvento(id, setCobros, (loadError) => {
@@ -55,7 +55,7 @@ export default function EventoDetalle() {
     try {
       await anularCobro({ cobroId: cobro.id, motivo, userId: auth.currentUser.uid })
       const snapshot = await getDoc(doc(db, "eventos", id))
-      if (snapshot.exists()) setEvento({ id: snapshot.id, ...snapshot.data() })
+      if (snapshot.exists()) setEvento({ ...snapshot.data(), id: snapshot.id })
     } catch (annulError) {
       console.error(annulError)
       const mensajes = {
