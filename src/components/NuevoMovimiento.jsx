@@ -4,10 +4,12 @@ import { auth } from "../firebase"
 import { observarCuentas } from "../services/cuentas"
 import { registrarMovimiento } from "../services/movimientos"
 import { observarTiposMovimientos } from "../services/configuracion"
+import { observarEventosBalance } from "../services/balance"
 
 const categorias = [
   { id: "ingreso", label: "Ingreso" },
   { id: "egreso", label: "Egreso" },
+  { id: "inversion", label: "Inversión" },
   { id: "transferencia", label: "Transferencia" }
 ]
 
@@ -15,14 +17,16 @@ export default function NuevoMovimiento() {
   const navigate = useNavigate()
   const [cuentas, setCuentas] = useState([])
   const [tipos, setTipos] = useState([])
+  const [eventos, setEventos] = useState([])
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState({ categoria: "", tipo: "", cuentaId: "", cuentaOrigenId: "", cuentaDestinoId: "", descripcion: "", concepto: "", monto: "", fecha: new Date().toISOString().split("T")[0] })
+  const [form, setForm] = useState({ categoria: "", tipo: "", cuentaId: "", cuentaOrigenId: "", cuentaDestinoId: "", eventoId: "", descripcion: "", concepto: "", monto: "", fecha: new Date().toISOString().split("T")[0] })
 
   useEffect(() => observarCuentas(
     (data) => setCuentas(data.filter((cuenta) => cuenta.activa !== false)),
     () => setError("No se pudieron cargar las cuentas.")
   ), [])
+  useEffect(() => observarEventosBalance(setEventos, () => setError("No se pudieron cargar los eventos.")), [])
 
   useEffect(() => observarTiposMovimientos(
     (data) => setTipos(data.filter((item) => item.activo !== false)),
@@ -30,6 +34,7 @@ export default function NuevoMovimiento() {
   ), [])
 
   const tiposFiltrados = tipos.filter((item) => !form.categoria || String(item.categoria).toLowerCase() === form.categoria)
+  const tiposDisponibles = form.categoria === "inversion" && tiposFiltrados.length === 0 ? [{ id: "inversion", nombre: "Inversión" }] : tiposFiltrados
   function cambiar(name, value) { setForm((actual) => ({ ...actual, [name]: value })) }
 
   async function guardar(e) {
@@ -66,11 +71,12 @@ export default function NuevoMovimiento() {
         </div>
 
         <div style={grilla}>
-          <Campo label="Tipo de movimiento"><select value={form.tipo} onChange={(e) => cambiar("tipo", e.target.value)} required><option value="">Seleccionar tipo</option>{tiposFiltrados.map((tipo) => <option key={tipo.id} value={tipo.nombre}>{tipo.nombre}</option>)}</select></Campo>
+          <Campo label="Tipo de movimiento"><select value={form.tipo} onChange={(e) => cambiar("tipo", e.target.value)} required><option value="">Seleccionar tipo</option>{tiposDisponibles.map((tipo) => <option key={tipo.id} value={tipo.nombre}>{tipo.nombre}</option>)}</select></Campo>
           {form.categoria === "transferencia" ? <>
             <CuentaSelect label="Cuenta de origen" name="cuentaOrigenId" value={form.cuentaOrigenId} cuentas={cuentas} cambiar={cambiar} />
             <CuentaSelect label="Cuenta de destino" name="cuentaDestinoId" value={form.cuentaDestinoId} cuentas={cuentas} cambiar={cambiar} />
           </> : <CuentaSelect label="Cuenta" name="cuentaId" value={form.cuentaId} cuentas={cuentas} cambiar={cambiar} />}
+          {form.categoria === "egreso" && <Campo label="Vincular a evento (opcional)"><select value={form.eventoId} onChange={(e) => cambiar("eventoId", e.target.value)}><option value="">Sin vincular</option>{eventos.map((evento) => <option key={evento.id} value={evento.id}>{evento.nombreEvento || evento.nombre || evento.clienteNombre || evento.id} · {evento.tipoEventoNombre || evento.tipoEvento || "Evento"}</option>)}</select></Campo>}
           <Campo label="Monto"><input type="number" min="1" step="1" value={form.monto} onChange={(e) => cambiar("monto", e.target.value)} placeholder="$ 0" required /></Campo>
           <Campo label="Fecha"><input type="date" value={form.fecha} onChange={(e) => cambiar("fecha", e.target.value)} required /></Campo>
           <Campo label="Concepto"><input value={form.concepto} onChange={(e) => cambiar("concepto", e.target.value)} placeholder="Ej.: Pago de servicio" /></Campo>
@@ -91,7 +97,7 @@ const pagina = { maxWidth: 1050, margin: "0 auto" }
 const cabecera = { padding: "22px 25px", borderRadius: "18px 18px 0 0", color: "white", background: "linear-gradient(100deg,#4e2581,#63349a)", boxShadow: "0 12px 28px rgba(78,37,129,.15)" }
 const sobreTitulo = { color: "#bfe8ff", fontSize: 12, fontWeight: 700, letterSpacing: ".12em" }
 const tarjeta = { padding: 26, background: "white", border: "1px solid #e8e1ee", borderRadius: "0 0 18px 18px", boxShadow: "0 14px 35px rgba(78,37,129,.08)" }
-const grillaCategorias = { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 25 }
+const grillaCategorias = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 25 }
 const categoriaBoton = { padding: 14, border: "1px solid #e8e1ee", borderRadius: 12, background: "#f7f5fb", color: "#665b71", fontWeight: 700, cursor: "pointer" }
 const categoriaActiva = { ...categoriaBoton, color: "white", borderColor: "#4e2581", background: "#4e2581" }
 const grilla = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 20 }

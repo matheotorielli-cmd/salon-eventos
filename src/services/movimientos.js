@@ -10,7 +10,7 @@ export function observarMovimientos(onData, onError) {
   }, onError)
 }
 
-export async function registrarMovimiento({ categoria, tipo, cuentaId, cuentaOrigenId, cuentaDestinoId, monto, fecha, concepto, descripcion, userId }) {
+export async function registrarMovimiento({ categoria, tipo, cuentaId, cuentaOrigenId, cuentaDestinoId, eventoId, monto, fecha, concepto, descripcion, userId }) {
   const movimientoRef = doc(movimientosRef)
   const fechaTimestamp = Timestamp.fromDate(new Date(`${fecha}T12:00:00`))
 
@@ -25,6 +25,12 @@ export async function registrarMovimiento({ categoria, tipo, cuentaId, cuentaOri
     let destinoRef = null
     let destino = null
     const usuarioRef = doc(db, "usuarios", userId)
+    let evento = null
+    if (categoria === "egreso" && eventoId) {
+      const eventoSnap = await transaction.get(doc(db, "eventos", eventoId))
+      if (!eventoSnap.exists()) throw new Error("evento-no-disponible")
+      evento = eventoSnap.data()
+    }
 
     if (esTransferencia) {
       if (!cuentaDestinoId || cuentaOrigenId === cuentaDestinoId) throw new Error("cuentas-iguales")
@@ -38,7 +44,7 @@ export async function registrarMovimiento({ categoria, tipo, cuentaId, cuentaOri
     const usuario = usuarioSnap.exists() ? usuarioSnap.data() : {}
     const usuarioNombre = [usuario.nombre, usuario.apellido].filter(Boolean).join(" ") || usuario.email || "Usuario"
 
-    if ((categoria === "egreso" || esTransferencia) && monto > saldoOrigen) throw new Error("saldo-insuficiente")
+    if ((categoria === "egreso" || categoria === "inversion" || esTransferencia) && monto > saldoOrigen) throw new Error("saldo-insuficiente")
 
     const cuentaNombre = esTransferencia ? origen.nombre : origen.nombre
     transaction.set(movimientoRef, {
@@ -57,6 +63,9 @@ export async function registrarMovimiento({ categoria, tipo, cuentaId, cuentaOri
       descripcion: descripcion.trim(),
       origen: "manual",
       referenciaId: null,
+      eventoId: evento ? eventoId : null,
+      eventoNombre: evento?.nombreEvento || evento?.nombre || "",
+      tipoEventoNombre: evento ? (evento.tipoEventoNombre || evento.tipoEvento || "Sin tipo") : "",
       anulado: false,
       creadoPor: userId,
       creadoPorNombre: usuarioNombre,
@@ -78,5 +87,16 @@ export async function registrarMovimiento({ categoria, tipo, cuentaId, cuentaOri
     }
 
     return movimientoRef.id
+  })
+}
+
+export async function vincularMovimientoEvento({ movimientoId, eventoId, userId }) {
+  return runTransaction(db, async (transaction) => {
+    const movimientoRef = doc(db, "movimientos", movimientoId), eventoRef = doc(db, "eventos", eventoId)
+    const movimientoSnap = await transaction.get(movimientoRef), eventoSnap = await transaction.get(eventoRef)
+    if (!movimientoSnap.exists() || movimientoSnap.data().categoria !== "egreso" || movimientoSnap.data().origen !== "manual") throw new Error("movimiento-no-vinculable")
+    if (!eventoSnap.exists()) throw new Error("evento-no-disponible")
+    const evento = eventoSnap.data()
+    transaction.update(movimientoRef, { eventoId, eventoNombre: evento.nombreEvento || evento.nombre || "Evento", tipoEventoNombre: evento.tipoEventoNombre || evento.tipoEvento || "Sin tipo", vinculadoPor: userId, vinculadoEn: serverTimestamp() })
   })
 }

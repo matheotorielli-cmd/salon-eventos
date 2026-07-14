@@ -249,13 +249,7 @@ export default function Navbar() {
                   Cuentas
                 </div>
 
-                <div
-                  style={
-                    dropdownItem
-                  }
-                >
-                  Balance
-                </div>
+                {role === "admin" && <div onClick={() => { navigate("/balance"); setOpenMenu(null) }} style={dropdownItem}>Balance</div>}
 
                 <div
                   style={{

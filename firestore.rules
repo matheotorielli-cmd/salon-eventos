@@ -67,7 +67,7 @@ service cloud.firestore {
         && amount is number && amount > 0
         && (
           (movement.categoria == 'ingreso' && movement.cuentaId == accountId && request.resource.data.saldoActual == resource.data.saldoActual + amount)
-          || (movement.categoria == 'egreso' && movement.cuentaId == accountId && request.resource.data.saldoActual == resource.data.saldoActual - amount)
+          || (movement.categoria in ['egreso', 'inversion'] && movement.cuentaId == accountId && request.resource.data.saldoActual == resource.data.saldoActual - amount)
           || (movement.categoria == 'transferencia' && movement.cuentaOrigenId == accountId && request.resource.data.saldoActual == resource.data.saldoActual - amount)
           || (movement.categoria == 'transferencia' && movement.cuentaDestinoId == accountId && request.resource.data.saldoActual == resource.data.saldoActual + amount)
         );
@@ -218,7 +218,7 @@ service cloud.firestore {
           'categoria', 'tipoMovimientoNombre', 'monto', 'moneda', 'fecha',
           'origen', 'anulado', 'creadoPor', 'creadoEn'
         ])
-        && request.resource.data.categoria in ['ingreso', 'egreso', 'transferencia']
+        && request.resource.data.categoria in ['ingreso', 'egreso', 'inversion', 'transferencia']
         && request.resource.data.monto is number
         && request.resource.data.monto > 0
         && request.resource.data.moneda == 'ARS'
@@ -228,7 +228,7 @@ service cloud.firestore {
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.creadoEn == request.time
         && (
-          (request.resource.data.categoria in ['ingreso', 'egreso']
+          (request.resource.data.categoria in ['ingreso', 'egreso', 'inversion']
             && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaId)).data.ultimaOperacionId == movimientoId)
           || (request.resource.data.categoria == 'transferencia'
             && request.resource.data.cuentaOrigenId != request.resource.data.cuentaDestinoId
@@ -240,7 +240,7 @@ service cloud.firestore {
           && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.anulado == true
           && request.resource.data.movimientoOriginalId == getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.movimientoId
         ));
-      allow update: if admin() && hasPermission('cobrosAnular')
+      allow update: if (admin() && hasPermission('cobrosAnular')
         && resource.data.origen == 'cobro'
         && resource.data.anulado == false
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -249,7 +249,16 @@ service cloud.firestore {
         && request.resource.data.anulado == true
         && request.resource.data.anuladoPor == request.auth.uid
         && request.resource.data.anuladoEn == request.time
-        && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoAnulacionId)).data.movimientoOriginalId == movimientoId;
+        && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoAnulacionId)).data.movimientoOriginalId == movimientoId)
+        || (admin()
+          && resource.data.origen == 'manual'
+          && resource.data.categoria == 'egreso'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['eventoId', 'eventoNombre', 'tipoEventoNombre', 'vinculadoPor', 'vinculadoEn'])
+          && request.resource.data.eventoId is string
+          && request.resource.data.eventoId.size() > 0
+          && exists(/databases/$(database)/documents/eventos/$(request.resource.data.eventoId))
+          && request.resource.data.vinculadoPor == request.auth.uid
+          && request.resource.data.vinculadoEn == request.time);
       allow delete: if false;
     }
 

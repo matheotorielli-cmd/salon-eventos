@@ -214,3 +214,17 @@ Proyecto local: `C:\Users\muke_\OneDrive\Desktop\salon-eventos`
 - Todo el avance funcional, visual y de seguridad de esta sesion esta registrado en este archivo.
 - No quedan despliegues de reglas pendientes de esta sesion.
 - Al retomar, primero leer este archivo completo antes de modificar el proyecto.
+
+## Modulo Balance (13/07/2026)
+
+- Se agrego la ruta `/balance`, visible y accesible solamente para administradores.
+- El filtro usa las fechas reales de cobros y movimientos, con rangos rapidos y rango personalizado.
+- Los ingresos se calculan con todos los cobros no anulados, sin importar la cuenta.
+- La tabla agrupa por tipo de evento y muestra cantidad de eventos cobrados, ingresos, egresos vinculados y ganancia.
+- El resumen separa ingresos de eventos, egresos vinculados, otros gastos, inversiones y balance total.
+- Se agrego exportacion compatible con Excel para el periodo filtrado.
+- Se agrego la categoria `inversion` a movimientos y reglas de seguridad.
+- Al crear un egreso se puede vincular opcionalmente a un evento.
+- En Mis movimientos, un administrador puede vincular egresos manuales anteriores que todavia no tengan evento; queda registrado quien y cuando hizo la vinculacion.
+- Las anulaciones de cobros no se vuelven a descontar como gastos, evitando duplicar su impacto.
+- Verificacion local: `npm run lint` y `npm run build` aprobados.

@@ -25,6 +25,7 @@ const Usuarios = lazy(() => import("./components/Usuarios"))
 const Clientes = lazy(() => import("./components/Clientes"))
 const ClienteDetalle = lazy(() => import("./components/ClienteDetalle"))
 const ComprobantePublico = lazy(() => import("./components/ComprobantePublico"))
+const Balance = lazy(() => import("./components/Balance"))
 
 function RutaPrivada({ children, user }) {
   if (user === undefined) return <div style={{ padding: 30 }}>Cargando...</div>
@@ -32,7 +33,7 @@ function RutaPrivada({ children, user }) {
 }
 
 function Layout() {
-  const { hasPermission, loading } = useUserRole(auth.currentUser)
+  const { hasPermission, role, loading } = useUserRole(auth.currentUser)
   const permitir = (permiso, contenido) => loading
     ? <div style={{ padding: 30 }}>Cargando permisos...</div>
     : hasPermission(permiso) ? contenido : <div style={{ padding: 30, color: "#776d83" }}>No tenés permiso para acceder a esta sección.</div>
@@ -58,6 +59,7 @@ function Layout() {
         <Route path="/nueva-cuenta" element={permitir("cuentasCrear", <NuevaCuenta />)} />
         <Route path="/nuevo-movimiento" element={permitir("movimientosCrear", <NuevoMovimiento />)} />
         <Route path="/movimientos" element={permitir("movimientosVer", <MisMovimientos />)} />
+        <Route path="/balance" element={loading ? <div style={{ padding: 30 }}>Cargando permisos...</div> : role === "admin" ? <Balance /> : <div style={{ padding: 30, color: "#776d83" }}>Solo los administradores pueden acceder al balance.</div>} />
         <Route path="/usuarios-permisos" element={permitir("usuariosAdministrar", <UsuariosPermisos />)} />
         <Route path="/usuarios" element={permitir("usuariosAdministrar", <Usuarios />)} />
         <Route path="/clientes" element={permitir("eventosVer", <Clientes />)} />
