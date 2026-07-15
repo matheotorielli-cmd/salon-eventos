@@ -26,6 +26,8 @@ const Clientes = lazy(() => import("./components/Clientes"))
 const ClienteDetalle = lazy(() => import("./components/ClienteDetalle"))
 const ComprobantePublico = lazy(() => import("./components/ComprobantePublico"))
 const Balance = lazy(() => import("./components/Balance"))
+const ListasPrecios = lazy(() => import("./components/ListasPrecios"))
+const NuevaListaPrecios = lazy(() => import("./components/NuevaListaPrecios"))
 
 function RutaPrivada({ children, user }) {
   if (user === undefined) return <div style={{ padding: 30 }}>Cargando...</div>
@@ -54,6 +56,9 @@ function Layout() {
         <Route path="/nuevo-tipo-movimiento" element={permitir("configuracionAdministrar", <NuevoTipoMovimiento />)} />
         <Route path="/tipo-movimiento/:id/editar" element={permitir("configuracionAdministrar", <NuevoTipoMovimiento />)} />
         <Route path="/escuelas" element={permitir("configuracionAdministrar", <Escuelas />)} />
+        <Route path="/listas-precios" element={permitir("configuracionAdministrar", <ListasPrecios />)} />
+        <Route path="/listas-precios/nueva" element={permitir("configuracionAdministrar", <NuevaListaPrecios />)} />
+        <Route path="/listas-precios/:id/editar" element={permitir("configuracionAdministrar", <NuevaListaPrecios />)} />
         <Route path="/cuentas" element={permitir("cuentasVer", <Cuentas />)} />
         <Route path="/cuentas/:id" element={permitir("cuentasVer", <CuentaDetalle />)} />
         <Route path="/nueva-cuenta" element={permitir("cuentasCrear", <NuevaCuenta />)} />

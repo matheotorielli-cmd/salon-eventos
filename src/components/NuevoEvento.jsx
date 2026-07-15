@@ -6,6 +6,7 @@ import ClienteModal from "./ClienteModal"
 import { nombreCompleto, observarClientes } from "../services/clientes"
 import { observarEscuelas } from "../services/escuelas"
 import { observarPrestadores, observarTiposEventos } from "../services/configuracion"
+import { observarListasPrecios } from "../services/listasPrecios"
 
 export default function NuevoEvento() {
 
@@ -20,6 +21,7 @@ export default function NuevoEvento() {
   const [escuelas, setEscuelas] = useState([])
   const [tiposEventos, setTiposEventos] = useState([])
   const [prestadoresGuardados, setPrestadoresGuardados] = useState([])
+  const [listasPrecios, setListasPrecios] = useState([])
   const [mostrarClienteModal, setMostrarClienteModal] = useState(false)
 
   const [form, setForm] = useState({
@@ -30,6 +32,11 @@ export default function NuevoEvento() {
     direccion: "",
 
     tipoEvento: "",
+    listaPreciosId: "",
+    listaPreciosNombre: "",
+    servicioListaId: "",
+    servicioListaNombre: "",
+    servicioListaPrecio: 0,
 
     fecha: "",
     fechaFin: "",
@@ -83,6 +90,11 @@ export default function NuevoEvento() {
   useEffect(() => observarPrestadores(
     (datos) => setPrestadoresGuardados(datos.filter((prestador) => prestador.activo !== false)),
     () => setError("No se pudieron cargar los prestadores.")
+  ), [])
+
+  useEffect(() => observarListasPrecios(
+    (datos) => setListasPrecios(datos.filter((lista) => lista.activa !== false)),
+    () => setError("No se pudieron cargar las listas de precios.")
   ), [])
 
   useEffect(() => {
@@ -236,6 +248,17 @@ export default function NuevoEvento() {
       ...form,
       prestadores: nuevos
     })
+  }
+
+  function seleccionarLista(listaId) {
+    const lista = listasPrecios.find((item) => item.id === listaId)
+    setForm((actual) => ({ ...actual, listaPreciosId: listaId, listaPreciosNombre: lista?.nombre || "", servicioListaId: "", servicioListaNombre: "", servicioListaPrecio: 0 }))
+  }
+
+  function seleccionarServicioLista(servicioId) {
+    const lista = listasPrecios.find((item) => item.id === form.listaPreciosId)
+    const servicio = lista?.servicios?.find((item) => item.id === servicioId)
+    setForm((actual) => ({ ...actual, servicioListaId: servicioId, servicioListaNombre: servicio?.nombre || "", servicioListaPrecio: Number(servicio?.precio || 0), tipoEvento: servicio?.nombre || actual.tipoEvento, total: servicio ? Number(servicio.precio || 0) : actual.total }))
   }
 
   async function guardarEvento(e) {
@@ -412,6 +435,22 @@ export default function NuevoEvento() {
                 {tiposEventos.map((tipo, index) => <option key={index} value={tipo.nombre}>{tipo.nombre}</option>)}
               </select>
             </div>
+
+            <div>
+              <label style={label}>Lista de precios</label>
+              <select value={form.listaPreciosId || ""} onChange={(e) => seleccionarLista(e.target.value)} style={input}>
+                <option value="">Sin lista asignada</option>
+                {listasPrecios.map((lista) => <option key={lista.id} value={lista.id}>{lista.nombre}</option>)}
+              </select>
+            </div>
+
+            {form.listaPreciosId && <div>
+              <label style={label}>Cumpleaños o servicio de la lista</label>
+              <select value={form.servicioListaId || ""} onChange={(e) => seleccionarServicioLista(e.target.value)} style={input}>
+                <option value="">Seleccionar servicio</option>
+                {(listasPrecios.find((lista) => lista.id === form.listaPreciosId)?.servicios || []).filter((servicio) => servicio.activo !== false).map((servicio) => <option key={servicio.id} value={servicio.id}>{servicio.nombre} · ${Number(servicio.precio || 0).toLocaleString("es-AR")}</option>)}
+              </select>
+            </div>}
 
             <div>
               <div style={clienteLabel}><label style={{ ...label, marginBottom: 0 }}>Cliente</label><button type="button" onClick={() => setMostrarClienteModal(true)} style={agregarClienteBtn}>Agregar cliente</button></div>

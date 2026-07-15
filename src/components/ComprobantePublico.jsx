@@ -76,14 +76,18 @@ function Comprobante({ datos, copia }) {
       <div><h2>Detalle del pago</h2><p><strong>Emitido por:</strong> {datos.emitidoPor}</p><p><strong>Fecha de cobro:</strong> {fechaTexto(datos.fechaComprobante)}</p><p><strong>Inicio:</strong> {inicio} · <strong>Fin:</strong> {fin}</p></div>
     </div>
     <div className="receipt-details">
-      <h2>Detalles</h2>
-      <div className="receipt-detail-head"><span>Descripción</span><span>Concepto</span><span>Monto</span></div>
-      <div className="receipt-detail-row"><span>{datos.descripcion || "—"}</span><span>{datos.concepto}</span><strong>{pesos.format(Number(datos.monto || 0))}</strong></div>
+      <h2>{datos.detalleBebidas?.length ? "Detalle de bebidas" : "Detalles"}</h2>
+      {datos.detalleBebidas?.length ? <>
+        <div className="receipt-beverage-head"><span>Producto</span><span>Presentación</span><span>Cant.</span><span>Precio</span><span>Subtotal</span></div>
+        {datos.detalleBebidas.map((item, index) => <div className="receipt-beverage-row" key={`${item.bebidaId}-${index}`}><strong>{item.nombre}</strong><span>{item.presentacion || "—"}</span><span>{item.cantidad}</span><span>{pesos.format(Number(item.precioUnitario || 0))}</span><strong>{pesos.format(Number(item.subtotal || 0))}</strong></div>)}
+        <div className="receipt-beverage-total"><span>Total de bebidas</span><strong>{pesos.format(Number(datos.monto || 0))}</strong></div>
+      </> : <><div className="receipt-detail-head"><span>Descripción</span><span>Concepto</span><span>Monto</span></div><div className="receipt-detail-row"><span>{datos.descripcion || "—"}</span><span>{datos.concepto}</span><strong>{pesos.format(Number(datos.monto || 0))}</strong></div></>}
     </div>
-    <footer><span>Fun Space · Diversión asegurada</span><span>{datos.cuentaNombre ? `Cuenta: ${datos.cuentaNombre}` : ""}</span></footer>
+    {!!datos.distribucion?.length && <div className="receipt-distribution"><h2>Distribución del pago</h2>{datos.distribucion.map((item, index) => <div key={`${item.cuentaId}-${index}`}><span>{item.cuentaNombre || "Cuenta"}</span><strong>{pesos.format(Number(item.monto || 0))}</strong></div>)}</div>}
+    <footer><span>Fun Space · Diversión asegurada</span><span>{datos.registradoPor ? `Registrado por: ${datos.registradoPor}` : datos.cuentaNombre ? `Cuenta: ${datos.cuentaNombre}` : ""}</span></footer>
   </section>
 }
 
-function Marca() { return <div className="receipt-brand" aria-label="Fun Space"><span>FUN</span><strong>SPACE</strong><i /></div> }
+function Marca() { return <img className="receipt-brand" src="/fun-space-logo.png" alt="Fun Space · Diversión Asegurada" /> }
 
 const mensaje = { minHeight: "100vh", display: "grid", placeItems: "center", padding: 30, color: "#776d83", background: "#f7f5fb" }

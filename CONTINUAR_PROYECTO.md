@@ -1,5 +1,45 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Avance del 14 de julio de 2026 - listas de precios y bebidas
+
+- Se creó el módulo de Listas de precios dentro de Configuración, con listado, alta, edición y habilitar/deshabilitar.
+- Cada lista guarda vigencia, descripción, servicios/cumpleaños y bebidas con nombre, presentación, precio y estado.
+- Las listas usan Firestore como fuente de verdad mediante la colección `listasPrecios`.
+- Nuevo evento y Editar evento permiten asignar una lista y seleccionar un servicio; el precio elegido se copia al evento.
+- El detalle del evento incorpora la sección Bebidas, permite elegir cantidades desde la lista asignada y conserva una copia histórica de producto, presentación y precio.
+- Registrar una venta de bebidas aumenta el total y el saldo pendiente del evento mediante una transacción.
+- Cada venta de bebidas puede cobrarse desde el evento. El cobro puede ingresar en una cuenta o dividirse entre dos cuentas diferentes.
+- Los cobros divididos crean un movimiento por cuenta, actualizan ambos saldos y se guardan como una sola operación trazable.
+- La anulación de un cobro dividido revierte cada cuenta y movimiento correspondiente.
+- El cobro de bebidas muestra todas las cuentas activas con un campo de importe por cuenta; valida distribuido, faltante o excedente y exige coincidencia exacta con el total.
+- El comprobante público de bebidas detalla producto, presentación, cantidad, precio unitario, subtotal, total, distribución por cuentas y usuario que registró el cobro.
+- Las reglas nuevas de Firestore fueron compiladas y desplegadas al proyecto `salon-eventos-ef008`.
+- `npm run lint` y `npm run build`: aprobados.
+
+### Prueba visual pendiente
+
+1. Crear una lista con un servicio y al menos dos bebidas.
+2. Crear o editar un evento y asignarle esa lista y servicio.
+3. Desde el detalle, agregar bebidas y comprobar el aumento de total y saldo.
+4. Cobrar la venta dividiendo el importe entre dos cuentas y verificar ambos movimientos.
+5. Anular el cobro dividido con un administrador y confirmar la reversión.
+
+## Cierre del 14 de julio de 2026
+
+- El usuario probó desde computadora y celular el módulo de bebidas y confirmó su funcionamiento visual.
+- El cobro de bebidas quedó rediseñado para mostrar todas las cuentas activas con un importe editable por cuenta.
+- La pantalla informa total distribuido, faltante o excedente y exige que la suma coincida exactamente con el cobro.
+- El comprobante de bebidas muestra productos, presentaciones, cantidades, precios unitarios, subtotales, total y distribución por cuentas.
+- Los comprobantes usan numeración correlativa anual con formato `2026-000001`; los anteriores se actualizan al volver a abrirse.
+- Los estados de ventas de bebidas usan etiquetas: verde para Pagado, amarillo para Parcial y rojo suave para Pendiente.
+- Las ventas pagadas ya no muestran la acción Cobrar bebidas.
+- Se incorporó el logo oficial de Fun Space en PNG transparente a comprobantes y pantalla de acceso.
+- El logo de acceso quedó ampliado y centrado entre la parte superior y el contenido principal.
+- Todas las mejoras se publicaron en Firebase Hosting y las reglas necesarias se desplegaron en Firestore.
+- Verificación final: `npm run lint` y `npm run build` aprobados.
+
+**Punto exacto para retomar:** revisar visualmente el logo en los comprobantes impresos y, si está aprobado, continuar con las mejoras que indique el usuario. Los cambios de esta sesión quedaron publicados.
+
 ## Avance del 13 de julio de 2026
 
 - Se migraron `tiposEventos`, `tiposMovimientos` y `prestadores` para que Firestore sea su fuente de verdad.

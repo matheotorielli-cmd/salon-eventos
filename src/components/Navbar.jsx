@@ -752,6 +752,16 @@ export default function Navbar() {
 
             </div>
 
+            <div
+              onClick={() => {
+                navigate("/listas-precios")
+                setOpenConfig(false)
+              }}
+              style={configTitle}
+            >
+              Listas de precios
+            </div>
+
           </div>
 
         </div>
@@ -783,7 +793,7 @@ function ConfigPanel({ role, puedeConfigurar, navigate, onClose, openSections, o
         <MenuItem icon="♨" label="Servicios" />
         <MenuItem icon="▦" label="Agenda" expandable open={openSections.includes("agenda")} onClick={() => onToggle("agenda")} />
         {openSections.includes("agenda") && <SubItem label="Calendario" onClick={() => abrir("/")} />}
-        <MenuItem icon="◆" label="Listas de precios" />
+        <MenuItem icon="◆" label="Listas de precios" onClick={() => abrir("/listas-precios")} />
         <MenuItem icon="✉" label="Tarjetas Digitales" />
 
         {role === "admin" && (

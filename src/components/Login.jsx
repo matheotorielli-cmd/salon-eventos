@@ -28,7 +28,7 @@ export default function Login() {
   return (
     <main className="login-page" style={pagina}>
       <section className="login-welcome" style={bienvenida}>
-        <div style={marcaMini}><span style={burbuja}>F</span> FUN SPACE</div>
+        <img src="/fun-space-logo.png" alt="Fun Space · Diversión Asegurada" style={marcaMini} />
         <div>
           <span style={etiqueta}>GESTIÓN DEL SALÓN</span>
           <h1 style={titulo}>Diversión asegurada,<br />gestión simplificada.</h1>
@@ -39,7 +39,7 @@ export default function Login() {
 
       <section style={zonaFormulario}>
         <form onSubmit={handleLogin} style={tarjeta}>
-          <div className="login-mobile-logo" style={logoMovil}><span style={burbuja}>F</span> FUN SPACE</div>
+          <div className="login-mobile-logo" style={logoMovil}><img src="/fun-space-logo.png" alt="Fun Space · Diversión Asegurada" /></div>
           <span style={bienvenido}>¡Hola de nuevo!</span>
           <h2 style={tituloForm}>Iniciá sesión</h2>
           <p style={ayuda}>Ingresá tus datos para administrar el salón.</p>
@@ -63,16 +63,15 @@ export default function Login() {
 }
 
 const pagina = { minHeight: "100vh", display: "grid", gridTemplateColumns: "minmax(360px,1.08fr) minmax(380px,.92fr)", background: "#f7f5fb" }
-const bienvenida = { position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "clamp(35px,6vw,80px)", color: "white", background: "linear-gradient(145deg,#38145f 0%,#4e2581 58%,#67369d 100%)" }
-const marcaMini = { display: "flex", alignItems: "center", gap: 11, fontFamily: "Fredoka", fontSize: 22, fontWeight: 700, letterSpacing: ".04em" }
-const burbuja = { display: "inline-grid", placeItems: "center", width: 40, height: 40, borderRadius: 13, background: "#f4d00c", color: "#4e2581", boxShadow: "0 8px 20px rgba(0,0,0,.15)" }
+const bienvenida = { position: "relative", overflow: "hidden", display: "grid", gridTemplateRows: "1fr auto 1fr", padding: "clamp(35px,6vw,80px)", color: "white", background: "linear-gradient(145deg,#38145f 0%,#4e2581 58%,#67369d 100%)" }
+const marcaMini = { display: "block", alignSelf: "center", justifySelf: "center", width: "clamp(280px,42vw,390px)", maxWidth: "78%", height: "auto" }
 const etiqueta = { display: "inline-block", padding: "7px 12px", borderRadius: 999, background: "rgba(87,182,238,.2)", color: "#bfe8ff", fontSize: 12, fontWeight: 700, letterSpacing: ".12em" }
 const titulo = { margin: "22px 0 16px", fontSize: "clamp(42px,5.3vw,72px)", lineHeight: 1.02, letterSpacing: "-.025em" }
 const descripcion = { maxWidth: 560, margin: 0, color: "#e9dcf6", fontSize: 18, lineHeight: 1.7 }
-const formas = { display: "flex", gap: 22, alignItems: "center", color: "#f4d00c", fontSize: 28, opacity: .9 }
+const formas = { alignSelf: "end", display: "flex", gap: 22, alignItems: "center", color: "#f4d00c", fontSize: 28, opacity: .9 }
 const zonaFormulario = { display: "grid", placeItems: "center", padding: "32px" }
 const tarjeta = { width: "min(440px,100%)", padding: "clamp(28px,5vw,48px)", background: "white", border: "1px solid #eee7f4", borderRadius: 24, boxShadow: "0 24px 65px rgba(78,37,129,.13)" }
-const logoMovil = { display: "none", alignItems: "center", gap: 10, color: "#4e2581", fontFamily: "Fredoka", fontWeight: 700, marginBottom: 28 }
+const logoMovil = { display: "none", justifyContent: "center", marginBottom: 28 }
 const bienvenido = { color: "#57b6ee", fontWeight: 700 }
 const tituloForm = { margin: "7px 0", color: "#4e2581", fontSize: 36 }
 const ayuda = { margin: "0 0 28px", color: "#776d83", lineHeight: 1.6 }

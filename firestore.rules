@@ -90,7 +90,7 @@ service cloud.firestore {
           || hasPermission('eventosCancelar'))) || (
         hasPermission('cobrosRegistrar')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'sena', 'totalCobrado', 'saldo', 'estado', 'ultimoCobroId', 'actualizadoPor', 'actualizadoEn'
+          'sena', 'totalCobrado', 'saldo', 'estado', 'ultimoCobroId', 'ventasBebidas', 'actualizadoPor', 'actualizadoEn'
         ])
         && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.eventoId == eventoId
         && request.resource.data.saldo == resource.data.saldo - getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.monto
@@ -103,7 +103,7 @@ service cloud.firestore {
       ) || (
         admin() && hasPermission('cobrosAnular')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'sena', 'totalCobrado', 'saldo', 'estado', 'ultimaAnulacionCobroId', 'actualizadoPor', 'actualizadoEn'
+          'sena', 'totalCobrado', 'saldo', 'estado', 'ultimaAnulacionCobroId', 'ventasBebidas', 'actualizadoPor', 'actualizadoEn'
         ])
         && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.eventoId == eventoId
         && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.anulado == true
@@ -111,6 +111,18 @@ service cloud.firestore {
         && request.resource.data.sena == request.resource.data.totalCobrado
         && request.resource.data.saldo == resource.data.saldo + getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.monto
         && request.resource.data.totalCobrado >= 0
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time
+      ) || (
+        hasPermission('eventosEditar')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'ventasBebidas', 'total', 'saldo', 'ultimaVentaBebidasId', 'actualizadoPor', 'actualizadoEn'
+        ])
+        && request.resource.data.ventasBebidas is list
+        && ((!('ventasBebidas' in resource.data) && request.resource.data.ventasBebidas.size() == 1)
+          || ('ventasBebidas' in resource.data && request.resource.data.ventasBebidas.size() == resource.data.ventasBebidas.size() + 1))
+        && request.resource.data.total > resource.data.total
+        && request.resource.data.saldo == resource.data.saldo + (request.resource.data.total - resource.data.total)
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
       );
@@ -145,6 +157,19 @@ service cloud.firestore {
         && request.resource.data.nombre.size() > 0
         && validAuditOnUpdate();
       allow delete: if admin();
+    }
+
+    match /listasPrecios/{listaId} {
+      allow read: if hasPermission('eventosVer') || hasPermission('eventosCrear') || hasPermission('configuracionAdministrar');
+      allow create: if hasPermission('configuracionAdministrar')
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.moneda == 'ARS'
+        && request.resource.data.servicios is list
+        && request.resource.data.bebidas is list
+        && validAuditOnCreate();
+      allow update: if hasPermission('configuracionAdministrar') && validAuditOnUpdate();
+      allow delete: if false;
     }
 
     match /cuentas/{cuentaId} {
@@ -197,7 +222,7 @@ service cloud.firestore {
       allow update: if admin() && hasPermission('cobrosAnular')
         && resource.data.anulado == false
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'anulado', 'motivoAnulacion', 'anuladoPor', 'anuladoPorNombre', 'anuladoPorEmail', 'anuladoEn', 'movimientoAnulacionId'
+          'anulado', 'motivoAnulacion', 'anuladoPor', 'anuladoPorNombre', 'anuladoPorEmail', 'anuladoEn', 'movimientoAnulacionId', 'movimientoAnulacionIds'
         ])
         && request.resource.data.anulado == true
         && request.resource.data.motivoAnulacion is string
@@ -238,7 +263,9 @@ service cloud.firestore {
         && (request.resource.data.origen != 'anulacion' || (
           request.resource.data.categoria == 'egreso'
           && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.anulado == true
-          && request.resource.data.movimientoOriginalId == getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.movimientoId
+          && (request.resource.data.movimientoOriginalId == getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.movimientoId
+            || ('movimientoIds' in getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data
+              && request.resource.data.movimientoOriginalId in getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.movimientoIds))
         ));
       allow update: if (admin() && hasPermission('cobrosAnular')
         && resource.data.origen == 'cobro'
@@ -295,10 +322,13 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'cobroId', 'numero', 'eventoId', 'eventoNombre', 'clienteNombre', 'clienteTelefono',
           'fechaComprobante', 'fechaEvento', 'fechaFinEvento', 'horaInicio', 'horaFin',
-          'concepto', 'descripcion', 'monto', 'moneda', 'cuentaNombre', 'emitidoPor',
+          'concepto', 'descripcion', 'monto', 'moneda', 'cuentaNombre', 'detalleBebidas',
+          'distribucion', 'registradoPor', 'emitidoPor',
           'anulado', 'creadoPor', 'creadoEn'
         ])
         && request.resource.data.cobroId == documentId
+        && request.resource.data.numero is string
+        && request.resource.data.numero.matches('[0-9]{4}-[0-9]{6}')
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.creadoEn == request.time
         && request.resource.data.monto is number
@@ -311,10 +341,27 @@ service cloud.firestore {
           && request.resource.data.anulado == true
           && request.resource.data.anuladoEn == request.time)
         || (hasPermission('eventosVer')
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clienteTelefono', 'actualizadoEn'])
-          && request.resource.data.clienteTelefono is string
-          && request.resource.data.clienteTelefono.size() > 0
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['numero', 'clienteTelefono', 'detalleBebidas', 'distribucion', 'registradoPor', 'actualizadoEn'])
+          && request.resource.data.numero is string
+          && request.resource.data.numero.matches('[0-9]{4}-[0-9]{6}')
+          && (!('clienteTelefono' in request.resource.data) || request.resource.data.clienteTelefono is string)
           && request.resource.data.actualizadoEn == request.time);
+      allow delete: if false;
+    }
+
+    match /contadores/{contadorId} {
+      allow read: if hasPermission('eventosVer');
+      allow create: if hasPermission('eventosVer')
+        && contadorId.matches('comprobantes-[0-9]{4}')
+        && request.resource.data.ultimo == 1
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time;
+      allow update: if hasPermission('eventosVer')
+        && contadorId.matches('comprobantes-[0-9]{4}')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimo', 'anio', 'actualizadoPor', 'actualizadoEn'])
+        && request.resource.data.ultimo == resource.data.ultimo + 1
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time;
       allow delete: if false;
     }
 
