@@ -73,6 +73,40 @@ service cloud.firestore {
         );
     }
 
+    function validAccountAdjustment(accountId) {
+      let movement = getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.ultimaOperacionId)).data;
+      return movement.origen == 'ajuste'
+        && movement.referenciaId == accountId
+        && movement.cuentaId == accountId
+        && movement.creadoPor == request.auth.uid
+        && movement.anulado == false
+        && movement.monto is number
+        && movement.monto > 0
+        && ((movement.categoria == 'ingreso' && request.resource.data.saldoActual == resource.data.saldoActual + movement.monto)
+          || (movement.categoria == 'egreso' && request.resource.data.saldoActual == resource.data.saldoActual - movement.monto));
+    }
+
+    function validAccountAdminEdit(accountId) {
+      let changedBalance = request.resource.data.saldoActual != resource.data.saldoActual;
+      return hasPermission('cuentasAdministrar')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'nombre', 'descripcion', 'saldoInicial', 'saldoActual', 'activa',
+          'ultimaOperacionId', 'actualizadoPor', 'actualizadoEn'
+        ])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.descripcion is string
+        && request.resource.data.saldoInicial is number
+        && request.resource.data.saldoInicial >= 0
+        && request.resource.data.saldoActual is number
+        && request.resource.data.saldoActual >= 0
+        && request.resource.data.activa is bool
+        && request.resource.data.moneda == resource.data.moneda
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time
+        && (!changedBalance || validAccountAdjustment(accountId));
+    }
+
     function validCobroDestination(cobroId, destination) {
       let movement = getAfter(/databases/$(database)/documents/movimientos/$(destination.movimientoId)).data;
       return destination.cuentaId is string
@@ -295,7 +329,7 @@ service cloud.firestore {
           && request.resource.data.nombre.size() > 0
           && request.resource.data.activa is bool
           && validAuditOnUpdate()
-        ) || validFinancialAccountUpdate(cuentaId);
+        ) || validAccountAdminEdit(cuentaId) || validFinancialAccountUpdate(cuentaId);
 
       allow delete: if false;
     }
@@ -336,7 +370,8 @@ service cloud.firestore {
       allow read: if hasPermission('movimientosVer');
       allow create: if ((request.resource.data.origen == 'manual' && hasPermission('movimientosCrear'))
           || (request.resource.data.origen == 'cobro' && hasPermission('cobrosRegistrar'))
-          || (request.resource.data.origen == 'anulacion' && admin() && hasPermission('cobrosAnular')))
+          || (request.resource.data.origen == 'anulacion' && admin() && hasPermission('cobrosAnular'))
+          || (request.resource.data.origen == 'ajuste' && hasPermission('cuentasAdministrar')))
         && request.resource.data.keys().hasAll([
           'categoria', 'tipoMovimientoNombre', 'monto', 'moneda', 'fecha',
           'origen', 'anulado', 'creadoPor', 'creadoEn'
@@ -346,7 +381,7 @@ service cloud.firestore {
         && request.resource.data.monto > 0
         && request.resource.data.moneda == 'ARS'
         && request.resource.data.fecha is timestamp
-        && request.resource.data.origen in ['manual', 'cobro', 'anulacion']
+        && request.resource.data.origen in ['manual', 'cobro', 'anulacion', 'ajuste']
         && request.resource.data.anulado == false
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.creadoEn == request.time
@@ -364,6 +399,10 @@ service cloud.firestore {
           && (request.resource.data.movimientoOriginalId == getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.movimientoId
             || ('movimientoIds' in getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data
               && request.resource.data.movimientoOriginalId in getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.movimientoIds))
+        ))
+        && (request.resource.data.origen != 'ajuste' || (
+          request.resource.data.categoria in ['ingreso', 'egreso']
+          && request.resource.data.referenciaId == request.resource.data.cuentaId
         ));
       allow update: if (admin() && hasPermission('cobrosAnular')
         && resource.data.origen == 'cobro'

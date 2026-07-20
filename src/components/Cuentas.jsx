@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { auth } from "../firebase"
 import { useUserRole } from "../hooks/useUserRole"
-import { actualizarEstadoCuenta, actualizarNombreCuenta, observarCuentas } from "../services/cuentas"
+import { actualizarEstadoCuenta, editarCuenta, observarCuentas } from "../services/cuentas"
 
 const pesos = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -18,8 +18,7 @@ export default function Cuentas() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
   const [actualizandoId, setActualizandoId] = useState(null)
-  const [editandoId, setEditandoId] = useState(null)
-  const [nombreEditado, setNombreEditado] = useState("")
+  const [cuentaEditando, setCuentaEditando] = useState(null)
   const cuentasActivas = cuentas.filter((cuenta) => cuenta.activa !== false)
   const saldoTotal = cuentasActivas.reduce((total, cuenta) => total + Number(cuenta.saldoActual || 0), 0)
 
@@ -50,31 +49,6 @@ export default function Cuentas() {
     } catch (updateError) {
       console.error(updateError)
       setError("No se pudo cambiar el estado de la cuenta.")
-    } finally {
-      setActualizandoId(null)
-    }
-  }
-
-  function comenzarEdicion(cuenta) {
-    setEditandoId(cuenta.id)
-    setNombreEditado(cuenta.nombre || "")
-    setError("")
-  }
-
-  async function guardarNombre(cuenta) {
-    const nombre = nombreEditado.trim()
-    if (!hasPermission("cuentasAdministrar") || !user) return
-    if (!nombre) return setError("Ingresá un nombre para la cuenta.")
-    if (nombre === cuenta.nombre) return setEditandoId(null)
-
-    setError("")
-    setActualizandoId(cuenta.id)
-    try {
-      await actualizarNombreCuenta({ cuentaId: cuenta.id, nombre, userId: user.uid })
-      setEditandoId(null)
-    } catch (updateError) {
-      console.error(updateError)
-      setError("No se pudo actualizar el nombre de la cuenta.")
     } finally {
       setActualizandoId(null)
     }
@@ -118,7 +92,7 @@ export default function Cuentas() {
             {cuentas.map((cuenta) => (
               <tr key={cuenta.id}>
                 <td style={td}>
-                  {editandoId === cuenta.id ? <input value={nombreEditado} onChange={(e) => setNombreEditado(e.target.value)} style={inputNombre} autoFocus maxLength={80} /> : <button onClick={() => navigate(`/cuentas/${cuenta.id}`)} style={nombreCuenta}>{cuenta.nombre}</button>}
+                  <button onClick={() => navigate(`/cuentas/${cuenta.id}`)} style={nombreCuenta}>{cuenta.nombre}</button>
                 </td>
                 <td style={td}>{cuenta.descripcion || "—"}</td>
                 <td style={td}>{cuenta.moneda || "ARS"}</td>
@@ -136,8 +110,8 @@ export default function Cuentas() {
                     <span style={{ color: "#6b7280" }}>Verificando permisos...</span>
                   ) : hasPermission("cuentasAdministrar") ? (
                     <div style={accionesCuenta}>
-                      {editandoId === cuenta.id ? <><button onClick={() => guardarNombre(cuenta)} style={botonEditar} disabled={actualizandoId === cuenta.id}>{actualizandoId === cuenta.id ? "Guardando..." : "Guardar"}</button><button onClick={() => setEditandoId(null)} style={botonCancelar}>Cancelar</button></> : <button onClick={() => comenzarEdicion(cuenta)} style={botonEditar}>Editar nombre</button>}
-                      {editandoId !== cuenta.id && <button onClick={() => cambiarEstado(cuenta)} style={cuenta.activa === false ? botonVerde : botonRojo} disabled={actualizandoId === cuenta.id}>{actualizandoId === cuenta.id ? "Guardando..." : cuenta.activa === false ? "Habilitar" : "Deshabilitar"}</button>}
+                      <button onClick={() => { setCuentaEditando(cuenta); setError("") }} style={botonEditar}>Editar</button>
+                      <button onClick={() => cambiarEstado(cuenta)} style={cuenta.activa === false ? botonVerde : botonRojo} disabled={actualizandoId === cuenta.id}>{actualizandoId === cuenta.id ? "Guardando..." : cuenta.activa === false ? "Habilitar" : "Deshabilitar"}</button>
                     </div>
                   ) : (
                     <span style={{ color: "#6b7280" }}>Solo administrador</span>
@@ -148,8 +122,34 @@ export default function Cuentas() {
           </tbody>
         </table>
       </div>
+      {cuentaEditando && <EditorCuenta cuenta={cuentaEditando} userId={user.uid} onClose={() => setCuentaEditando(null)} onError={setError} />}
     </div>
   )
+}
+
+function EditorCuenta({ cuenta, userId, onClose, onError }) {
+  const [form, setForm] = useState({ nombre: cuenta.nombre || "", descripcion: cuenta.descripcion || "", saldoInicial: String(cuenta.saldoInicial ?? cuenta.monto ?? 0), saldoActual: String(cuenta.saldoActual ?? cuenta.monto ?? 0), activa: cuenta.activa !== false, motivoAjuste: "" })
+  const [guardando, setGuardando] = useState(false)
+  const cambiaSaldo = Number(form.saldoActual) !== Number(cuenta.saldoActual ?? cuenta.monto ?? 0)
+  const cambiar = (campo, valor) => setForm((actual) => ({ ...actual, [campo]: valor }))
+
+  async function guardar(e) {
+    e.preventDefault()
+    const saldoInicial = Number(form.saldoInicial), saldoActual = Number(form.saldoActual)
+    if (!form.nombre.trim()) return onError("Ingresá un nombre para la cuenta.")
+    if (!Number.isFinite(saldoInicial) || saldoInicial < 0 || !Number.isFinite(saldoActual) || saldoActual < 0) return onError("Los saldos deben ser números mayores o iguales a cero.")
+    if (cambiaSaldo && !form.motivoAjuste.trim()) return onError("Ingresá el motivo del ajuste de saldo.")
+    setGuardando(true); onError("")
+    try {
+      await editarCuenta({ cuentaId: cuenta.id, ...form, saldoInicial, saldoActual, userId })
+      onClose()
+    } catch (saveError) {
+      console.error(saveError)
+      onError("No se pudo actualizar la cuenta.")
+    } finally { setGuardando(false) }
+  }
+
+  return <div style={fondoModal} onMouseDown={onClose}><form onSubmit={guardar} style={modalCuenta} onMouseDown={(e) => e.stopPropagation()}><div style={modalCabecera}><h3 style={{margin:0}}>Editar cuenta</h3><button type="button" onClick={onClose} style={cerrarModal}>×</button></div><label style={campoModal}><span>Nombre</span><input value={form.nombre} onChange={(e) => cambiar("nombre", e.target.value)} maxLength={80} required /></label><label style={campoModal}><span>Descripción</span><textarea value={form.descripcion} onChange={(e) => cambiar("descripcion", e.target.value)} rows="3" /></label><div style={grillaModal}><label style={campoModal}><span>Saldo inicial</span><input type="number" min="0" step="1" value={form.saldoInicial} onChange={(e) => cambiar("saldoInicial", e.target.value)} required /></label><label style={campoModal}><span>Saldo actual</span><input type="number" min="0" step="1" value={form.saldoActual} onChange={(e) => cambiar("saldoActual", e.target.value)} required /></label></div>{cambiaSaldo && <label style={campoModal}><span>Motivo del ajuste de saldo</span><textarea value={form.motivoAjuste} onChange={(e) => cambiar("motivoAjuste", e.target.value)} rows="2" required placeholder="Explicá por qué se modifica el saldo" /></label>}<label style={estadoModal}><input type="checkbox" checked={form.activa} onChange={(e) => cambiar("activa", e.target.checked)} /><span>Cuenta activa</span></label><div style={pieModal}><button type="button" onClick={onClose} style={botonCancelar}>Cancelar</button><button disabled={guardando} style={botonEditar}>{guardando ? "Guardando..." : "Guardar cambios"}</button></div></form></div>
 }
 
 function FilaMensaje({ texto }) {
@@ -172,7 +172,14 @@ const estadoActivo = { color: "#166534", background: "#dcfce7", padding: "5px 9p
 const estadoInactivo = { color: "#991b1b", background: "#fee2e2", padding: "5px 9px", borderRadius: "999px", fontSize: "12px", fontWeight: "700" }
 const errorStyle = { margin: "12px 0", color: "#b91c1c", background: "#fef2f2", border: "1px solid #fecaca", padding: "12px", borderRadius: "8px" }
 const nombreCuenta = { padding: 0, border: 0, background: "transparent", color: "#4e2581", fontWeight: 700, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }
-const inputNombre = { width: "100%", minWidth: 150, boxSizing: "border-box", padding: "8px 10px", border: "1px solid #8b5bb5", borderRadius: 7, font: "inherit" }
 const accionesCuenta = { display: "flex", gap: 8, flexWrap: "wrap" }
 const botonEditar = { background: "#4e2581", color: "white", border: "none", padding: "9px 12px", borderRadius: 6, cursor: "pointer" }
 const botonCancelar = { background: "#eee9f1", color: "#665b71", border: "none", padding: "9px 12px", borderRadius: 6, cursor: "pointer" }
+const fondoModal = { position: "fixed", inset: 0, zIndex: 1000, display: "grid", placeItems: "center", padding: 18, background: "rgba(31,17,44,.55)" }
+const modalCuenta = { width: "min(560px,100%)", maxHeight: "90vh", overflowY: "auto", boxSizing: "border-box", padding: 22, borderRadius: 16, background: "white", boxShadow: "0 24px 70px rgba(31,17,44,.3)" }
+const modalCabecera = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, color: "#4e2581" }
+const cerrarModal = { border: 0, background: "transparent", color: "#665b71", fontSize: 26, cursor: "pointer" }
+const campoModal = { display: "flex", flexDirection: "column", gap: 7, marginBottom: 15, color: "#4b4058", fontWeight: 700 }
+const grillaModal = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 14 }
+const estadoModal = { display: "flex", alignItems: "center", gap: 9, margin: "4px 0 18px", color: "#4e2581", fontWeight: 700 }
+const pieModal = { display: "flex", justifyContent: "flex-end", gap: 10 }
