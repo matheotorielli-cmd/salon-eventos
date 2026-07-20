@@ -186,6 +186,27 @@ service cloud.firestore {
       ) || (
         hasPermission('eventosEditar')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'ventasBebidas', 'total', 'saldo', 'ultimaVentaBebidasAnterior', 'ultimaVentaBebidasEditada', 'actualizadoPor', 'actualizadoEn'
+        ])
+        && resource.data.ventasBebidas is list
+        && request.resource.data.ventasBebidas is list
+        && request.resource.data.ventasBebidas.size() == resource.data.ventasBebidas.size()
+        && resource.data.ventasBebidas.hasAny([request.resource.data.ultimaVentaBebidasAnterior])
+        && request.resource.data.ventasBebidas.hasAny([request.resource.data.ultimaVentaBebidasEditada])
+        && request.resource.data.ultimaVentaBebidasAnterior.id == request.resource.data.ultimaVentaBebidasEditada.id
+        && request.resource.data.ultimaVentaBebidasAnterior.cobrado == 0
+        && request.resource.data.ultimaVentaBebidasAnterior.saldo == request.resource.data.ultimaVentaBebidasAnterior.total
+        && request.resource.data.ultimaVentaBebidasEditada.cobrado == 0
+        && request.resource.data.ultimaVentaBebidasEditada.saldo == request.resource.data.ultimaVentaBebidasEditada.total
+        && request.resource.data.total == resource.data.total - request.resource.data.ultimaVentaBebidasAnterior.total + request.resource.data.ultimaVentaBebidasEditada.total
+        && request.resource.data.saldo == resource.data.saldo - request.resource.data.ultimaVentaBebidasAnterior.total + request.resource.data.ultimaVentaBebidasEditada.total
+        && request.resource.data.total >= request.resource.data.totalCobrado
+        && request.resource.data.saldo >= 0
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time
+      ) || (
+        hasPermission('eventosEditar')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'ventasBebidas', 'total', 'saldo', 'ultimaVentaBebidasEliminada', 'actualizadoPor', 'actualizadoEn'
         ])
         && resource.data.ventasBebidas is list
