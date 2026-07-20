@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { auth } from "../firebase"
 import { useUserRole } from "../hooks/useUserRole"
-import { actualizarEstadoCuenta, observarCuentas } from "../services/cuentas"
+import { actualizarEstadoCuenta, actualizarNombreCuenta, observarCuentas } from "../services/cuentas"
 
 const pesos = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -18,6 +18,8 @@ export default function Cuentas() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
   const [actualizandoId, setActualizandoId] = useState(null)
+  const [editandoId, setEditandoId] = useState(null)
+  const [nombreEditado, setNombreEditado] = useState("")
   const cuentasActivas = cuentas.filter((cuenta) => cuenta.activa !== false)
   const saldoTotal = cuentasActivas.reduce((total, cuenta) => total + Number(cuenta.saldoActual || 0), 0)
 
@@ -48,6 +50,31 @@ export default function Cuentas() {
     } catch (updateError) {
       console.error(updateError)
       setError("No se pudo cambiar el estado de la cuenta.")
+    } finally {
+      setActualizandoId(null)
+    }
+  }
+
+  function comenzarEdicion(cuenta) {
+    setEditandoId(cuenta.id)
+    setNombreEditado(cuenta.nombre || "")
+    setError("")
+  }
+
+  async function guardarNombre(cuenta) {
+    const nombre = nombreEditado.trim()
+    if (!hasPermission("cuentasAdministrar") || !user) return
+    if (!nombre) return setError("Ingresá un nombre para la cuenta.")
+    if (nombre === cuenta.nombre) return setEditandoId(null)
+
+    setError("")
+    setActualizandoId(cuenta.id)
+    try {
+      await actualizarNombreCuenta({ cuentaId: cuenta.id, nombre, userId: user.uid })
+      setEditandoId(null)
+    } catch (updateError) {
+      console.error(updateError)
+      setError("No se pudo actualizar el nombre de la cuenta.")
     } finally {
       setActualizandoId(null)
     }
@@ -91,7 +118,7 @@ export default function Cuentas() {
             {cuentas.map((cuenta) => (
               <tr key={cuenta.id}>
                 <td style={td}>
-                  <button onClick={() => navigate(`/cuentas/${cuenta.id}`)} style={nombreCuenta}>{cuenta.nombre}</button>
+                  {editandoId === cuenta.id ? <input value={nombreEditado} onChange={(e) => setNombreEditado(e.target.value)} style={inputNombre} autoFocus maxLength={80} /> : <button onClick={() => navigate(`/cuentas/${cuenta.id}`)} style={nombreCuenta}>{cuenta.nombre}</button>}
                 </td>
                 <td style={td}>{cuenta.descripcion || "—"}</td>
                 <td style={td}>{cuenta.moneda || "ARS"}</td>
@@ -108,13 +135,10 @@ export default function Cuentas() {
                   {cargandoRol ? (
                     <span style={{ color: "#6b7280" }}>Verificando permisos...</span>
                   ) : hasPermission("cuentasAdministrar") ? (
-                    <button
-                      onClick={() => cambiarEstado(cuenta)}
-                      style={cuenta.activa === false ? botonVerde : botonRojo}
-                      disabled={actualizandoId === cuenta.id}
-                    >
-                      {actualizandoId === cuenta.id ? "Guardando..." : cuenta.activa === false ? "Habilitar" : "Deshabilitar"}
-                    </button>
+                    <div style={accionesCuenta}>
+                      {editandoId === cuenta.id ? <><button onClick={() => guardarNombre(cuenta)} style={botonEditar} disabled={actualizandoId === cuenta.id}>{actualizandoId === cuenta.id ? "Guardando..." : "Guardar"}</button><button onClick={() => setEditandoId(null)} style={botonCancelar}>Cancelar</button></> : <button onClick={() => comenzarEdicion(cuenta)} style={botonEditar}>Editar nombre</button>}
+                      {editandoId !== cuenta.id && <button onClick={() => cambiarEstado(cuenta)} style={cuenta.activa === false ? botonVerde : botonRojo} disabled={actualizandoId === cuenta.id}>{actualizandoId === cuenta.id ? "Guardando..." : cuenta.activa === false ? "Habilitar" : "Deshabilitar"}</button>}
+                    </div>
                   ) : (
                     <span style={{ color: "#6b7280" }}>Solo administrador</span>
                   )}
@@ -148,3 +172,7 @@ const estadoActivo = { color: "#166534", background: "#dcfce7", padding: "5px 9p
 const estadoInactivo = { color: "#991b1b", background: "#fee2e2", padding: "5px 9px", borderRadius: "999px", fontSize: "12px", fontWeight: "700" }
 const errorStyle = { margin: "12px 0", color: "#b91c1c", background: "#fef2f2", border: "1px solid #fecaca", padding: "12px", borderRadius: "8px" }
 const nombreCuenta = { padding: 0, border: 0, background: "transparent", color: "#4e2581", fontWeight: 700, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }
+const inputNombre = { width: "100%", minWidth: 150, boxSizing: "border-box", padding: "8px 10px", border: "1px solid #8b5bb5", borderRadius: 7, font: "inherit" }
+const accionesCuenta = { display: "flex", gap: 8, flexWrap: "wrap" }
+const botonEditar = { background: "#4e2581", color: "white", border: "none", padding: "9px 12px", borderRadius: 6, cursor: "pointer" }
+const botonCancelar = { background: "#eee9f1", color: "#665b71", border: "none", padding: "9px 12px", borderRadius: 6, cursor: "pointer" }

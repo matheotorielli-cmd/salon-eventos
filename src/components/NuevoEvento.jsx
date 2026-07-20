@@ -93,9 +93,20 @@ export default function NuevoEvento() {
   ), [])
 
   useEffect(() => observarListasPrecios(
-    (datos) => setListasPrecios(datos.filter((lista) => lista.activa !== false)),
+    (datos) => {
+      const activas = datos.filter((lista) => lista.activa !== false)
+      setListasPrecios(activas)
+      if (!editando && activas.length > 0) {
+        const listaActiva = activas[0]
+        setForm((actual) => actual.listaPreciosId ? actual : {
+          ...actual,
+          listaPreciosId: listaActiva.id,
+          listaPreciosNombre: listaActiva.nombre || ""
+        })
+      }
+    },
     () => setError("No se pudieron cargar las listas de precios.")
-  ), [])
+  ), [editando])
 
   useEffect(() => {
     if (!editando) return
@@ -279,6 +290,10 @@ export default function NuevoEvento() {
       return setError("Ingresá el teléfono")
     }
 
+    if (!editando && !form.listaPreciosId) {
+      return setError("No hay una lista de precios activa para asignar al evento")
+    }
+
     if (!form.fecha) {
       return setError("Seleccioná una fecha")
     }
@@ -436,13 +451,13 @@ export default function NuevoEvento() {
               </select>
             </div>
 
-            <div>
+            {editando && <div>
               <label style={label}>Lista de precios</label>
               <select value={form.listaPreciosId || ""} onChange={(e) => seleccionarLista(e.target.value)} style={input}>
                 <option value="">Sin lista asignada</option>
                 {listasPrecios.map((lista) => <option key={lista.id} value={lista.id}>{lista.nombre}</option>)}
               </select>
-            </div>
+            </div>}
 
             {form.listaPreciosId && <div>
               <label style={label}>Cumpleaños o servicio de la lista</label>

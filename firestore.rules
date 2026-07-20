@@ -248,11 +248,12 @@ service cloud.firestore {
         && request.resource.data.activa == true
         && validAuditOnCreate();
 
-      // Por ahora la unica edicion directa es habilitar o deshabilitar una cuenta.
-      // Los cambios de saldo se habilitaran junto con la transaccion de cobros.
+      // El nombre y el estado pueden editarse sin alterar los saldos.
       allow update: if (
         hasPermission('cuentasAdministrar')
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activa', 'actualizadoPor', 'actualizadoEn'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre', 'activa', 'actualizadoPor', 'actualizadoEn'])
+          && request.resource.data.nombre is string
+          && request.resource.data.nombre.size() > 0
           && request.resource.data.activa is bool
           && validAuditOnUpdate()
         ) || validFinancialAccountUpdate(cuentaId);

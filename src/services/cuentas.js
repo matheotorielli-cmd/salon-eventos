@@ -48,3 +48,11 @@ export function actualizarEstadoCuenta({ cuentaId, activa, userId }) {
     actualizadoEn: serverTimestamp()
   })
 }
+
+export function actualizarNombreCuenta({ cuentaId, nombre, userId }) {
+  return updateDoc(doc(db, "cuentas", cuentaId), {
+    nombre: nombre.trim(),
+    actualizadoPor: userId,
+    actualizadoEn: serverTimestamp()
+  })
+}
