@@ -7,7 +7,7 @@ import { useUserRole } from "../hooks/useUserRole"
 import { enlaceWhatsApp } from "../utils/whatsapp"
 import { crearComprobantePublico } from "../services/comprobantes"
 import { obtenerListaPrecios } from "../services/listasPrecios"
-import { registrarVentaBebidas } from "../services/bebidas"
+import { eliminarVentaBebidas, registrarVentaBebidas } from "../services/bebidas"
 
 const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 const fechaTexto = new Intl.DateTimeFormat("es-AR")
@@ -27,6 +27,7 @@ export default function EventoDetalle() {
   const [bebidasSeleccionadas, setBebidasSeleccionadas] = useState([])
   const [vistaBebidas, setVistaBebidas] = useState("seleccionadas")
   const [guardandoBebidas, setGuardandoBebidas] = useState(false)
+  const [eliminandoVentaId, setEliminandoVentaId] = useState("")
 
   useEffect(() => {
     getDoc(doc(db, "eventos", id)).then((snapshot) => {
@@ -111,6 +112,20 @@ export default function EventoDetalle() {
     finally { setGuardandoBebidas(false) }
   }
 
+  async function eliminarVenta(venta) {
+    if (!auth.currentUser || Number(venta.cobrado || 0) > 0) return
+    if (!confirm(`¿Eliminar la venta de bebidas por ${pesos.format(Number(venta.total || 0))}?`)) return
+    setEliminandoVentaId(venta.id); setError("")
+    try {
+      await eliminarVentaBebidas({ eventoId: id, ventaId: venta.id, userId: auth.currentUser.uid })
+      const snapshot = await getDoc(doc(db, "eventos", id))
+      if (snapshot.exists()) setEvento({ ...snapshot.data(), id: snapshot.id })
+    } catch (deleteError) {
+      console.error(deleteError)
+      setError(deleteError.message === "venta-con-cobros" ? "No se puede eliminar una venta que ya tiene cobros." : "No se pudo eliminar la venta de bebidas.")
+    } finally { setEliminandoVentaId("") }
+  }
+
   if (cargando) return <div style={mensaje}>Cargando evento...</div>
   if (!evento) return <div style={mensaje}>Evento no encontrado.</div>
 
@@ -187,7 +202,7 @@ export default function EventoDetalle() {
             {!!bebidasSeleccionadas.length && hasPermission("eventosEditar") && <div style={bebidasAcciones}><button onClick={agregarBebidas} disabled={guardandoBebidas} style={botonAmarillo}>{guardandoBebidas ? "Registrando..." : "Agregar bebidas al evento"}</button></div>}
           </>}
         </>}
-        {!!evento.ventasBebidas?.length && <div style={{marginTop:20}}><h3 style={subtitulo}>Ventas registradas</h3><Tabla columnas={["Fecha", "Detalle", "Total", "Estado", "Acción"]}>{evento.ventasBebidas.map((venta) => { const estadoVenta = venta.estado || "Pendiente"; const saldoVenta = Number(venta.saldo ?? venta.total); return <tr key={venta.id}><td style={td}>{venta.creadoEnTexto ? fechaTexto.format(new Date(venta.creadoEnTexto)) : "—"}</td><td style={td}>{venta.items.map((item) => `${item.cantidad} × ${item.nombre}`).join(", ")}</td><td style={td}><strong>{pesos.format(venta.total)}</strong></td><td style={td}><span style={{...estadoVentaBadge,...(estadoVenta.toLowerCase()==="pagado"?estadoVentaPagado:estadoVenta.toLowerCase()==="parcial"?estadoVentaParcial:estadoVentaPendiente)}}>{estadoVenta}</span></td><td style={td}>{saldoVenta > 0 ? <button onClick={() => navigate(`/evento/${id}/cobro?bebidas=${venta.id}&monto=${saldoVenta}`)} style={cobrarBebidasBtn}>Cobrar bebidas</button> : <span style={ventaCobradaTexto}>Cobrado</span>}</td></tr> })}</Tabla></div>}
+        {!!evento.ventasBebidas?.length && <div style={{marginTop:20}}><h3 style={subtitulo}>Ventas registradas</h3><Tabla columnas={["Fecha", "Detalle", "Total", "Estado", "Acción"]}>{evento.ventasBebidas.map((venta) => { const estadoVenta = venta.estado || "Pendiente"; const saldoVenta = Number(venta.saldo ?? venta.total); const sinCobros = Number(venta.cobrado || 0) === 0 && saldoVenta === Number(venta.total); return <tr key={venta.id}><td style={td}>{venta.creadoEnTexto ? fechaTexto.format(new Date(venta.creadoEnTexto)) : "—"}</td><td style={td}>{venta.items.map((item) => `${item.cantidad} × ${item.nombre}`).join(", ")}</td><td style={td}><strong>{pesos.format(venta.total)}</strong></td><td style={td}><span style={{...estadoVentaBadge,...(estadoVenta.toLowerCase()==="pagado"?estadoVentaPagado:estadoVenta.toLowerCase()==="parcial"?estadoVentaParcial:estadoVentaPendiente)}}>{estadoVenta}</span></td><td style={td}><div style={accionesVenta}>{saldoVenta > 0 ? <button onClick={() => navigate(`/evento/${id}/cobro?bebidas=${venta.id}&monto=${saldoVenta}`)} style={cobrarBebidasBtn}>Cobrar bebidas</button> : <span style={ventaCobradaTexto}>Cobrado</span>}{sinCobros && hasPermission("eventosEditar") && <button onClick={() => eliminarVenta(venta)} disabled={eliminandoVentaId === venta.id} style={eliminarVentaBtn}>{eliminandoVentaId === venta.id ? "Eliminando..." : "Eliminar"}</button>}</div></td></tr> })}</Tabla></div>}
       </Seccion>
 
       <Seccion titulo="Prestadores">
@@ -255,6 +270,8 @@ const quitarBebidaBtn = { padding: "7px 10px", border: 0, borderRadius: 7, color
 const cantidadInput = { width: 85, padding: 8 }
 const bebidasAcciones = { display: "flex", justifyContent: "flex-end", marginTop: 15 }
 const cobrarBebidasBtn = { ...botonBase, color: "white", background: "#57b6ee" }
+const accionesVenta = { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }
+const eliminarVentaBtn = { ...botonBase, color: "#b42339", background: "#fff0f2" }
 const estadoVentaBadge = { display: "inline-block", padding: "5px 10px", borderRadius: 999, fontSize: 11, fontWeight: 800 }
 const estadoVentaPagado = { color: "#146744", background: "#dcf7eb", border: "1px solid #a9e8cb" }
 const estadoVentaParcial = { color: "#775f00", background: "#fff3b5", border: "1px solid #f0d96b" }

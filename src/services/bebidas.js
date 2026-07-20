@@ -22,3 +22,26 @@ export async function registrarVentaBebidas({ eventoId, items, userId }) {
     return venta.id
   })
 }
+
+export async function eliminarVentaBebidas({ eventoId, ventaId, userId }) {
+  const eventoRef = doc(db, "eventos", eventoId)
+  return runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(eventoRef)
+    if (!snapshot.exists()) throw new Error("evento-no-disponible")
+    const evento = snapshot.data()
+    const ventas = evento.ventasBebidas || []
+    const venta = ventas.find((item) => item.id === ventaId)
+    if (!venta) throw new Error("venta-no-disponible")
+    if (Number(venta.cobrado || 0) > 0 || Number(venta.saldo ?? venta.total) !== Number(venta.total)) throw new Error("venta-con-cobros")
+
+    const totalVenta = Number(venta.total || 0)
+    transaction.update(eventoRef, {
+      ventasBebidas: ventas.filter((item) => item.id !== ventaId),
+      total: Number(evento.total || 0) - totalVenta,
+      saldo: Number(evento.saldo ?? (Number(evento.total || 0) - Number(evento.totalCobrado || 0))) - totalVenta,
+      ultimaVentaBebidasEliminada: venta,
+      actualizadoPor: userId,
+      actualizadoEn: serverTimestamp()
+    })
+  })
+}

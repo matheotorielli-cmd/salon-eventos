@@ -183,6 +183,24 @@ service cloud.firestore {
         && request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].saldo == request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].total
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
+      ) || (
+        hasPermission('eventosEditar')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'ventasBebidas', 'total', 'saldo', 'ultimaVentaBebidasEliminada', 'actualizadoPor', 'actualizadoEn'
+        ])
+        && resource.data.ventasBebidas is list
+        && request.resource.data.ventasBebidas is list
+        && request.resource.data.ventasBebidas.size() == resource.data.ventasBebidas.size() - 1
+        && resource.data.ventasBebidas.hasAll(request.resource.data.ventasBebidas)
+        && resource.data.ventasBebidas.hasAny([request.resource.data.ultimaVentaBebidasEliminada])
+        && request.resource.data.ultimaVentaBebidasEliminada.cobrado == 0
+        && request.resource.data.ultimaVentaBebidasEliminada.saldo == request.resource.data.ultimaVentaBebidasEliminada.total
+        && request.resource.data.total == resource.data.total - request.resource.data.ultimaVentaBebidasEliminada.total
+        && request.resource.data.saldo == resource.data.saldo - request.resource.data.ultimaVentaBebidasEliminada.total
+        && request.resource.data.total >= request.resource.data.totalCobrado
+        && request.resource.data.saldo >= 0
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time
       );
       allow delete: if admin();
     }
