@@ -4,11 +4,15 @@ import { auth } from "../firebase"
 import ClienteModal from "./ClienteModal"
 import { cambiarEstadoCliente, nombreCompleto, observarClientes } from "../services/clientes"
 import { enlaceWhatsApp } from "../utils/whatsapp"
+import { useUserRole } from "../hooks/useUserRole"
 
 export default function Clientes() {
+  const { hasPermission } = useUserRole(auth.currentUser)
+  const puedeAdministrar = hasPermission("eventosCrear") || hasPermission("configuracionAdministrar")
   const [clientes, setClientes] = useState([])
   const [busqueda, setBusqueda] = useState("")
   const [mostrarModal, setMostrarModal] = useState(false)
+  const [clienteEditando, setClienteEditando] = useState(null)
   const [error, setError] = useState("")
 
   useEffect(() => observarClientes(setClientes, () => setError("No se pudieron cargar los clientes.")), [])
@@ -29,7 +33,7 @@ export default function Clientes() {
   return <div className="clients-page" style={pagina}>
     <div className="responsive-header" style={cabecera}>
       <div><span style={sobreTitulo}>CONFIGURACIÓN</span><h1 style={{ margin: "3px 0 0" }}>Clientes</h1></div>
-      <button onClick={() => setMostrarModal(true)} style={nuevoBtn}>Agregar cliente</button>
+      {puedeAdministrar && <button onClick={() => setMostrarModal(true)} style={nuevoBtn}>Agregar cliente</button>}
     </div>
     <div style={tarjeta}>
       <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre, DNI, teléfono o correo" style={buscar} />
@@ -40,12 +44,13 @@ export default function Clientes() {
           <td style={td}><Link to={`/clientes/${cliente.id}`} style={clienteLink}>{nombreCompleto(cliente)}</Link>{cliente.esEmpresa && <small style={empresa}>Empresa</small>}</td>
           <td style={td}>{cliente.dni || "—"}</td><td style={td}>{cliente.telefono ? <a href={enlaceWhatsApp(cliente.telefono)} target="_blank" rel="noreferrer" style={whatsappLink}>{cliente.telefono}</a> : "—"}</td><td style={td}>{cliente.email || "—"}</td>
           <td style={td}><span style={cliente.activo === false ? inactivo : activo}>{cliente.activo === false ? "Inactivo" : "Activo"}</span></td>
-          <td style={td}><button onClick={() => cambiarEstado(cliente)} style={cliente.activo === false ? habilitar : deshabilitar}>{cliente.activo === false ? "Habilitar" : "Deshabilitar"}</button></td>
+          <td style={td}>{puedeAdministrar ? <div style={acciones}><button onClick={() => setClienteEditando(cliente)} style={editar}>Editar</button><button onClick={() => cambiarEstado(cliente)} style={cliente.activo === false ? habilitar : deshabilitar}>{cliente.activo === false ? "Habilitar" : "Deshabilitar"}</button></div> : "—"}</td>
         </tr>)}</tbody>
       </table></div>
       {!filtrados.length && <div style={vacio}>No hay clientes para mostrar.</div>}
     </div>
     {mostrarModal && <ClienteModal onClose={() => setMostrarModal(false)} onCreado={() => setMostrarModal(false)} />}
+    {clienteEditando && <ClienteModal cliente={clienteEditando} onClose={() => setClienteEditando(null)} onGuardado={() => setClienteEditando(null)} />}
   </div>
 }
 
@@ -63,6 +68,8 @@ const activo = { padding: "5px 9px", borderRadius: 999, color: "#166534", backgr
 const inactivo = { ...activo, color: "#991b1b", background: "#fee2e2" }
 const deshabilitar = { padding: "8px 11px", border: 0, borderRadius: 8, color: "white", background: "#ef4444", cursor: "pointer" }
 const habilitar = { ...deshabilitar, background: "#22c55e" }
+const acciones = { display: "flex", gap: 8, flexWrap: "wrap" }
+const editar = { padding: "8px 11px", border: "1px solid #4e2581", borderRadius: 8, color: "#4e2581", background: "white", fontWeight: 700, cursor: "pointer" }
 const errorBox = { marginBottom: 16, padding: 12, borderRadius: 9, background: "#fff1f2", color: "#be123c" }
 const vacio = { padding: 28, textAlign: "center", color: "#7a6c86" }
 const whatsappLink = { color: "#168c52", fontWeight: 700, textDecoration: "none" }

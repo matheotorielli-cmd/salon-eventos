@@ -73,6 +73,49 @@ service cloud.firestore {
         );
     }
 
+    function validCobroDestination(cobroId, destination) {
+      let movement = getAfter(/databases/$(database)/documents/movimientos/$(destination.movimientoId)).data;
+      return destination.cuentaId is string
+        && destination.movimientoId is string
+        && destination.monto is number
+        && destination.monto > 0
+        && movement.origen == 'cobro'
+        && movement.referenciaId == cobroId
+        && movement.cuentaId == destination.cuentaId
+        && movement.monto == destination.monto
+        && getAfter(/databases/$(database)/documents/cuentas/$(destination.cuentaId)).data.ultimaOperacionId == destination.movimientoId;
+    }
+
+    function validCobroDistribution(cobroId) {
+      let distribution = request.resource.data.distribucion;
+      return distribution is list
+        && distribution.size() >= 1
+        && distribution.size() <= 5
+        && (distribution.size() < 2 || (distribution[0].cuentaId != distribution[1].cuentaId && distribution[0].movimientoId != distribution[1].movimientoId))
+        && (distribution.size() < 3 || ((distribution[0].cuentaId != distribution[2].cuentaId && distribution[0].movimientoId != distribution[2].movimientoId) && (distribution[1].cuentaId != distribution[2].cuentaId && distribution[1].movimientoId != distribution[2].movimientoId)))
+        && (distribution.size() < 4 || ((distribution[0].cuentaId != distribution[3].cuentaId && distribution[0].movimientoId != distribution[3].movimientoId) && (distribution[1].cuentaId != distribution[3].cuentaId && distribution[1].movimientoId != distribution[3].movimientoId) && (distribution[2].cuentaId != distribution[3].cuentaId && distribution[2].movimientoId != distribution[3].movimientoId)))
+        && (distribution.size() < 5 || ((distribution[0].cuentaId != distribution[4].cuentaId && distribution[0].movimientoId != distribution[4].movimientoId) && (distribution[1].cuentaId != distribution[4].cuentaId && distribution[1].movimientoId != distribution[4].movimientoId) && (distribution[2].cuentaId != distribution[4].cuentaId && distribution[2].movimientoId != distribution[4].movimientoId) && (distribution[3].cuentaId != distribution[4].cuentaId && distribution[3].movimientoId != distribution[4].movimientoId)))
+        && request.resource.data.cuentaId == distribution[0].cuentaId
+        && request.resource.data.movimientoId == distribution[0].movimientoId
+        && validCobroDestination(cobroId, distribution[0])
+        && (distribution.size() < 2 || validCobroDestination(cobroId, distribution[1]))
+        && (distribution.size() < 3 || validCobroDestination(cobroId, distribution[2]))
+        && (distribution.size() < 4 || validCobroDestination(cobroId, distribution[3]))
+        && (distribution.size() < 5 || validCobroDestination(cobroId, distribution[4]))
+        && ((distribution.size() == 1 && request.resource.data.monto == distribution[0].monto)
+          || (distribution.size() == 2 && request.resource.data.monto == distribution[0].monto + distribution[1].monto)
+          || (distribution.size() == 3 && request.resource.data.monto == distribution[0].monto + distribution[1].monto + distribution[2].monto)
+          || (distribution.size() == 4 && request.resource.data.monto == distribution[0].monto + distribution[1].monto + distribution[2].monto + distribution[3].monto)
+          || (distribution.size() == 5 && request.resource.data.monto == distribution[0].monto + distribution[1].monto + distribution[2].monto + distribution[3].monto + distribution[4].monto));
+    }
+
+    function syncedCustomerData(clienteId) {
+      let customer = getAfter(/databases/$(database)/documents/clientes/$(clienteId)).data;
+      let customerName = customer.esEmpresa == true ? customer.nombre : customer.nombre + ' ' + customer.apellido;
+      return request.resource.data.cliente == customerName
+        && request.resource.data.telefono == customer.telefono;
+    }
+
     match /usuarios/{uid} {
       allow get: if (activeUser() && request.auth.uid == uid) || admin();
       allow list, create, update, delete: if admin();
@@ -83,7 +126,8 @@ service cloud.firestore {
       allow create: if hasPermission('eventosCrear');
       allow update: if (hasPermission('eventosEditar')
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'sena', 'totalCobrado', 'saldo', 'ultimoCobroId', 'ultimaAnulacionCobroId'
+          'sena', 'totalCobrado', 'saldo', 'total', 'ultimoCobroId', 'ultimaAnulacionCobroId',
+          'ventasBebidas', 'ultimaVentaBebidasId', 'cliente', 'telefono'
         ])
         && (!(request.resource.data.estado in ['Cancelado', 'cancelado'])
           || request.resource.data.estado == resource.data.estado
@@ -114,6 +158,15 @@ service cloud.firestore {
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
       ) || (
+        (hasPermission('eventosCrear') || hasPermission('configuracionAdministrar'))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'cliente', 'telefono', 'actualizadoPor', 'actualizadoEn'
+        ])
+        && request.resource.data.clienteId == resource.data.clienteId
+        && syncedCustomerData(request.resource.data.clienteId)
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time
+      ) || (
         hasPermission('eventosEditar')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'ventasBebidas', 'total', 'saldo', 'ultimaVentaBebidasId', 'actualizadoPor', 'actualizadoEn'
@@ -121,8 +174,13 @@ service cloud.firestore {
         && request.resource.data.ventasBebidas is list
         && ((!('ventasBebidas' in resource.data) && request.resource.data.ventasBebidas.size() == 1)
           || ('ventasBebidas' in resource.data && request.resource.data.ventasBebidas.size() == resource.data.ventasBebidas.size() + 1))
+        && (!('ventasBebidas' in resource.data) || request.resource.data.ventasBebidas.hasAll(resource.data.ventasBebidas))
         && request.resource.data.total > resource.data.total
         && request.resource.data.saldo == resource.data.saldo + (request.resource.data.total - resource.data.total)
+        && request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].id == request.resource.data.ultimaVentaBebidasId
+        && request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].total == request.resource.data.total - resource.data.total
+        && request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].cobrado == 0
+        && request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].saldo == request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].total
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
       );
@@ -216,8 +274,8 @@ service cloud.firestore {
         && request.resource.data.anulado == false
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.creadoEn == request.time
+        && validCobroDistribution(cobroId)
         && getAfter(/databases/$(database)/documents/eventos/$(request.resource.data.eventoId)).data.ultimoCobroId == cobroId
-        && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaId)).data.ultimaOperacionId == request.resource.data.movimientoId
         && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoId)).data.referenciaId == cobroId;
       allow update: if admin() && hasPermission('cobrosAnular')
         && resource.data.anulado == false
@@ -317,7 +375,7 @@ service cloud.firestore {
 
     match /comprobantesPublicos/{documentId} {
       allow get: if true;
-      allow list: if false;
+      allow list: if hasPermission('eventosCrear') || hasPermission('configuracionAdministrar');
       allow create: if hasPermission('eventosVer')
         && request.resource.data.keys().hasOnly([
           'cobroId', 'numero', 'eventoId', 'eventoNombre', 'clienteNombre', 'clienteTelefono',
@@ -341,9 +399,10 @@ service cloud.firestore {
           && request.resource.data.anulado == true
           && request.resource.data.anuladoEn == request.time)
         || (hasPermission('eventosVer')
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['numero', 'clienteTelefono', 'detalleBebidas', 'distribucion', 'registradoPor', 'actualizadoEn'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['numero', 'clienteNombre', 'clienteTelefono', 'detalleBebidas', 'distribucion', 'registradoPor', 'actualizadoEn'])
           && request.resource.data.numero is string
           && request.resource.data.numero.matches('[0-9]{4}-[0-9]{6}')
+          && (!('clienteNombre' in request.resource.data) || request.resource.data.clienteNombre is string)
           && (!('clienteTelefono' in request.resource.data) || request.resource.data.clienteTelefono is string)
           && request.resource.data.actualizadoEn == request.time);
       allow delete: if false;

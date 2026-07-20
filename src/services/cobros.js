@@ -7,6 +7,7 @@ export async function registrarCobro({ eventoId, cuentaId, destinos, monto, fech
   const cobroRef = doc(collection(db, "cobros"))
   const fechaTimestamp = Timestamp.fromDate(new Date(`${fecha}T12:00:00`))
   const distribucion = (destinos?.length ? destinos : [{ cuentaId, monto }]).filter((item) => item.cuentaId && Number(item.monto) > 0).map((item) => ({ cuentaId: item.cuentaId, monto: Number(item.monto) }))
+  if (distribucion.length > 5) throw new Error("demasiadas-cuentas")
   const movimientosRefs = distribucion.map(() => doc(collection(db, "movimientos")))
 
   return runTransaction(db, async (transaction) => {

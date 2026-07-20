@@ -66,7 +66,7 @@ export default function RegistrarCobro() {
       navigate(`/evento/${id}`)
     } catch (saveError) {
       console.error(saveError)
-      const mensajes = { "monto-supera-saldo": "El cobro supera el saldo pendiente.", "monto-supera-bebidas": "El cobro supera el saldo de la venta de bebidas.", "distribucion-invalida": "La distribución entre cuentas no coincide con el total.", "cuentas-repetidas": "Las cuentas deben ser diferentes.", "cuenta-no-disponible": "La cuenta seleccionada ya no está disponible.", "evento-no-disponible": "El evento ya no está disponible." }
+      const mensajes = { "monto-supera-saldo": "El cobro supera el saldo pendiente.", "monto-supera-bebidas": "El cobro supera el saldo de la venta de bebidas.", "distribucion-invalida": "La distribución entre cuentas no coincide con el total.", "demasiadas-cuentas": "El cobro puede distribuirse entre un máximo de cinco cuentas.", "cuentas-repetidas": "Las cuentas deben ser diferentes.", "cuenta-no-disponible": "La cuenta seleccionada ya no está disponible.", "evento-no-disponible": "El evento ya no está disponible." }
       setError(mensajes[saveError.message] || "No se pudo registrar el cobro.")
     } finally { setGuardando(false) }
   }

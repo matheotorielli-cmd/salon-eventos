@@ -1,11 +1,12 @@
 import { useState } from "react"
 import { auth } from "../firebase"
-import { crearCliente } from "../services/clientes"
+import { actualizarClienteYSincronizar, crearCliente } from "../services/clientes"
 
 const inicial = { esEmpresa: false, nombre: "", apellido: "", fechaNacimiento: "", dni: "", telefono: "", email: "", direccion: "", nota: "" }
 
-export default function ClienteModal({ onClose, onCreado }) {
-  const [form, setForm] = useState(inicial)
+export default function ClienteModal({ cliente, onClose, onCreado, onGuardado }) {
+  const editando = Boolean(cliente)
+  const [form, setForm] = useState(cliente ? { ...inicial, ...cliente } : inicial)
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
 
@@ -24,12 +25,19 @@ export default function ClienteModal({ onClose, onCreado }) {
     setGuardando(true)
     setError("")
     try {
-      const datos = { ...form, nombre: form.nombre.trim(), apellido: form.esEmpresa ? "" : form.apellido.trim() }
-      const id = await crearCliente(datos, auth.currentUser.uid)
-      onCreado({ id, ...datos, activo: true })
+      const datos = { ...form, nombre: form.nombre.trim(), apellido: form.esEmpresa ? "" : form.apellido.trim(), telefono: form.telefono.trim() }
+      if (editando) {
+        await actualizarClienteYSincronizar(cliente, { nombre: datos.nombre, apellido: datos.apellido, telefono: datos.telefono }, auth.currentUser.uid)
+        onGuardado?.({ ...cliente, nombre: datos.nombre, apellido: datos.apellido, telefono: datos.telefono })
+      } else {
+        const id = await crearCliente(datos, auth.currentUser.uid)
+        onCreado({ id, ...datos, activo: true })
+      }
     } catch (saveError) {
       console.error(saveError)
-      setError("No se pudo guardar el cliente.")
+      setError(saveError.message === "demasiados-registros-vinculados"
+        ? "El cliente tiene demasiados registros vinculados para actualizarlos de forma segura."
+        : editando ? "No se pudo actualizar el cliente y sus registros vinculados." : "No se pudo guardar el cliente.")
     } finally {
       setGuardando(false)
     }
@@ -37,22 +45,22 @@ export default function ClienteModal({ onClose, onCreado }) {
 
   return <div style={fondo} onMouseDown={onClose}>
     <form style={modal} onSubmit={guardar} onMouseDown={(e) => e.stopPropagation()}>
-      <div style={cabecera}><h2 style={{ margin: 0 }}>Agregar cliente</h2><button type="button" onClick={onClose} style={cerrar}>×</button></div>
+      <div style={cabecera}><h2 style={{ margin: 0 }}>{editando ? "Editar cliente" : "Agregar cliente"}</h2><button type="button" onClick={onClose} style={cerrar}>×</button></div>
       <div style={contenido}>
-        <label style={empresa}><span>El cliente es una empresa</span><input type="checkbox" name="esEmpresa" checked={form.esEmpresa} onChange={cambiar} /></label>
+        {!editando && <label style={empresa}><span>El cliente es una empresa</span><input type="checkbox" name="esEmpresa" checked={form.esEmpresa} onChange={cambiar} /></label>}
         <div style={grilla}>
           <Campo label={form.esEmpresa ? "Nombre de la empresa *" : "Nombre *"}><input name="nombre" value={form.nombre} onChange={cambiar} placeholder="Ingrese el nombre del cliente" style={input} /></Campo>
           {!form.esEmpresa && <Campo label="Apellido *"><input name="apellido" value={form.apellido} onChange={cambiar} placeholder="Ingrese el apellido del cliente" style={input} /></Campo>}
-          <Campo label="Fecha de nacimiento"><input type="date" name="fechaNacimiento" value={form.fechaNacimiento} onChange={cambiar} style={input} /></Campo>
-          <Campo label="DNI"><input name="dni" value={form.dni} onChange={cambiar} placeholder="Ingrese el DNI del cliente" style={input} /></Campo>
+          {!editando && <Campo label="Fecha de nacimiento"><input type="date" name="fechaNacimiento" value={form.fechaNacimiento} onChange={cambiar} style={input} /></Campo>}
+          {!editando && <Campo label="DNI"><input name="dni" value={form.dni} onChange={cambiar} placeholder="Ingrese el DNI del cliente" style={input} /></Campo>}
           <Campo label="Teléfono *"><input type="tel" name="telefono" value={form.telefono} onChange={cambiar} placeholder="Ingrese el teléfono del cliente" style={input} required /></Campo>
-          <Campo label="Correo electrónico"><input type="email" name="email" value={form.email} onChange={cambiar} placeholder="Ingrese el email del cliente" style={input} /></Campo>
-          <div style={{ gridColumn: "1 / -1" }}><Campo label="Dirección del cliente"><input name="direccion" value={form.direccion} onChange={cambiar} placeholder="Ingrese la dirección del cliente" style={input} /></Campo></div>
-          <div style={{ gridColumn: "1 / -1" }}><Campo label="Nota del cliente"><textarea name="nota" value={form.nota} onChange={cambiar} maxLength={500} rows="3" placeholder="Ingrese una nota del cliente" style={{ ...input, resize: "vertical" }} /><small>{form.nota.length}/500</small></Campo></div>
+          {!editando && <Campo label="Correo electrónico"><input type="email" name="email" value={form.email} onChange={cambiar} placeholder="Ingrese el email del cliente" style={input} /></Campo>}
+          {!editando && <div style={{ gridColumn: "1 / -1" }}><Campo label="Dirección del cliente"><input name="direccion" value={form.direccion} onChange={cambiar} placeholder="Ingrese la dirección del cliente" style={input} /></Campo></div>}
+          {!editando && <div style={{ gridColumn: "1 / -1" }}><Campo label="Nota del cliente"><textarea name="nota" value={form.nota} onChange={cambiar} maxLength={500} rows="3" placeholder="Ingrese una nota del cliente" style={{ ...input, resize: "vertical" }} /><small>{form.nota.length}/500</small></Campo></div>}
         </div>
         {error && <div style={errorBox}>{error}</div>}
       </div>
-      <div style={pie}><button type="button" onClick={onClose} style={cancelar}>Cancelar</button><button disabled={guardando} style={guardarBtn}>{guardando ? "Guardando..." : "Agregar cliente"}</button></div>
+      <div style={pie}><button type="button" onClick={onClose} style={cancelar}>Cancelar</button><button disabled={guardando} style={guardarBtn}>{guardando ? "Guardando..." : editando ? "Guardar cambios" : "Agregar cliente"}</button></div>
     </form>
   </div>
 }
