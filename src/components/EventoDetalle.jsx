@@ -24,6 +24,8 @@ export default function EventoDetalle() {
   const [error, setError] = useState("")
   const [listaPrecios, setListaPrecios] = useState(null)
   const [cantidadesBebidas, setCantidadesBebidas] = useState({})
+  const [bebidasSeleccionadas, setBebidasSeleccionadas] = useState([])
+  const [vistaBebidas, setVistaBebidas] = useState("seleccionadas")
   const [guardandoBebidas, setGuardandoBebidas] = useState(false)
 
   useEffect(() => {
@@ -95,7 +97,7 @@ export default function EventoDetalle() {
 
   async function agregarBebidas() {
     if (!auth.currentUser || !listaPrecios) return
-    const items = (listaPrecios.bebidas || []).map((bebida) => ({ ...bebida, cantidad: Number(cantidadesBebidas[bebida.id] || 0) })).filter((bebida) => bebida.cantidad > 0)
+    const items = (listaPrecios.bebidas || []).filter((bebida) => bebidasSeleccionadas.includes(bebida.id)).map((bebida) => ({ ...bebida, cantidad: Number(cantidadesBebidas[bebida.id] || 0) })).filter((bebida) => bebida.cantidad > 0)
     if (!items.length) return setError("Indicá la cantidad de al menos una bebida.")
     setGuardandoBebidas(true); setError("")
     try {
@@ -103,6 +105,8 @@ export default function EventoDetalle() {
       const snapshot = await getDoc(doc(db, "eventos", id))
       if (snapshot.exists()) setEvento({ ...snapshot.data(), id: snapshot.id })
       setCantidadesBebidas({})
+      setBebidasSeleccionadas([])
+      setVistaBebidas("seleccionadas")
     } catch (saleError) { console.error(saleError); setError("No se pudo registrar la venta de bebidas.") }
     finally { setGuardandoBebidas(false) }
   }
@@ -170,11 +174,18 @@ export default function EventoDetalle() {
         {!evento.listaPreciosId && <div style={avisoBebidas}>Asigná una lista de precios desde Editar evento para cargar bebidas.</div>}
         {evento.listaPreciosId && listaPrecios && <>
           <div style={bebidasCabecera}><div><strong>Lista: {evento.listaPreciosNombre || listaPrecios.nombre}</strong><small>Los precios se copian al evento al registrar la venta.</small></div></div>
-          <Tabla columnas={["Bebida", "Presentación", "Precio unitario", "Cantidad", "Subtotal"]}>
-            {(listaPrecios.bebidas || []).filter((bebida) => bebida.activo !== false).map((bebida) => { const cantidad = Number(cantidadesBebidas[bebida.id] || 0); return <tr key={bebida.id}><td style={td}><strong>{bebida.nombre}</strong></td><td style={td}>{bebida.presentacion || "—"}</td><td style={td}>{pesos.format(Number(bebida.precio || 0))}</td><td style={td}><input type="number" min="0" step="1" value={cantidadesBebidas[bebida.id] || ""} onChange={(e) => setCantidadesBebidas({ ...cantidadesBebidas, [bebida.id]: e.target.value })} style={cantidadInput}/></td><td style={td}>{pesos.format(cantidad * Number(bebida.precio || 0))}</td></tr> })}
-            {!listaPrecios.bebidas?.length && <FilaVacia columnas="5" texto="La lista no tiene bebidas cargadas"/>}
-          </Tabla>
-          {!!listaPrecios.bebidas?.length && hasPermission("eventosEditar") && <div style={bebidasAcciones}><button onClick={agregarBebidas} disabled={guardandoBebidas} style={botonAmarillo}>{guardandoBebidas ? "Registrando..." : "Agregar bebidas al evento"}</button></div>}
+          <div style={bebidasPestanas}><button onClick={() => setVistaBebidas("seleccionadas")} style={vistaBebidas === "seleccionadas" ? pestanaActiva : pestana}>Seleccionadas ({bebidasSeleccionadas.length})</button><button onClick={() => setVistaBebidas("catalogo")} style={vistaBebidas === "catalogo" ? pestanaActiva : pestana}>Todas las bebidas</button></div>
+          {vistaBebidas === "catalogo" ? <>
+            <div style={catalogoBebidas}>{(listaPrecios.bebidas || []).filter((bebida) => bebida.activo !== false).map((bebida) => { const seleccionada = bebidasSeleccionadas.includes(bebida.id); return <button type="button" key={bebida.id} onClick={() => { setBebidasSeleccionadas((actuales) => seleccionada ? actuales.filter((item) => item !== bebida.id) : [...actuales, bebida.id]); if (seleccionada) setCantidadesBebidas((actuales) => { const nuevas = { ...actuales }; delete nuevas[bebida.id]; return nuevas }) }} style={{ ...bebidaCatalogo, ...(seleccionada ? bebidaCatalogoSeleccionada : {}) }}><span><strong>{bebida.nombre}</strong><small>{bebida.presentacion || "Sin presentación"}</small></span><span><strong>{pesos.format(Number(bebida.precio || 0))}</strong><small style={seleccionada ? quitarCatalogoTexto : agregarCatalogoTexto}>{seleccionada ? "× Quitar" : "+ Agregar"}</small></span></button>})}</div>
+            {!listaPrecios.bebidas?.length && <div style={avisoBebidas}>La lista no tiene bebidas cargadas.</div>}
+            {!!bebidasSeleccionadas.length && <div style={bebidasAcciones}><button onClick={() => setVistaBebidas("seleccionadas")} style={botonAmarillo}>Continuar con {bebidasSeleccionadas.length} {bebidasSeleccionadas.length === 1 ? "bebida" : "bebidas"}</button></div>}
+          </> : <>
+            <Tabla columnas={["Bebida", "Presentación", "Precio unitario", "Cantidad", "Subtotal", "Acción"]}>
+              {(listaPrecios.bebidas || []).filter((bebida) => bebidasSeleccionadas.includes(bebida.id)).map((bebida) => { const cantidad = Number(cantidadesBebidas[bebida.id] || 0); return <tr key={bebida.id}><td style={td}><strong>{bebida.nombre}</strong></td><td style={td}>{bebida.presentacion || "—"}</td><td style={td}>{pesos.format(Number(bebida.precio || 0))}</td><td style={td}><input type="number" min="0" step="1" value={cantidadesBebidas[bebida.id] || ""} onChange={(e) => setCantidadesBebidas({ ...cantidadesBebidas, [bebida.id]: e.target.value })} style={cantidadInput}/></td><td style={td}>{pesos.format(cantidad * Number(bebida.precio || 0))}</td><td style={td}><button type="button" onClick={() => { setBebidasSeleccionadas((actuales) => actuales.filter((item) => item !== bebida.id)); setCantidadesBebidas((actuales) => { const nuevas = { ...actuales }; delete nuevas[bebida.id]; return nuevas }) }} style={quitarBebidaBtn}>Quitar</button></td></tr> })}
+              {!bebidasSeleccionadas.length && <FilaVacia columnas="6" texto="Todavía no seleccionaste bebidas. Abrí la pestaña Todas las bebidas para agregarlas."/>}
+            </Tabla>
+            {!!bebidasSeleccionadas.length && hasPermission("eventosEditar") && <div style={bebidasAcciones}><button onClick={agregarBebidas} disabled={guardandoBebidas} style={botonAmarillo}>{guardandoBebidas ? "Registrando..." : "Agregar bebidas al evento"}</button></div>}
+          </>}
         </>}
         {!!evento.ventasBebidas?.length && <div style={{marginTop:20}}><h3 style={subtitulo}>Ventas registradas</h3><Tabla columnas={["Fecha", "Detalle", "Total", "Estado", "Acción"]}>{evento.ventasBebidas.map((venta) => { const estadoVenta = venta.estado || "Pendiente"; const saldoVenta = Number(venta.saldo ?? venta.total); return <tr key={venta.id}><td style={td}>{venta.creadoEnTexto ? fechaTexto.format(new Date(venta.creadoEnTexto)) : "—"}</td><td style={td}>{venta.items.map((item) => `${item.cantidad} × ${item.nombre}`).join(", ")}</td><td style={td}><strong>{pesos.format(venta.total)}</strong></td><td style={td}><span style={{...estadoVentaBadge,...(estadoVenta.toLowerCase()==="pagado"?estadoVentaPagado:estadoVenta.toLowerCase()==="parcial"?estadoVentaParcial:estadoVentaPendiente)}}>{estadoVenta}</span></td><td style={td}>{saldoVenta > 0 ? <button onClick={() => navigate(`/evento/${id}/cobro?bebidas=${venta.id}&monto=${saldoVenta}`)} style={cobrarBebidasBtn}>Cobrar bebidas</button> : <span style={ventaCobradaTexto}>Cobrado</span>}</td></tr> })}</Tabla></div>}
       </Seccion>
@@ -232,6 +243,15 @@ const botonAmarillo = { ...botonBase, background: "#f4d00c", color: "#38145f" }
 const botonPeligro = { ...botonBase, background: "#fff0f2", color: "#b42339" }
 const avisoBebidas = { padding: 15, borderRadius: 11, color: "#6d6075", background: "#f7f5fb" }
 const bebidasCabecera = { display: "flex", justifyContent: "space-between", marginBottom: 14, color: "#4e2581" }
+const bebidasPestanas = { display: "flex", gap: 8, marginBottom: 15, borderBottom: "1px solid #e8e1ee" }
+const pestana = { padding: "10px 14px", border: 0, borderBottom: "3px solid transparent", background: "transparent", color: "#776d83", fontWeight: 700, cursor: "pointer" }
+const pestanaActiva = { ...pestana, color: "#4e2581", borderBottomColor: "#4e2581" }
+const catalogoBebidas = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }
+const bebidaCatalogo = { display: "flex", justifyContent: "space-between", gap: 12, padding: 14, border: "1px solid #e8e1ee", borderRadius: 12, background: "white", color: "#4b4058", textAlign: "left", cursor: "pointer" }
+const bebidaCatalogoSeleccionada = { borderColor: "#4e2581", background: "#f5f0fa", boxShadow: "0 0 0 1px #4e2581" }
+const agregarCatalogoTexto = { color: "#16865c", fontWeight: 800 }
+const quitarCatalogoTexto = { color: "#b42339", fontWeight: 800 }
+const quitarBebidaBtn = { padding: "7px 10px", border: 0, borderRadius: 7, color: "#b42339", background: "#fff0f2", fontWeight: 700, cursor: "pointer" }
 const cantidadInput = { width: 85, padding: 8 }
 const bebidasAcciones = { display: "flex", justifyContent: "flex-end", marginTop: 15 }
 const cobrarBebidasBtn = { ...botonBase, color: "white", background: "#57b6ee" }
