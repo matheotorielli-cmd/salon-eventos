@@ -107,6 +107,25 @@ service cloud.firestore {
         && (!changedBalance || validAccountAdjustment(accountId));
     }
 
+    function validCashRegisterAccountUpdate(accountId) {
+      let opening = request.resource.data.cajaActivaId is string && request.resource.data.cajaActivaId.size() > 0;
+      let cashRegisterId = opening ? request.resource.data.cajaActivaId : request.resource.data.ultimaCajaCerradaId;
+      let cashRegister = getAfter(/databases/$(database)/documents/cajas/$(cashRegisterId)).data;
+      return hasPermission('cuentasAdministrar')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'cajaActivaId', 'ultimaCajaCerradaId', 'actualizadoPor', 'actualizadoEn'
+        ])
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time
+        && cashRegister.cuentaId == accountId
+        && ((opening
+            && (!('cajaActivaId' in resource.data) || resource.data.cajaActivaId == '')
+            && cashRegister.estado == 'Abierta')
+          || (!opening
+            && resource.data.cajaActivaId == request.resource.data.ultimaCajaCerradaId
+            && cashRegister.estado == 'Cerrada'));
+    }
+
     function validCobroDestination(cobroId, destination) {
       let movement = getAfter(/databases/$(database)/documents/movimientos/$(destination.movimientoId)).data;
       return destination.cuentaId is string
@@ -329,8 +348,40 @@ service cloud.firestore {
           && request.resource.data.nombre.size() > 0
           && request.resource.data.activa is bool
           && validAuditOnUpdate()
-        ) || validAccountAdminEdit(cuentaId) || validFinancialAccountUpdate(cuentaId);
+        ) || validCashRegisterAccountUpdate(cuentaId) || validAccountAdminEdit(cuentaId) || validFinancialAccountUpdate(cuentaId);
 
+      allow delete: if false;
+    }
+
+    match /cajas/{cajaId} {
+      allow read: if hasPermission('cuentasVer');
+      allow create: if hasPermission('cuentasAdministrar')
+        && request.resource.data.cuentaId is string
+        && request.resource.data.cuentaNombre is string
+        && request.resource.data.fechaApertura is timestamp
+        && request.resource.data.montoApertura is number
+        && request.resource.data.montoApertura >= 0
+        && request.resource.data.estado == 'Abierta'
+        && request.resource.data.abiertoPor == request.auth.uid
+        && request.resource.data.creadoEn == request.time
+        && request.resource.data.actualizadoEn == request.time
+        && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaId)).data.cajaActivaId == cajaId;
+      allow update: if hasPermission('cuentasAdministrar')
+        && resource.data.estado == 'Abierta'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'fechaCierre', 'montoCierre', 'resultado', 'movimientoIds', 'estado',
+          'cerradoPor', 'cerradoPorNombre', 'actualizadoEn'
+        ])
+        && request.resource.data.fechaCierre is timestamp
+        && request.resource.data.fechaCierre > resource.data.fechaApertura
+        && request.resource.data.montoCierre is number
+        && request.resource.data.resultado == request.resource.data.montoCierre - resource.data.montoApertura
+        && request.resource.data.movimientoIds is list
+        && request.resource.data.estado == 'Cerrada'
+        && request.resource.data.cerradoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time
+        && getAfter(/databases/$(database)/documents/cuentas/$(resource.data.cuentaId)).data.cajaActivaId == ''
+        && getAfter(/databases/$(database)/documents/cuentas/$(resource.data.cuentaId)).data.ultimaCajaCerradaId == cajaId;
       allow delete: if false;
     }
 

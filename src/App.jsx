@@ -16,6 +16,8 @@ const TiposEventos = lazy(() => import("./components/TiposEventos"))
 const Escuelas = lazy(() => import("./components/Escuelas"))
 const Cuentas = lazy(() => import("./components/Cuentas"))
 const CuentaDetalle = lazy(() => import("./components/CuentaDetalle"))
+const CajaCuenta = lazy(() => import("./components/CajaCuenta"))
+const CajaDetalle = lazy(() => import("./components/CajaDetalle"))
 const NuevaCuenta = lazy(() => import("./components/NuevaCuenta"))
 const NuevoMovimiento = lazy(() => import("./components/NuevoMovimiento"))
 const TiposMovimientos = lazy(() => import("./components/TiposMovimientos"))
@@ -61,6 +63,8 @@ function Layout() {
         <Route path="/listas-precios/:id/editar" element={permitir("configuracionAdministrar", <NuevaListaPrecios />)} />
         <Route path="/cuentas" element={permitir("cuentasVer", <Cuentas />)} />
         <Route path="/cuentas/:id" element={permitir("cuentasVer", <CuentaDetalle />)} />
+        <Route path="/cuentas/:id/caja" element={permitir("cuentasVer", <CajaCuenta />)} />
+        <Route path="/cuentas/:id/caja/:cajaId" element={permitir("cuentasVer", <CajaDetalle />)} />
         <Route path="/nueva-cuenta" element={permitir("cuentasCrear", <NuevaCuenta />)} />
         <Route path="/nuevo-movimiento" element={permitir("movimientosCrear", <NuevoMovimiento />)} />
         <Route path="/movimientos" element={permitir("movimientosVer", <MisMovimientos />)} />

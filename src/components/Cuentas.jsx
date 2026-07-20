@@ -106,16 +106,13 @@ export default function Cuentas() {
                   </span>
                 </td>
                 <td style={td}>
-                  {cargandoRol ? (
-                    <span style={{ color: "#6b7280" }}>Verificando permisos...</span>
-                  ) : hasPermission("cuentasAdministrar") ? (
-                    <div style={accionesCuenta}>
+                  <div style={accionesCuenta}>
+                    <button onClick={() => navigate(`/cuentas/${cuenta.id}/caja`)} style={botonCaja}>Caja</button>
+                    {cargandoRol ? <span style={{ color: "#6b7280" }}>Verificando permisos...</span> : hasPermission("cuentasAdministrar") ? <>
                       <button onClick={() => { setCuentaEditando(cuenta); setError("") }} style={botonEditar}>Editar</button>
                       <button onClick={() => cambiarEstado(cuenta)} style={cuenta.activa === false ? botonVerde : botonRojo} disabled={actualizandoId === cuenta.id}>{actualizandoId === cuenta.id ? "Guardando..." : cuenta.activa === false ? "Habilitar" : "Deshabilitar"}</button>
-                    </div>
-                  ) : (
-                    <span style={{ color: "#6b7280" }}>Solo administrador</span>
-                  )}
+                    </> : null}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -174,6 +171,7 @@ const errorStyle = { margin: "12px 0", color: "#b91c1c", background: "#fef2f2", 
 const nombreCuenta = { padding: 0, border: 0, background: "transparent", color: "#4e2581", fontWeight: 700, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }
 const accionesCuenta = { display: "flex", gap: 8, flexWrap: "wrap" }
 const botonEditar = { background: "#4e2581", color: "white", border: "none", padding: "9px 12px", borderRadius: 6, cursor: "pointer" }
+const botonCaja = { background: "#57b6ee", color: "white", border: "none", padding: "9px 12px", borderRadius: 6, cursor: "pointer", fontWeight: 700 }
 const botonCancelar = { background: "#eee9f1", color: "#665b71", border: "none", padding: "9px 12px", borderRadius: 6, cursor: "pointer" }
 const fondoModal = { position: "fixed", inset: 0, zIndex: 1000, display: "grid", placeItems: "center", padding: 18, background: "rgba(31,17,44,.55)" }
 const modalCuenta = { width: "min(560px,100%)", maxHeight: "90vh", overflowY: "auto", boxSizing: "border-box", padding: 22, borderRadius: 16, background: "white", boxShadow: "0 24px 70px rgba(31,17,44,.3)" }
