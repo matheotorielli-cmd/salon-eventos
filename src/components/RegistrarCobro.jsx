@@ -7,6 +7,27 @@ import { registrarCobro } from "../services/cobros"
 
 const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 
+function datosCobroEvento(evento) {
+  const tipo = String(evento.tipoEventoNombre || evento.tipoEvento || evento.servicioListaNombre || "evento").trim().toLocaleLowerCase("es")
+  const nombre = String(evento.nombreEvento || evento.title || evento.cliente || "Evento").trim()
+  const [anio, mes, dia] = String(evento.fecha || "").split("-")
+  const fecha = anio && mes && dia ? `${dia}/${mes}/${anio}` : String(evento.fecha || "")
+  const horaInicio = formatearHora(evento.hora || evento.horaInicio)
+  const horaFin = formatearHora(evento.horaFin)
+  const horario = horaInicio && horaFin ? `${horaInicio} hs a ${horaFin} hs` : horaInicio ? `${horaInicio} hs` : ""
+
+  return {
+    concepto: `Cobro ${tipo} (${nombre})`,
+    descripcion: [fecha, horario].filter(Boolean).join(" · ")
+  }
+}
+
+function formatearHora(valor) {
+  const [hora, minutos] = String(valor || "").split(":")
+  if (!hora) return ""
+  return minutos === "00" ? String(Number(hora)) : `${Number(hora)}:${minutos}`
+}
+
 export default function RegistrarCobro() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -22,14 +43,16 @@ export default function RegistrarCobro() {
 
   useEffect(() => {
     getDoc(doc(db, "eventos", id)).then((snapshot) => {
-      setEvento(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null)
+      const eventoCargado = snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null
+      setEvento(eventoCargado)
+      if (eventoCargado && !ventaBebidasId) setForm((actual) => ({ ...actual, ...datosCobroEvento(eventoCargado) }))
       setCargando(false)
     }).catch(() => { setError("No se pudo cargar el evento."); setCargando(false) })
     return observarCuentas(
       (data) => setCuentas(data.filter((cuenta) => cuenta.activa !== false)),
       () => setError("No se pudieron cargar las cuentas disponibles.")
     )
-  }, [id])
+  }, [id, ventaBebidasId])
 
   const saldo = Number(evento?.saldo ?? (Number(evento?.total || 0) - Number(evento?.totalCobrado ?? evento?.sena ?? 0)))
   const monto = Number(form.monto || 0)
