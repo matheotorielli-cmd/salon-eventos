@@ -1,5 +1,32 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Cierre del 20 de julio de 2026
+
+- Se revisaron y cerraron cambios pendientes de seguridad en cobros distribuidos, sincronización de clientes y reglas de Firestore.
+- Al registrar un pago general, el concepto se completa como `Cobro tipo de evento (Nombre del evento)` y la descripción muestra fecha y horario completo, por ejemplo `25/07/2026 · 16 hs a 18:30 hs`.
+- Este autocompletado no se aplica a los cobros de ventas de bebidas.
+- En eventos nuevos se quitó el selector visible de lista de precios. Se asigna automáticamente la lista activa más reciente y se mantiene la selección del servicio.
+- Las cuentas ahora pueden editar nombre, descripción, saldo inicial, saldo actual y estado. Los cambios de saldo exigen motivo y crean un movimiento de ajuste trazable.
+- El módulo de bebidas quedó dividido en dos pestañas: catálogo completo y bebidas seleccionadas. Las cantidades aparecen únicamente después de elegir los productos.
+- Las bebidas seleccionadas pueden quitarse antes de registrar la venta.
+- Las ventas de bebidas pendientes pueden editarse o eliminarse individualmente, aunque existan otras ventas cobradas. Las ventas con cobros parciales o completos no se pueden editar ni eliminar.
+- Se agregó un módulo de Caja independiente para cada cuenta:
+  1. botón `Caja` desde la lista de cuentas;
+  2. historial individual de aperturas y cierres;
+  3. nueva apertura con fecha, hora y monto;
+  4. una sola caja abierta simultáneamente por cuenta;
+  5. detalle con los movimientos del período;
+  6. cierre con monto calculado, resultado y usuario;
+  7. formato horario de 24 horas;
+  8. conservación de los movimientos exactos incluidos al cerrar.
+- Se reforzaron las reglas de Firestore para edición de cuentas, ajustes de saldo, ventas de bebidas y cajas.
+- `npm run lint`: aprobado.
+- `npm run build`: aprobado.
+- Reglas de Firestore y Firebase Hosting desplegados en `salon-eventos-ef008`.
+- Todos los commits quedaron subidos a `origin/main`.
+
+**Punto exacto para retomar:** iniciar una nueva sesión leyendo este archivo. Probar visualmente en computadora y celular el módulo Caja, especialmente apertura, movimientos, cierre y consulta de una caja cerrada. Después continuar con las mejoras que indique el usuario.
+
 ## Avance del 14 de julio de 2026 - listas de precios y bebidas
 
 - Se creó el módulo de Listas de precios dentro de Configuración, con listado, alta, edición y habilitar/deshabilitar.
