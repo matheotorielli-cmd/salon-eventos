@@ -30,6 +30,8 @@ const ComprobantePublico = lazy(() => import("./components/ComprobantePublico"))
 const Balance = lazy(() => import("./components/Balance"))
 const ListasPrecios = lazy(() => import("./components/ListasPrecios"))
 const NuevaListaPrecios = lazy(() => import("./components/NuevaListaPrecios"))
+const PagoPrestadores = lazy(() => import("./components/PagoPrestadores"))
+const StockBebidas = lazy(() => import("./components/StockBebidas"))
 
 function RutaPrivada({ children, user }) {
   if (user === undefined) return <div style={{ padding: 30 }}>Cargando...</div>
@@ -68,6 +70,8 @@ function Layout() {
         <Route path="/nueva-cuenta" element={permitir("cuentasCrear", <NuevaCuenta />)} />
         <Route path="/nuevo-movimiento" element={permitir("movimientosCrear", <NuevoMovimiento />)} />
         <Route path="/movimientos" element={permitir("movimientosVer", <MisMovimientos />)} />
+        <Route path="/pago-prestadores" element={permitir("movimientosCrear", <PagoPrestadores />)} />
+        <Route path="/stock-bebidas" element={permitir("movimientosCrear", <StockBebidas />)} />
         <Route path="/balance" element={loading ? <div style={{ padding: 30 }}>Cargando permisos...</div> : role === "admin" ? <Balance /> : <div style={{ padding: 30, color: "#776d83" }}>Solo los administradores pueden acceder al balance.</div>} />
         <Route path="/usuarios-permisos" element={permitir("usuariosAdministrar", <UsuariosPermisos />)} />
         <Route path="/usuarios" element={permitir("usuariosAdministrar", <Usuarios />)} />

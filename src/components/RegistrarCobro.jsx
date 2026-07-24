@@ -4,6 +4,7 @@ import { doc, getDoc } from "firebase/firestore"
 import { auth, db } from "../firebase"
 import { observarCuentas } from "../services/cuentas"
 import { registrarCobro } from "../services/cobros"
+import { calcularFinanzasEvento } from "../utils/finanzasEvento"
 
 const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 
@@ -54,16 +55,20 @@ export default function RegistrarCobro() {
     )
   }, [id, ventaBebidasId])
 
-  const saldo = Number(evento?.saldo ?? (Number(evento?.total || 0) - Number(evento?.totalCobrado ?? evento?.sena ?? 0)))
-  const monto = Number(form.monto || 0)
   const esCobroBebidas = Boolean(ventaBebidasId)
+  const finanzas = calcularFinanzasEvento(evento || {})
+  const ventaBebidas = (evento?.ventasBebidas || []).find((venta) => venta.id === ventaBebidasId)
+  const totalCobro = esCobroBebidas ? Number(ventaBebidas?.total || 0) : finanzas.totalServicio
+  const cobradoCobro = esCobroBebidas ? Number(ventaBebidas?.cobrado || 0) : finanzas.cobradoServicio
+  const saldo = esCobroBebidas ? Number(ventaBebidas?.saldo ?? ventaBebidas?.total ?? 0) : finanzas.saldoServicio
+  const monto = Number(form.monto || 0)
   const destinosBebidas = cuentas.map((cuenta) => ({ cuentaId: cuenta.id, monto: Number(form.montosCuentas[cuenta.id] || 0) })).filter((item) => item.monto > 0)
   const totalDistribuido = destinosBebidas.reduce((total, item) => total + item.monto, 0)
   const diferenciaDistribucion = monto - totalDistribuido
 
   function cambiarPorcentaje(porcentaje) {
     const montoCalculado = porcentaje
-      ? (Number(evento.total || 0) * Number(porcentaje)) / 100
+      ? (finanzas.totalServicio * Number(porcentaje)) / 100
       : ""
     setForm({ ...form, porcentaje, monto: montoCalculado === "" ? "" : String(Math.round(montoCalculado)) })
   }
@@ -103,9 +108,9 @@ export default function RegistrarCobro() {
       <header style={cabecera}><div><span style={sobreTitulo}>COBRO DE EVENTO</span><h1 style={{ margin: "3px 0 4px" }}>{evento.cliente || evento.title}</h1><span style={{ color: "#e9dcf6" }}>Evento #{id}</span></div></header>
 
       <section style={resumen}>
-        <Dato label="Total del evento" valor={pesos.format(Number(evento.total || 0))} />
-        <Dato label="Cobrado" valor={pesos.format(Number(evento.totalCobrado ?? evento.sena ?? 0))} />
-        <Dato label="Saldo pendiente" valor={pesos.format(saldo)} destacado />
+        <Dato label={esCobroBebidas ? "Total de bebidas" : "Total del evento"} valor={pesos.format(totalCobro)} />
+        <Dato label="Cobrado" valor={pesos.format(cobradoCobro)} />
+        <Dato label={esCobroBebidas ? "Saldo de bebidas" : "Saldo del evento"} valor={pesos.format(saldo)} destacado />
       </section>
 
       <form onSubmit={cobrar} style={tarjeta}>

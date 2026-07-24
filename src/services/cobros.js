@@ -1,5 +1,6 @@
 import { collection, doc, onSnapshot, query, runTransaction, serverTimestamp, Timestamp, where } from "firebase/firestore"
 import { db } from "../firebase"
+import { calcularFinanzasEvento } from "../utils/finanzasEvento"
 
 export async function registrarCobro({ eventoId, cuentaId, destinos, monto, fecha, concepto, descripcion, ventaBebidasId, userId }) {
   const eventoRef = doc(db, "eventos", eventoId)
@@ -24,8 +25,8 @@ export async function registrarCobro({ eventoId, cuentaId, destinos, monto, fech
     const cuentas = cuentasSnaps.map((snap) => snap.data())
     const usuario = usuarioSnap.exists() ? usuarioSnap.data() : {}
     const usuarioNombre = [usuario.nombre, usuario.apellido].filter(Boolean).join(" ") || usuario.email || "Usuario"
-    const saldo = Number(evento.saldo ?? (Number(evento.total || 0) - Number(evento.totalCobrado ?? evento.sena ?? 0)))
-    if (monto > saldo) throw new Error("monto-supera-saldo")
+    const finanzas = calcularFinanzasEvento(evento)
+    const saldo = finanzas.saldoGeneral
 
     const totalCobradoAnterior = Number(evento.totalCobrado ?? evento.sena ?? 0)
     const nuevoTotalCobrado = totalCobradoAnterior + monto
@@ -35,6 +36,7 @@ export async function registrarCobro({ eventoId, cuentaId, destinos, monto, fech
     const venta = ventaBebidasId ? (evento.ventasBebidas || []).find((item) => item.id === ventaBebidasId) : null
     if (ventaBebidasId && !venta) throw new Error("venta-bebidas-no-disponible")
     if (venta && monto > Number(venta.saldo ?? venta.total ?? 0)) throw new Error("monto-supera-bebidas")
+    if (!venta && monto > finanzas.saldoServicio) throw new Error("monto-supera-saldo")
 
     transaction.set(cobroRef, {
       eventoId,
@@ -87,7 +89,7 @@ export async function registrarCobro({ eventoId, cuentaId, destinos, monto, fech
       sena: nuevoTotalCobrado,
       totalCobrado: nuevoTotalCobrado,
       saldo: nuevoSaldo,
-      estado: nuevoSaldo === 0 ? estadoPagado : evento.estado,
+      estado: !venta && finanzas.saldoServicio - monto === 0 ? estadoPagado : evento.estado,
       ultimoCobroId: cobroRef.id,
       actualizadoPor: userId,
       actualizadoEn: serverTimestamp()
@@ -145,7 +147,7 @@ export async function anularCobro({ cobroId, motivo, userId }) {
     const nuevoTotalCobrado = Math.max(0, totalCobrado - monto)
     const nuevoSaldo = Number(evento.saldo ?? (Number(evento.total || 0) - totalCobrado)) + monto
     const estadoActual = String(evento.estado || "")
-    const nuevoEstado = estadoActual.toLowerCase() === "pagado" ? "Confirmado" : estadoActual
+    const nuevoEstado = !cobro.ventaBebidasId && estadoActual.toLowerCase() === "pagado" ? "Confirmado" : estadoActual
 
     distribucion.forEach((destino, index) => transaction.set(movimientoAnulacionRefs[index], {
       categoria: "egreso",

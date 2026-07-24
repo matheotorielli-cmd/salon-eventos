@@ -1,5 +1,22 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Cierre del 24 de julio de 2026
+
+- Se corrigieron los porcentajes de pago para que el servicio del evento y las bebidas se calculen por separado.
+- Los porcentajes del calendario y de Registrar cobro usan solamente el precio y los cobros del servicio.
+- Se agregó `Movimientos > Pago prestadores`, con filtros, pagos individuales o masivos, selección de cuenta, egreso automático y trazabilidad.
+- Se agregó `Movimientos > Stock de bebidas`, con stock actual y mínimo, ingresos, ajustes, historial y fechas de último ingreso y egreso.
+- Las ventas de bebidas descuentan stock; editar una venta aplica la diferencia y eliminarla devuelve las unidades.
+- Se impide registrar ventas cuando no hay stock suficiente.
+- El editor de listas de precios permite cargar las bebidas del Excel `Control Stock FunSpace compras Junio.xlsx`.
+- La carga de junio incluye las 14 bebidas de la tabla aprobada, con `Costo lista` y `Precio lista` separados, y actualiza sin duplicar.
+- El ícono de Escuelas en Configuración se unificó con el punto usado por Tipo de eventos.
+- Se agregaron reglas de Firestore para pagos a prestadores y movimientos de stock.
+- `npm run lint`: aprobado.
+- `npm run build`: aprobado.
+
+**Punto exacto para retomar:** probar en producción Pago prestadores y Stock de bebidas con operaciones reales controladas. Verificar especialmente ingreso de stock, venta, edición/eliminación de venta y saldo de la cuenta usada para pagar prestadores.
+
 ## Cierre del 20 de julio de 2026
 
 - Se revisaron y cerraron cambios pendientes de seguridad en cobros distribuidos, sincronización de clientes y reglas de Firestore.

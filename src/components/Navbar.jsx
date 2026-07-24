@@ -337,6 +337,10 @@ export default function Navbar() {
                 </div>
 
                 <div
+                  onClick={() => {
+                    navigate("/pago-prestadores")
+                    setOpenMenu(null)
+                  }}
                   style={{
                     ...dropdownItem,
                     borderBottom:
@@ -344,6 +348,10 @@ export default function Navbar() {
                   }}
                 >
                   Pago prestadores
+                </div>
+
+                <div onClick={() => { navigate("/stock-bebidas"); setOpenMenu(null) }} style={{ ...dropdownItem, borderBottom: "none" }}>
+                  Stock de bebidas
                 </div>
 
               </div>
@@ -813,7 +821,7 @@ function ConfigPanel({ role, puedeConfigurar, navigate, onClose, openSections, o
           <div style={subGrupo}>
             <SubItem icon="⚑" label="Perfil Organización" />
             <SubItem label="Perfil Organización (nuevo)" badge="BETA" />
-            <SubItem icon="◇" label="Escuelas" onClick={() => abrir("/escuelas")} />
+            <SubItem icon="●" label="Escuelas" onClick={() => abrir("/escuelas")} />
             <SubItem icon="●" label="Tipo de eventos" onClick={() => abrir("/tipos-eventos")} />
             <SubItem icon="●" label="Tipo de servicios" />
             <SubItem icon="●" label="Tipo de movimientos" onClick={() => abrir("/tipos-movimientos")} />

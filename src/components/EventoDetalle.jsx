@@ -8,6 +8,7 @@ import { enlaceWhatsApp } from "../utils/whatsapp"
 import { crearComprobantePublico } from "../services/comprobantes"
 import { obtenerListaPrecios } from "../services/listasPrecios"
 import { editarVentaBebidas, eliminarVentaBebidas, registrarVentaBebidas } from "../services/bebidas"
+import { calcularFinanzasEvento } from "../utils/finanzasEvento"
 
 const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 const fechaTexto = new Intl.DateTimeFormat("es-AR")
@@ -111,7 +112,7 @@ export default function EventoDetalle() {
       setBebidasSeleccionadas([])
       setVistaBebidas("seleccionadas")
       setEditandoVentaId("")
-    } catch (saleError) { console.error(saleError); setError("No se pudo registrar la venta de bebidas.") }
+    } catch (saleError) { console.error(saleError); setError(saleError.message.startsWith("stock-insuficiente:") ? `Stock insuficiente de ${saleError.message.split(":")[1]}.` : "No se pudo registrar la venta de bebidas.") }
     finally { setGuardandoBebidas(false) }
   }
 
@@ -146,13 +147,16 @@ export default function EventoDetalle() {
   if (cargando) return <div style={mensaje}>Cargando evento...</div>
   if (!evento) return <div style={mensaje}>Evento no encontrado.</div>
 
-  const total = Number(evento.total || 0)
-  const cobrado = Number(evento.totalCobrado ?? evento.sena ?? 0)
-  const saldo = Number(evento.saldo ?? total - cobrado)
-  const porcentaje = total > 0 ? Math.min(100, Math.round((cobrado / total) * 100)) : 0
+  const {
+    totalGeneral: total,
+    cobradoGeneral: cobrado,
+    saldoGeneral: saldo,
+    totalServicio: precioServicio,
+    cobradoServicio,
+    saldoServicio,
+    porcentajeServicio: porcentaje
+  } = calcularFinanzasEvento(evento)
   const prestadores = evento.prestadores || []
-  const totalBebidas = (evento.ventasBebidas || []).reduce((suma, venta) => suma + Number(venta.total || 0), 0)
-  const precioServicio = Number(evento.servicioListaPrecio ?? (total - totalBebidas))
 
   return (
     <div style={pagina}>
@@ -160,7 +164,7 @@ export default function EventoDetalle() {
         <div><span style={sobreTitulo}>DETALLE DEL EVENTO</span><h1 style={{ margin: "3px 0 4px" }}>{evento.cliente || evento.title}</h1><span style={{ color: "#e9dcf6" }}>Código {evento.id}</span></div>
         <div style={acciones}>
           {hasPermission("eventosEditar") && <button onClick={() => navigate(`/evento/${id}/editar`)} style={botonClaro}>Editar</button>}
-          {hasPermission("cobrosRegistrar") && saldo > 0 && <button onClick={() => navigate(`/evento/${id}/cobro`)} style={botonAmarillo}>Registrar cobro</button>}
+          {hasPermission("cobrosRegistrar") && saldoServicio > 0 && <button onClick={() => navigate(`/evento/${id}/cobro`)} style={botonAmarillo}>Registrar cobro</button>}
           {hasPermission("eventosEditar") && <button onClick={() => cambiarEstado("Confirmado")} style={botonClaro}>Confirmar</button>}
           {hasPermission("eventosCancelar") && <button onClick={() => cambiarEstado("Cancelado")} style={botonPeligro}>Cancelar evento</button>}
           {role === "admin" && <button onClick={eliminarEvento} style={botonPeligro}>Eliminar</button>}
@@ -186,9 +190,9 @@ export default function EventoDetalle() {
           <div style={panelInterno}>
             <h3 style={subtitulo}>Contabilidad</h3>
             <FilaContable label="Moneda" valor="Peso argentino" />
-            <FilaContable label="Precio total" valor={pesos.format(total)} />
-            <FilaContable label="Cobrado" valor={pesos.format(cobrado)} />
-            <FilaContable label="Saldo pendiente" valor={pesos.format(saldo)} destacado={saldo > 0} />
+            <FilaContable label="Precio del evento" valor={pesos.format(precioServicio)} />
+            <FilaContable label="Cobrado del evento" valor={pesos.format(cobradoServicio)} />
+            <FilaContable label="Saldo del evento" valor={pesos.format(saldoServicio)} destacado={saldoServicio > 0} />
             <FilaContable label="Porcentaje pagado" valor={`${porcentaje}%`} />
             <div style={barra}><div style={{ ...progreso, width: `${porcentaje}%` }} /></div>
           </div>

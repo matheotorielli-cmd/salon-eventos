@@ -54,6 +54,7 @@ service cloud.firestore {
       let movement = getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.ultimaOperacionId)).data;
       let amount = movement.monto;
       return ((movement.origen == 'manual' && hasPermission('movimientosCrear'))
+          || (movement.origen == 'prestadores' && hasPermission('movimientosCrear'))
           || (movement.origen == 'cobro' && hasPermission('cobrosRegistrar'))
           || (movement.origen == 'anulacion' && hasPermission('cobrosAnular')))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -420,6 +421,7 @@ service cloud.firestore {
     match /movimientos/{movimientoId} {
       allow read: if hasPermission('movimientosVer');
       allow create: if ((request.resource.data.origen == 'manual' && hasPermission('movimientosCrear'))
+          || (request.resource.data.origen == 'prestadores' && hasPermission('movimientosCrear'))
           || (request.resource.data.origen == 'cobro' && hasPermission('cobrosRegistrar'))
           || (request.resource.data.origen == 'anulacion' && admin() && hasPermission('cobrosAnular'))
           || (request.resource.data.origen == 'ajuste' && hasPermission('cuentasAdministrar')))
@@ -432,7 +434,7 @@ service cloud.firestore {
         && request.resource.data.monto > 0
         && request.resource.data.moneda == 'ARS'
         && request.resource.data.fecha is timestamp
-        && request.resource.data.origen in ['manual', 'cobro', 'anulacion', 'ajuste']
+        && request.resource.data.origen in ['manual', 'prestadores', 'cobro', 'anulacion', 'ajuste']
         && request.resource.data.anulado == false
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.creadoEn == request.time
@@ -489,6 +491,47 @@ service cloud.firestore {
       allow create: if hasPermission('configuracionAdministrar') && validAuditOnCreate();
       allow update: if hasPermission('configuracionAdministrar') && validAuditOnUpdate();
       allow delete: if admin();
+    }
+
+    match /pagosPrestadores/{pagoId} {
+      allow read: if hasPermission('movimientosVer') || hasPermission('movimientosCrear');
+      allow create: if hasPermission('movimientosCrear')
+        && request.resource.data.keys().hasAll([
+          'eventoId', 'prestadorId', 'prestadorNombre', 'monto', 'moneda',
+          'cuentaId', 'movimientoId', 'fechaPago', 'creadoPor', 'creadoEn', 'anulado'
+        ])
+        && request.resource.data.monto is number
+        && request.resource.data.monto > 0
+        && request.resource.data.moneda == 'ARS'
+        && request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.creadoEn == request.time
+        && request.resource.data.anulado == false
+        && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoId)).data.origen == 'prestadores'
+        && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoId)).data.cuentaId == request.resource.data.cuentaId;
+      allow update, delete: if false;
+    }
+
+    match /stockBebidas/{stockId} {
+      allow read: if hasPermission('eventosVer') || hasPermission('eventosEditar') || hasPermission('movimientosVer');
+      allow create, update: if hasPermission('movimientosCrear')
+        && request.resource.data.nombre is string
+        && request.resource.data.cantidad is number
+        && request.resource.data.cantidad >= 0
+        && request.resource.data.actualizadoPor == request.auth.uid
+        && request.resource.data.actualizadoEn == request.time;
+      allow delete: if false;
+    }
+
+    match /movimientosStock/{movimientoId} {
+      allow read: if hasPermission('movimientosVer') || hasPermission('movimientosCrear');
+      allow create: if hasPermission('movimientosCrear')
+        && request.resource.data.stockId is string
+        && request.resource.data.cantidad is number
+        && request.resource.data.cantidadNueva is number
+        && request.resource.data.cantidadNueva >= 0
+        && request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.creadoEn == request.time;
+      allow update, delete: if false;
     }
 
     match /tiposMovimientos/{documentId} {

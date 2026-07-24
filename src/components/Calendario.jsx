@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { collection, onSnapshot } from "firebase/firestore"
+import { calcularFinanzasEvento } from "../utils/finanzasEvento"
 import { db } from "../firebase"
 
 import FullCalendar from "@fullcalendar/react"
@@ -42,9 +43,7 @@ export default function Calendario() {
   id: doc.id
 }
 
-            const total = Number(ev.total || 0)
-            const cobrado = Number(ev.totalCobrado ?? ev.sena ?? 0)
-            const porcentajePagado = total > 0 ? Math.round((cobrado / total) * 100) : 0
+            const { porcentajeServicio: porcentajePagado } = calcularFinanzasEvento(ev)
             const cancelado = String(ev.estado || "").toLowerCase() === "cancelado"
             const color = cancelado ? COLORES_PAGO.cancelado : (COLORES_PAGO[porcentajePagado] || COLORES_PAGO[0])
             const colorTexto = porcentajePagado === 50 && !cancelado ? "#443900" : "#ffffff"
