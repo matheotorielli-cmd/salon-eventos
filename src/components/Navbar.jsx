@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { auth } from "../firebase"
 import { signOut } from "firebase/auth"
 import { useUserRole } from "../hooks/useUserRole"
+import { ArrowLeftRight, BarChart3, BriefcaseBusiness, Building2, CalendarClock, CalendarDays, CirclePlus, ContactRound, CreditCard, GraduationCap, HandCoins, Landmark, ListTree, PackageOpen, PartyPopper, ReceiptText, Scale, Settings, Shapes, ShieldCheck, Sparkles, Tags, Truck, UserCog, Users, WalletCards } from "lucide-react"
 
 export default function Navbar() {
 
@@ -182,7 +183,7 @@ export default function Navbar() {
             }
             style={itemStyle}
           >
-            Calendario
+            <span style={navItemContent}><CalendarDays size={17}/>Calendario</span>
           </div>
 
           <div
@@ -191,7 +192,7 @@ export default function Navbar() {
             }
             style={itemStyle}
           >
-            Eventos
+            <span style={navItemContent}><PartyPopper size={17}/>Eventos</span>
           </div>
 
           <div
@@ -200,7 +201,7 @@ export default function Navbar() {
             }
             style={itemStyle}
           >
-            Nuevo
+            <span style={navItemContent}><CirclePlus size={17}/>Nuevo</span>
           </div>
 
           {/* FINANZAS */}
@@ -218,7 +219,7 @@ export default function Navbar() {
                 )
               }
             >
-              Finanzas ▾
+              <span style={navItemContent}><WalletCards size={17}/>Finanzas ▾</span>
             </div>
 
             {openMenu ===
@@ -246,10 +247,10 @@ export default function Navbar() {
                     dropdownItem
                   }
                 >
-                  Cuentas
+                  <span style={dropdownContent}><Landmark size={16}/>Cuentas</span>
                 </div>
 
-                {role === "admin" && <div onClick={() => { navigate("/balance"); setOpenMenu(null) }} style={dropdownItem}>Balance</div>}
+                {role === "admin" && <div onClick={() => { navigate("/balance"); setOpenMenu(null) }} style={dropdownItem}><span style={dropdownContent}><Scale size={16}/>Balance</span></div>}
 
                 <div
                   style={{
@@ -258,7 +259,7 @@ export default function Navbar() {
                       "none"
                   }}
                 >
-                  Reportes
+                  <span style={dropdownContent}><BarChart3 size={16}/>Reportes</span>
                 </div>
 
               </div>
@@ -282,7 +283,7 @@ export default function Navbar() {
                 )
               }
             >
-              Movimientos ▾
+              <span style={navItemContent}><ArrowLeftRight size={17}/>Movimientos ▾</span>
             </div>
 
             {openMenu ===
@@ -305,7 +306,7 @@ export default function Navbar() {
   }}
   style={dropdownItem}
 >
-  Mis movimientos
+  <span style={dropdownContent}><ReceiptText size={16}/>Mis movimientos</span>
 </div>
 
                 <div
@@ -325,7 +326,7 @@ export default function Navbar() {
                     dropdownItem
                   }
                 >
-                  Nuevo movimiento
+                  <span style={dropdownContent}><CirclePlus size={16}/>Nuevo movimiento</span>
                 </div>
 
                 <div
@@ -333,7 +334,7 @@ export default function Navbar() {
                     dropdownItem
                   }
                 >
-                  Pago proveedores
+                  <span style={dropdownContent}><Truck size={16}/>Pago proveedores</span>
                 </div>
 
                 <div
@@ -347,11 +348,11 @@ export default function Navbar() {
                       "none"
                   }}
                 >
-                  Pago prestadores
+                  <span style={dropdownContent}><HandCoins size={16}/>Pago prestadores</span>
                 </div>
 
                 <div onClick={() => { navigate("/stock-bebidas"); setOpenMenu(null) }} style={{ ...dropdownItem, borderBottom: "none" }}>
-                  Stock de bebidas
+                  <span style={dropdownContent}><PackageOpen size={16}/>Stock de bebidas</span>
                 </div>
 
               </div>
@@ -393,7 +394,7 @@ export default function Navbar() {
               fontSize: "22px"
             }}
           >
-            ⚙️
+            <Settings size={22}/>
           </div>
 
           {/* USUARIO */}
@@ -795,36 +796,36 @@ function ConfigPanel({ role, puedeConfigurar, navigate, onClose, openSections, o
           <button onClick={onClose} style={botonCerrar} aria-label="Cerrar menú">×</button>
         </div>
 
-        <MenuItem icon="♟" label="Clientes" onClick={() => abrir("/clientes")} />
-        {puedeConfigurar && <MenuItem icon="♞" label="Prestadores" onClick={() => abrir("/prestadores")} />}
-        <MenuItem icon="▰" label="Proveedores" />
-        <MenuItem icon="♨" label="Servicios" />
-        <MenuItem icon="▦" label="Agenda" expandable open={openSections.includes("agenda")} onClick={() => onToggle("agenda")} />
-        {openSections.includes("agenda") && <SubItem label="Calendario" onClick={() => abrir("/")} />}
-        <MenuItem icon="◆" label="Listas de precios" onClick={() => abrir("/listas-precios")} />
-        <MenuItem icon="✉" label="Tarjetas Digitales" />
+        <MenuItem icon={<ContactRound size={20}/>} label="Clientes" onClick={() => abrir("/clientes")} />
+        {puedeConfigurar && <MenuItem icon={<BriefcaseBusiness size={20}/>} label="Prestadores" onClick={() => abrir("/prestadores")} />}
+        <MenuItem icon={<Truck size={20}/>} label="Proveedores" />
+        <MenuItem icon={<Sparkles size={20}/>} label="Servicios" />
+        <MenuItem icon={<CalendarClock size={20}/>} label="Agenda" expandable open={openSections.includes("agenda")} onClick={() => onToggle("agenda")} />
+        {openSections.includes("agenda") && <SubItem icon={<CalendarDays size={16}/>} label="Calendario" onClick={() => abrir("/")} />}
+        <MenuItem icon={<Tags size={20}/>} label="Listas de precios" onClick={() => abrir("/listas-precios")} />
+        <MenuItem icon={<CreditCard size={20}/>} label="Tarjetas Digitales" />
 
         {role === "admin" && (
           <>
-            <MenuItem icon="♣" label="Gestión de usuarios" expandable open={openSections.includes("usuarios")} onClick={() => onToggle("usuarios")} />
+            <MenuItem icon={<UserCog size={20}/>} label="Gestión de usuarios" expandable open={openSections.includes("usuarios")} onClick={() => onToggle("usuarios")} />
             {openSections.includes("usuarios") && (
               <div style={subGrupo}>
-                <SubItem icon="●" label="Usuarios" onClick={() => abrir("/usuarios")} />
-                <SubItem icon="♟" label="Roles y permisos" onClick={() => abrir("/usuarios-permisos")} />
+                <SubItem icon={<Users size={16}/>} label="Usuarios" onClick={() => abrir("/usuarios")} />
+                <SubItem icon={<ShieldCheck size={16}/>} label="Roles y permisos" onClick={() => abrir("/usuarios-permisos")} />
               </div>
             )}
           </>
         )}
 
-        {puedeConfigurar && <MenuItem icon="▥" label="Configuración" expandable open={openSections.includes("configuracion")} onClick={() => onToggle("configuracion")} />}
+        {puedeConfigurar && <MenuItem icon={<Settings size={20}/>} label="Configuración" expandable open={openSections.includes("configuracion")} onClick={() => onToggle("configuracion")} />}
         {puedeConfigurar && openSections.includes("configuracion") && (
           <div style={subGrupo}>
-            <SubItem icon="⚑" label="Perfil Organización" />
-            <SubItem label="Perfil Organización (nuevo)" badge="BETA" />
-            <SubItem icon="●" label="Escuelas" onClick={() => abrir("/escuelas")} />
-            <SubItem icon="●" label="Tipo de eventos" onClick={() => abrir("/tipos-eventos")} />
-            <SubItem icon="●" label="Tipo de servicios" />
-            <SubItem icon="●" label="Tipo de movimientos" onClick={() => abrir("/tipos-movimientos")} />
+            <SubItem icon={<Building2 size={16}/>} label="Perfil Organización" />
+            <SubItem icon={<Building2 size={16}/>} label="Perfil Organización (nuevo)" badge="BETA" />
+            <SubItem icon={<GraduationCap size={16}/>} label="Escuelas" onClick={() => abrir("/escuelas")} />
+            <SubItem icon={<PartyPopper size={16}/>} label="Tipo de eventos" onClick={() => abrir("/tipos-eventos")} />
+            <SubItem icon={<Shapes size={16}/>} label="Tipo de servicios" />
+            <SubItem icon={<ListTree size={16}/>} label="Tipo de movimientos" onClick={() => abrir("/tipos-movimientos")} />
           </div>
         )}
       </aside>
@@ -857,9 +858,11 @@ const panelLateral = { position: "absolute", top: 0, right: 0, width: "min(340px
 const panelHeader = { height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px 0 27px", fontSize: 23, borderBottom: "1px solid rgba(255,255,255,.18)" }
 const botonCerrar = { border: 0, background: "transparent", color: "white", fontSize: 28, cursor: "pointer", lineHeight: 1 }
 const menuLateralItem = { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 26px", border: 0, background: "transparent", color: "white", fontSize: 18, cursor: "pointer" }
-const menuIcon = { width: 25, color: "white", fontSize: 20, textAlign: "center" }
+const navItemContent = { display: "inline-flex", alignItems: "center", gap: 7 }
+const dropdownContent = { display: "flex", alignItems: "center", gap: 9 }
+const menuIcon = { display: "grid", placeItems: "center", width: 25, color: "white", fontSize: 20, textAlign: "center" }
 const flecha = { fontSize: 15, marginRight: 12 }
 const subGrupo = { margin: "0 18px 8px 55px", paddingLeft: 12, borderLeft: "2px solid rgba(255,255,255,.16)" }
 const subItem = { width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "10px 0", border: 0, background: "transparent", color: "white", fontSize: 17, lineHeight: 1.35, textAlign: "left", cursor: "pointer" }
-const subIcon = { width: 20, textAlign: "center", fontSize: 16 }
+const subIcon = { display: "grid", placeItems: "center", width: 20, textAlign: "center", fontSize: 16 }
 const beta = { marginLeft: 2, padding: "2px 5px", background: "#facc15", color: "#111827", borderRadius: 4, fontSize: 10, fontWeight: 800 }
