@@ -2,6 +2,8 @@
 
 ## Cierre del 24 de julio de 2026
 
+- Cierre final: se reemplazaron los símbolos del Navbar, menús desplegables y panel de Configuración por íconos uniformes de Lucide.
+- Los íconos quedaron publicados en Firebase Hosting y guardados en el commit `2c177cf`.
 - Se corrigieron los porcentajes de pago para que el servicio del evento y las bebidas se calculen por separado.
 - Los porcentajes del calendario y de Registrar cobro usan solamente el precio y los cobros del servicio.
 - Se agregó `Movimientos > Pago prestadores`, con filtros, pagos individuales o masivos, selección de cuenta, egreso automático y trazabilidad.
@@ -15,7 +17,7 @@
 - `npm run lint`: aprobado.
 - `npm run build`: aprobado.
 
-**Punto exacto para retomar:** probar en producción Pago prestadores y Stock de bebidas con operaciones reales controladas. Verificar especialmente ingreso de stock, venta, edición/eliminación de venta y saldo de la cuenta usada para pagar prestadores.
+**Punto exacto para retomar mañana:** probar en producción Pago prestadores y Stock de bebidas con operaciones reales controladas. Verificar especialmente ingreso de stock, venta, edición/eliminación de venta, fechas de ingreso/egreso, carga de costo y precio de lista, y saldo de la cuenta usada para pagar prestadores. Después continuar con las mejoras que indique el usuario.
 
 ## Cierre del 20 de julio de 2026
 
