@@ -6,10 +6,12 @@ import {
   eliminarConfiguracion,
   observarTiposCobro
 } from "../services/configuracion"
+import { observarCuentas } from "../services/cuentas"
 
 export default function TiposCobro() {
   const [tipos, setTipos] = useState([])
-  const [nombre, setNombre] = useState("")
+  const [cuentas, setCuentas] = useState([])
+  const [cuentaId, setCuentaId] = useState("")
   const [descuento, setDescuento] = useState("0")
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
@@ -19,15 +21,22 @@ export default function TiposCobro() {
     () => setError("No se pudieron cargar los tipos de cobro.")
   ), [])
 
-  function validar(nombreTipo, porcentaje) {
-    if (!String(nombreTipo || "").trim()) return "Ingresá un nombre."
+  useEffect(() => observarCuentas(
+    setCuentas,
+    () => setError("No se pudieron cargar las cuentas.")
+  ), [])
+
+  function validar(cuentaSeleccionadaId, porcentaje, tipoId = "") {
+    if (!cuentaSeleccionadaId) return "Seleccioná una cuenta."
+    if (tipos.some((tipo) => tipo.id !== tipoId && tipo.cuentaId === cuentaSeleccionadaId)) return "Esa cuenta ya tiene un tipo de cobro configurado."
     if (!Number.isFinite(porcentaje) || porcentaje < 0 || porcentaje > 100) return "El descuento debe estar entre 0% y 100%."
     return ""
   }
 
   async function agregar() {
     const porcentajeDescuento = Number(descuento || 0)
-    const mensaje = validar(nombre, porcentajeDescuento)
+    const cuenta = cuentas.find((item) => item.id === cuentaId)
+    const mensaje = validar(cuentaId, porcentajeDescuento)
     if (mensaje) return setError(mensaje)
     if (!auth.currentUser) return setError("La sesión no está disponible.")
 
@@ -35,11 +44,13 @@ export default function TiposCobro() {
     setError("")
     try {
       await crearConfiguracion("tiposCobro", {
-        nombre: nombre.trim(),
+        nombre: cuenta?.nombre || "Cuenta",
+        cuentaId,
+        cuentaNombre: cuenta?.nombre || "",
         porcentajeDescuento,
         activo: true
       }, auth.currentUser.uid)
-      setNombre("")
+      setCuentaId("")
       setDescuento("0")
     } catch (saveError) {
       console.error(saveError)
@@ -52,13 +63,16 @@ export default function TiposCobro() {
   async function guardar(tipo) {
     if (!auth.currentUser) return setError("La sesión no está disponible.")
     const porcentajeDescuento = Number(tipo.porcentajeDescuento || 0)
-    const mensaje = validar(tipo.nombre, porcentajeDescuento)
+    const cuenta = cuentas.find((item) => item.id === tipo.cuentaId)
+    const mensaje = validar(tipo.cuentaId, porcentajeDescuento, tipo.id)
     if (mensaje) return setError(mensaje)
 
     setError("")
     try {
       await actualizarConfiguracion("tiposCobro", tipo.id, {
-        nombre: tipo.nombre.trim(),
+        nombre: cuenta?.nombre || tipo.cuentaNombre || tipo.nombre || "Cuenta",
+        cuentaId: tipo.cuentaId,
+        cuentaNombre: cuenta?.nombre || tipo.cuentaNombre || tipo.nombre || "",
         porcentajeDescuento,
         activo: tipo.activo !== false
       }, auth.currentUser.uid)
@@ -89,14 +103,14 @@ export default function TiposCobro() {
     </header>
     {error && <div role="alert" style={errorBox}>{error}</div>}
     <section style={nuevo}>
-      <label><span style={label}>Nombre</span><input placeholder="Ej.: Efectivo" value={nombre} onChange={(e) => setNombre(e.target.value)} /></label>
+      <label><span style={label}>Cuenta</span><select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}><option value="">Seleccionar cuenta</option>{cuentas.filter((cuenta) => !tipos.some((tipo) => tipo.cuentaId === cuenta.id)).map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.nombre}</option>)}</select></label>
       <label><span style={label}>Descuento</span><div style={porcentajeInput}><input type="number" min="0" max="100" step="0.01" value={descuento} onChange={(e) => setDescuento(e.target.value)} /><span>%</span></div></label>
       <button onClick={agregar} disabled={guardando} style={botonPrincipal}>{guardando ? "Guardando..." : "Agregar tipo"}</button>
     </section>
     <section style={lista}>
       <div style={encabezadoFila}><span>Tipo de cobro</span><span>Descuento</span><span>Acciones</span></div>
       {tipos.map((tipo) => <div key={tipo.id} style={{ ...fila, ...(tipo.activo === false ? filaInactiva : {}) }}>
-        <input value={tipo.nombre || ""} onChange={(e) => cambiar(tipo.id, "nombre", e.target.value)} />
+        <select value={tipo.cuentaId || ""} onChange={(e) => cambiar(tipo.id, "cuentaId", e.target.value)}><option value="">Seleccionar cuenta</option>{cuentas.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.nombre}</option>)}</select>
         <div style={porcentajeInput}><input type="number" min="0" max="100" step="0.01" value={tipo.porcentajeDescuento ?? 0} onChange={(e) => cambiar(tipo.id, "porcentajeDescuento", e.target.value)} /><span>%</span></div>
         <div style={acciones}>
           <button onClick={() => guardar(tipo)} style={botonPrincipal}>Guardar</button>

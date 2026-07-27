@@ -163,6 +163,60 @@ service cloud.firestore {
           || (distribution.size() == 5 && request.resource.data.monto == distribution[0].monto + distribution[1].monto + distribution[2].monto + distribution[3].monto + distribution[4].monto));
     }
 
+    function validCobroApplication(application) {
+      let configured = application.tipoCobroId is string && application.tipoCobroId.size() > 0;
+      let rawDiscount = application.montoAplicado * application.porcentajeDescuento / 100;
+      return application.cuentaId is string
+        && application.tipoCobroId is string
+        && application.tipoCobroNombre is string
+        && application.montoAplicado is number
+        && application.montoAplicado > 0
+        && application.monto is number
+        && application.monto > 0
+        && application.descuento is number
+        && application.descuento >= 0
+        && application.montoAplicado == application.monto + application.descuento
+        && application.porcentajeDescuento is number
+        && application.porcentajeDescuento >= 0
+        && application.porcentajeDescuento <= 100
+        && ((!configured
+            && application.porcentajeDescuento == 0
+            && application.descuento == 0)
+          || (configured
+            && get(/databases/$(database)/documents/tiposCobro/$(application.tipoCobroId)).data.activo == true
+            && get(/databases/$(database)/documents/tiposCobro/$(application.tipoCobroId)).data.cuentaId == application.cuentaId
+            && get(/databases/$(database)/documents/tiposCobro/$(application.tipoCobroId)).data.nombre == application.tipoCobroNombre
+            && get(/databases/$(database)/documents/tiposCobro/$(application.tipoCobroId)).data.porcentajeDescuento == application.porcentajeDescuento
+            && application.descuento >= rawDiscount - 0.5
+            && application.descuento < rawDiscount + 0.5));
+    }
+
+    function validCobroApplications() {
+      let applications = request.resource.data.aplicacionesCobro;
+      let isBeverage = request.resource.data.ventaBebidasId != null;
+      return applications is list
+        && ((isBeverage && applications.size() == 0 && request.resource.data.descuento == 0)
+          || (!isBeverage
+            && applications.size() >= 1
+            && applications.size() <= 2
+            && validCobroApplication(applications[0])
+            && (applications.size() < 2 || validCobroApplication(applications[1]))
+            && applications[0].cuentaId == request.resource.data.distribucion[0].cuentaId
+            && applications[0].monto == request.resource.data.distribucion[0].monto
+            && (applications.size() < 2 || (
+              applications[1].cuentaId == request.resource.data.distribucion[1].cuentaId
+              && applications[1].monto == request.resource.data.distribucion[1].monto
+            ))
+            && ((applications.size() == 1
+                && request.resource.data.montoAplicado == applications[0].montoAplicado
+                && request.resource.data.descuento == applications[0].descuento
+                && request.resource.data.monto == applications[0].monto)
+              || (applications.size() == 2
+                && request.resource.data.montoAplicado == applications[0].montoAplicado + applications[1].montoAplicado
+                && request.resource.data.descuento == applications[0].descuento + applications[1].descuento
+                && request.resource.data.monto == applications[0].monto + applications[1].monto))));
+    }
+
     function syncedCustomerData(clienteId) {
       let customer = getAfter(/databases/$(database)/documents/clientes/$(clienteId)).data;
       let customerName = customer.esEmpresa == true ? customer.nombre : customer.nombre + ' ' + customer.apellido;
@@ -407,11 +461,7 @@ service cloud.firestore {
         && request.resource.data.porcentajeDescuento <= 100
         && request.resource.data.tipoCobroId is string
         && request.resource.data.tipoCobroNombre is string
-        && (request.resource.data.tipoCobroId == '' || (
-          get(/databases/$(database)/documents/tiposCobro/$(request.resource.data.tipoCobroId)).data.activo == true
-          && get(/databases/$(database)/documents/tiposCobro/$(request.resource.data.tipoCobroId)).data.nombre == request.resource.data.tipoCobroNombre
-          && get(/databases/$(database)/documents/tiposCobro/$(request.resource.data.tipoCobroId)).data.porcentajeDescuento == request.resource.data.porcentajeDescuento
-        ))
+        && validCobroApplications()
         && request.resource.data.moneda == 'ARS'
         && request.resource.data.fecha is timestamp
         && request.resource.data.anulado == false
@@ -511,6 +561,11 @@ service cloud.firestore {
         && request.resource.data.porcentajeDescuento is number
         && request.resource.data.porcentajeDescuento >= 0
         && request.resource.data.porcentajeDescuento <= 100
+        && request.resource.data.cuentaId is string
+        && request.resource.data.cuentaId.size() > 0
+        && request.resource.data.cuentaNombre is string
+        && request.resource.data.cuentaNombre.size() > 0
+        && exists(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaId))
         && request.resource.data.activo == true
         && validAuditOnCreate();
       allow update: if hasPermission('configuracionAdministrar')
@@ -519,6 +574,11 @@ service cloud.firestore {
         && request.resource.data.porcentajeDescuento is number
         && request.resource.data.porcentajeDescuento >= 0
         && request.resource.data.porcentajeDescuento <= 100
+        && request.resource.data.cuentaId is string
+        && request.resource.data.cuentaId.size() > 0
+        && request.resource.data.cuentaNombre is string
+        && request.resource.data.cuentaNombre.size() > 0
+        && exists(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaId))
         && request.resource.data.activo is bool
         && validAuditOnUpdate();
       allow delete: if admin();

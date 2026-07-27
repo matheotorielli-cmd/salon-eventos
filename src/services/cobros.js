@@ -12,6 +12,7 @@ export async function registrarCobro({
   porcentajeDescuento,
   tipoCobroId,
   tipoCobroNombre,
+  aplicacionesCobro,
   fecha,
   concepto,
   descripcion,
@@ -26,6 +27,15 @@ export async function registrarCobro({
   const montoCancelado = Number(montoAplicado ?? montoRecibido)
   const montoDescuento = Number(descuento || 0)
   const porcentajeBonificacion = Number(porcentajeDescuento || 0)
+  const aplicaciones = (aplicacionesCobro || []).map((item) => ({
+    cuentaId: item.cuentaId || "",
+    tipoCobroId: item.tipoCobroId || "",
+    tipoCobroNombre: item.tipoCobroNombre || "",
+    porcentajeDescuento: Number(item.porcentajeDescuento || 0),
+    montoAplicado: Number(item.montoAplicado || 0),
+    descuento: Number(item.descuento || 0),
+    monto: Number(item.monto || 0)
+  }))
   const distribucion = (destinos?.length ? destinos : [{ cuentaId, monto }]).filter((item) => item.cuentaId && Number(item.monto) > 0).map((item) => ({ cuentaId: item.cuentaId, monto: Number(item.monto) }))
   if (distribucion.length > 5) throw new Error("demasiadas-cuentas")
   const movimientosRefs = distribucion.map(() => doc(collection(db, "movimientos")))
@@ -38,6 +48,7 @@ export async function registrarCobro({
     if (!eventoSnap.exists()) throw new Error("evento-no-disponible")
     if (!distribucion.length || distribucion.reduce((total, item) => total + item.monto, 0) !== montoRecibido) throw new Error("distribucion-invalida")
     if (!Number.isFinite(montoCancelado) || montoCancelado <= 0 || !Number.isFinite(montoDescuento) || montoDescuento < 0 || montoRecibido + montoDescuento !== montoCancelado) throw new Error("descuento-invalido")
+    if (!ventaBebidasId && (!aplicaciones.length || aplicaciones.reduce((total, item) => total + item.montoAplicado, 0) !== montoCancelado || aplicaciones.reduce((total, item) => total + item.descuento, 0) !== montoDescuento || aplicaciones.reduce((total, item) => total + item.monto, 0) !== montoRecibido)) throw new Error("descuento-invalido")
     if (ventaBebidasId && montoDescuento > 0) throw new Error("descuento-bebidas-no-permitido")
     if (new Set(distribucion.map((item) => item.cuentaId)).size !== distribucion.length) throw new Error("cuentas-repetidas")
     if (cuentasSnaps.some((snap) => !snap.exists() || snap.data().activa === false)) throw new Error("cuenta-no-disponible")
@@ -74,6 +85,7 @@ export async function registrarCobro({
       porcentajeDescuento: porcentajeBonificacion,
       tipoCobroId: tipoCobroId || "",
       tipoCobroNombre: tipoCobroNombre || "",
+      aplicacionesCobro: aplicaciones,
       moneda: "ARS",
       fecha: fechaTimestamp,
       concepto: concepto.trim() || "Cobro de evento",

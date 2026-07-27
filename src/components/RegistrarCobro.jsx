@@ -42,7 +42,7 @@ export default function RegistrarCobro() {
   const [error, setError] = useState("")
   const ventaBebidasId = searchParams.get("bebidas") || ""
   const montoBebidas = searchParams.get("monto") || ""
-  const [form, setForm] = useState({ cuentaId: "", cuentaId2: "", tipoCobroId: "", dividir: false, montoCuenta1: montoBebidas, montosCuentas: {}, descripcion: "", concepto: ventaBebidasId ? "Cobro de bebidas" : "Cobro de evento", fecha: new Date().toISOString().split("T")[0], porcentaje: "", monto: montoBebidas })
+  const [form, setForm] = useState({ cuentaId: "", cuentaId2: "", dividir: false, montoCuenta1: montoBebidas, montosCuentas: {}, descripcion: "", concepto: ventaBebidasId ? "Cobro de bebidas" : "Cobro de evento", fecha: new Date().toISOString().split("T")[0], porcentaje: "", monto: montoBebidas })
 
   useEffect(() => {
     getDoc(doc(db, "eventos", id)).then((snapshot) => {
@@ -58,11 +58,7 @@ export default function RegistrarCobro() {
   }, [id, ventaBebidasId])
 
   useEffect(() => observarTiposCobro(
-    (data) => {
-      const activos = data.filter((tipo) => tipo.activo !== false)
-      setTiposCobro(activos)
-      setForm((actual) => actual.tipoCobroId || !activos.length ? actual : { ...actual, tipoCobroId: activos[0].id })
-    },
+    (data) => setTiposCobro(data.filter((tipo) => tipo.activo !== false)),
     () => setError("No se pudieron cargar los tipos de cobro.")
   ), [])
 
@@ -73,10 +69,18 @@ export default function RegistrarCobro() {
   const cobradoCobro = esCobroBebidas ? Number(ventaBebidas?.cobrado || 0) : finanzas.cobradoServicio
   const saldo = esCobroBebidas ? Number(ventaBebidas?.saldo ?? ventaBebidas?.total ?? 0) : finanzas.saldoServicio
   const montoAplicado = Number(form.monto || 0)
-  const tipoCobro = tiposCobro.find((tipo) => tipo.id === form.tipoCobroId)
+  const tipoCobro = tiposCobro.find((tipo) => tipo.cuentaId === form.cuentaId)
+  const tipoCobro2 = tiposCobro.find((tipo) => tipo.cuentaId === form.cuentaId2)
+  const montoAplicadoCuenta1 = form.dividir ? Number(form.montoCuenta1 || 0) : montoAplicado
+  const montoAplicadoCuenta2 = form.dividir ? montoAplicado - montoAplicadoCuenta1 : 0
   const porcentajeDescuento = esCobroBebidas ? 0 : Number(tipoCobro?.porcentajeDescuento || 0)
-  const descuento = Math.round(montoAplicado * porcentajeDescuento / 100)
-  const monto = montoAplicado - descuento
+  const porcentajeDescuento2 = esCobroBebidas ? 0 : Number(tipoCobro2?.porcentajeDescuento || 0)
+  const descuentoCuenta1 = Math.round(montoAplicadoCuenta1 * porcentajeDescuento / 100)
+  const descuentoCuenta2 = Math.round(montoAplicadoCuenta2 * porcentajeDescuento2 / 100)
+  const descuento = descuentoCuenta1 + descuentoCuenta2
+  const montoCuenta1 = montoAplicadoCuenta1 - descuentoCuenta1
+  const montoCuenta2 = montoAplicadoCuenta2 - descuentoCuenta2
+  const monto = montoCuenta1 + montoCuenta2
   const destinosBebidas = cuentas.map((cuenta) => ({ cuentaId: cuenta.id, monto: Number(form.montosCuentas[cuenta.id] || 0) })).filter((item) => item.monto > 0)
   const totalDistribuido = destinosBebidas.reduce((total, item) => total + item.monto, 0)
   const diferenciaDistribucion = monto - totalDistribuido
@@ -91,8 +95,6 @@ export default function RegistrarCobro() {
   async function cobrar(e) {
     e.preventDefault()
     setError("")
-    if (!esCobroBebidas && !tiposCobro.length) return setError("Configurá al menos un tipo de cobro antes de registrar el pago.")
-    if (!esCobroBebidas && !tipoCobro) return setError("Seleccioná el tipo de cobro.")
     if (!esCobroBebidas && !form.cuentaId) return setError("Seleccioná la cuenta que recibirá el dinero.")
     if (!esCobroBebidas && form.dividir && (!form.cuentaId2 || form.cuentaId2 === form.cuentaId)) return setError("Seleccioná una segunda cuenta diferente.")
     if (esCobroBebidas && !destinosBebidas.length) return setError("Ingresá el monto que recibirá al menos una cuenta.")
@@ -103,10 +105,28 @@ export default function RegistrarCobro() {
 
     setGuardando(true)
     try {
-      const montoCuenta1 = form.dividir ? Number(form.montoCuenta1 || 0) : monto
-      const montoCuenta2 = monto - montoCuenta1
-      if (form.dividir && (montoCuenta1 <= 0 || montoCuenta2 <= 0)) throw new Error("distribucion-invalida")
+      if (form.dividir && (montoAplicadoCuenta1 <= 0 || montoAplicadoCuenta2 <= 0 || montoCuenta1 <= 0 || montoCuenta2 <= 0)) throw new Error("distribucion-invalida")
       const destinos = esCobroBebidas ? destinosBebidas : form.dividir ? [{ cuentaId: form.cuentaId, monto: montoCuenta1 }, { cuentaId: form.cuentaId2, monto: montoCuenta2 }] : [{ cuentaId: form.cuentaId, monto }]
+      const aplicacionesCobro = esCobroBebidas ? [] : [
+        {
+          cuentaId: form.cuentaId,
+          tipoCobroId: tipoCobro?.id || "",
+          tipoCobroNombre: tipoCobro?.nombre || cuentas.find((cuenta) => cuenta.id === form.cuentaId)?.nombre || "",
+          porcentajeDescuento,
+          montoAplicado: montoAplicadoCuenta1,
+          descuento: descuentoCuenta1,
+          monto: montoCuenta1
+        },
+        ...(form.dividir ? [{
+          cuentaId: form.cuentaId2,
+          tipoCobroId: tipoCobro2?.id || "",
+          tipoCobroNombre: tipoCobro2?.nombre || cuentas.find((cuenta) => cuenta.id === form.cuentaId2)?.nombre || "",
+          porcentajeDescuento: porcentajeDescuento2,
+          montoAplicado: montoAplicadoCuenta2,
+          descuento: descuentoCuenta2,
+          monto: montoCuenta2
+        }] : [])
+      ]
       await registrarCobro({
         eventoId: id,
         ...form,
@@ -116,8 +136,9 @@ export default function RegistrarCobro() {
         montoAplicado,
         descuento,
         porcentajeDescuento,
-        tipoCobroId: tipoCobro?.id || "",
-        tipoCobroNombre: tipoCobro?.nombre || "",
+        tipoCobroId: form.dividir ? "" : tipoCobro?.id || "",
+        tipoCobroNombre: form.dividir ? aplicacionesCobro.map((item) => item.tipoCobroNombre).join(" + ") : tipoCobro?.nombre || "",
+        aplicacionesCobro,
         userId: auth.currentUser.uid
       })
       navigate(`/evento/${id}`)
@@ -145,16 +166,15 @@ export default function RegistrarCobro() {
       <form onSubmit={cobrar} style={tarjeta}>
         <div style={tituloSeccion}><div><h2 style={{ margin: 0 }}>{esCobroBebidas ? "Cobrar bebidas" : "Registrar pago"}</h2><p style={{ margin: "4px 0 0", color: "#776d83" }}>{esCobroBebidas ? "Distribuí el total entre una o varias cuentas." : "El saldo de la cuenta elegida se actualizará automáticamente."}</p></div></div>
         <div style={grilla}>
-          {!esCobroBebidas && <Campo label="Tipo de cobro"><select value={form.tipoCobroId} onChange={(e) => setForm({ ...form, tipoCobroId: e.target.value, dividir: false, cuentaId2: "", montoCuenta1: "" })} required><option value="">Seleccionar tipo</option>{tiposCobro.map((tipo) => <option key={tipo.id} value={tipo.id}>{tipo.nombre}{Number(tipo.porcentajeDescuento || 0) > 0 ? ` · ${tipo.porcentajeDescuento}% de descuento` : ""}</option>)}</select></Campo>}
-          {!esCobroBebidas && <Campo label="Cuenta que recibe el cobro"><select value={form.cuentaId} onChange={(e) => setForm({ ...form, cuentaId: e.target.value })} required><option value="">Seleccionar cuenta</option>{cuentas.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.nombre}</option>)}</select></Campo>}
+          {!esCobroBebidas && <Campo label="Cuenta que recibe el cobro"><select value={form.cuentaId} onChange={(e) => setForm({ ...form, cuentaId: e.target.value, montoCuenta1: "" })} required><option value="">Seleccionar cuenta</option>{cuentas.map((cuenta) => { const configuracion = tiposCobro.find((tipo) => tipo.cuentaId === cuenta.id); return <option key={cuenta.id} value={cuenta.id}>{cuenta.nombre}{Number(configuracion?.porcentajeDescuento || 0) > 0 ? ` · ${configuracion.porcentajeDescuento}% de descuento` : ""}</option> })}</select></Campo>}
           {!esCobroBebidas && <Campo label="Porcentaje"><select value={form.porcentaje} onChange={(e) => cambiarPorcentaje(e.target.value)}><option value="">Seleccionar %</option><option value="25">25%</option><option value="50">50%</option><option value="75">75%</option><option value="100">100%</option></select></Campo>}
           <Campo label={esCobroBebidas ? "Total de bebidas" : "Importe a cancelar"}><input type="number" min="1" max={saldo} step="1" value={form.monto} onChange={(e) => setForm({ ...form, monto: e.target.value, montoCuenta1: "" })} placeholder="$ 0" required readOnly={esCobroBebidas}/></Campo>
           <Campo label="Fecha"><input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required /></Campo>
           <Campo label="Concepto"><input value={form.concepto} onChange={(e) => setForm({ ...form, concepto: e.target.value })} /></Campo>
           <Campo label="Descripción"><input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} placeholder="Detalle opcional" /></Campo>
         </div>
-        {!esCobroBebidas && montoAplicado > 0 && porcentajeDescuento > 0 && <section style={descuentoBox}><div><span>Importe a cancelar</span><strong>{pesos.format(montoAplicado)}</strong></div><div><span>Descuento ({porcentajeDescuento}%)</span><strong>- {pesos.format(descuento)}</strong></div><div style={totalAbonar}><span>Total que abona</span><strong>{pesos.format(monto)}</strong></div></section>}
-        {esCobroBebidas ? <section style={cuentasBebidasBox}><div style={cuentasBebidasHead}><strong>Distribución por cuentas</strong><span>Total a distribuir: {pesos.format(monto)}</span></div>{cuentas.map((cuenta) => <label key={cuenta.id} style={cuentaMontoRow}><span>{cuenta.nombre}</span><input type="number" min="0" max={monto} step="1" value={form.montosCuentas[cuenta.id] || ""} onChange={(e) => setForm({ ...form, montosCuentas: { ...form.montosCuentas, [cuenta.id]: e.target.value } })} placeholder="$ 0"/></label>)}<div style={distribucionResumen}><span>Distribuido: <strong>{pesos.format(totalDistribuido)}</strong></span><span style={{color:diferenciaDistribucion===0?"#16865c":"#b45309"}}>{diferenciaDistribucion < 0 ? "Excede" : "Falta asignar"}: <strong>{pesos.format(Math.abs(diferenciaDistribucion))}</strong></span></div></section> : <><label style={dividirLabel}><input type="checkbox" style={{width:20,height:20,accentColor:"#4e2581"}} checked={form.dividir} onChange={(e) => setForm({ ...form, dividir: e.target.checked, montoCuenta1: String(monto) })}/><span>Dividir el cobro entre dos cuentas</span></label>{form.dividir && <div style={divisionBox}><Campo label="Monto para la primera cuenta"><input type="number" min="1" max={Math.max(1, monto - 1)} value={form.montoCuenta1} onChange={(e) => setForm({ ...form, montoCuenta1: e.target.value })}/></Campo><Campo label="Segunda cuenta"><select value={form.cuentaId2} onChange={(e) => setForm({ ...form, cuentaId2: e.target.value })} required><option value="">Seleccionar segunda cuenta</option>{cuentas.filter((cuenta) => cuenta.id !== form.cuentaId).map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.nombre}</option>)}</select></Campo><Dato label="Monto segunda cuenta" valor={pesos.format(Math.max(0, monto - Number(form.montoCuenta1 || 0)))}/></div>}</>}
+        {!esCobroBebidas && montoAplicado > 0 && descuento > 0 && <section style={descuentoBox}><div><span>Importe a cancelar</span><strong>{pesos.format(montoAplicado)}</strong></div><div><span>{form.dividir ? "Descuento según cuentas" : `Descuento (${porcentajeDescuento}%)`}</span><strong>- {pesos.format(descuento)}</strong></div><div style={totalAbonar}><span>Total que abona</span><strong>{pesos.format(monto)}</strong></div></section>}
+        {esCobroBebidas ? <section style={cuentasBebidasBox}><div style={cuentasBebidasHead}><strong>Distribución por cuentas</strong><span>Total a distribuir: {pesos.format(monto)}</span></div>{cuentas.map((cuenta) => <label key={cuenta.id} style={cuentaMontoRow}><span>{cuenta.nombre}</span><input type="number" min="0" max={monto} step="1" value={form.montosCuentas[cuenta.id] || ""} onChange={(e) => setForm({ ...form, montosCuentas: { ...form.montosCuentas, [cuenta.id]: e.target.value } })} placeholder="$ 0"/></label>)}<div style={distribucionResumen}><span>Distribuido: <strong>{pesos.format(totalDistribuido)}</strong></span><span style={{color:diferenciaDistribucion===0?"#16865c":"#b45309"}}>{diferenciaDistribucion < 0 ? "Excede" : "Falta asignar"}: <strong>{pesos.format(Math.abs(diferenciaDistribucion))}</strong></span></div></section> : <><label style={dividirLabel}><input type="checkbox" style={{width:20,height:20,accentColor:"#4e2581"}} checked={form.dividir} onChange={(e) => setForm({ ...form, dividir: e.target.checked, montoCuenta1: e.target.checked ? String(Math.round(montoAplicado / 2)) : "", cuentaId2: "" })}/><span>Dividir el cobro entre dos cuentas</span></label>{form.dividir && <div style={divisionBox}><Campo label="Importe a cancelar con la primera cuenta"><input type="number" min="1" max={Math.max(1, montoAplicado - 1)} value={form.montoCuenta1} onChange={(e) => setForm({ ...form, montoCuenta1: e.target.value })}/></Campo><Campo label="Segunda cuenta"><select value={form.cuentaId2} onChange={(e) => setForm({ ...form, cuentaId2: e.target.value })} required><option value="">Seleccionar segunda cuenta</option>{cuentas.filter((cuenta) => cuenta.id !== form.cuentaId).map((cuenta) => { const configuracion = tiposCobro.find((tipo) => tipo.cuentaId === cuenta.id); return <option key={cuenta.id} value={cuenta.id}>{cuenta.nombre}{Number(configuracion?.porcentajeDescuento || 0) > 0 ? ` · ${configuracion.porcentajeDescuento}% de descuento` : ""}</option> })}</select></Campo><Dato label="Importe a cancelar con la segunda cuenta" valor={pesos.format(Math.max(0, montoAplicadoCuenta2))}/></div>}</>}
         {montoAplicado > 0 && montoAplicado <= saldo && <div style={preview}>Luego del cobro quedarán pendientes <strong>{pesos.format(saldo - montoAplicado)}</strong>.</div>}
         {error && <div role="alert" style={errorBox}>{error}</div>}
         <div style={acciones}><button type="button" onClick={() => navigate(`/evento/${id}`)} style={cancelar}>Cancelar</button><button disabled={guardando || saldo <= 0} style={cobrarBtn}>{guardando ? "Registrando..." : "Confirmar cobro"}</button></div>
