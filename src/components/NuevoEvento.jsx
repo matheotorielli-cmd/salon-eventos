@@ -8,6 +8,31 @@ import { observarEscuelas } from "../services/escuelas"
 import { observarPrestadores, observarTiposEventos } from "../services/configuracion"
 import { observarListasPrecios } from "../services/listasPrecios"
 
+const DURACION_PREDETERMINADA_MINUTOS = 150
+
+function completarHorarioFin(formulario, fechaInicio, horaInicio) {
+  if (!horaInicio) return formulario
+
+  const [horas, minutos] = horaInicio.split(":").map(Number)
+  if (!Number.isFinite(horas) || !Number.isFinite(minutos)) return formulario
+
+  const minutosFin = horas * 60 + minutos + DURACION_PREDETERMINADA_MINUTOS
+  const horaFin = `${String(Math.floor((minutosFin % 1440) / 60)).padStart(2, "0")}:${String(minutosFin % 60).padStart(2, "0")}`
+  let fechaFin = fechaInicio || formulario.fechaFin
+
+  if (fechaInicio && minutosFin >= 1440) {
+    const fecha = new Date(`${fechaInicio}T12:00:00`)
+    fecha.setDate(fecha.getDate() + Math.floor(minutosFin / 1440))
+    fechaFin = [
+      fecha.getFullYear(),
+      String(fecha.getMonth() + 1).padStart(2, "0"),
+      String(fecha.getDate()).padStart(2, "0")
+    ].join("-")
+  }
+
+  return { ...formulario, fechaFin, horaFin }
+}
+
 export default function NuevoEvento() {
 
   const navigate = useNavigate()
@@ -182,6 +207,12 @@ export default function NuevoEvento() {
       [name]: value
     }
 
+    if (name === "hora") {
+      nuevoForm = completarHorarioFin(nuevoForm, nuevoForm.fecha, value)
+    } else if (name === "fecha" && nuevoForm.hora) {
+      nuevoForm = completarHorarioFin(nuevoForm, value, nuevoForm.hora)
+    }
+
     if (name === "tipoEvento") {
 
       const tipoSeleccionado =
@@ -198,9 +229,16 @@ export default function NuevoEvento() {
   }
 
   function cambiarFechaHora(campo, parte, valor) {
-    setForm((actual) => campo === "inicio"
-      ? { ...actual, [parte === "fecha" ? "fecha" : "hora"]: valor }
-      : { ...actual, [parte === "fecha" ? "fechaFin" : "horaFin"]: valor })
+    setForm((actual) => {
+      if (campo === "fin") {
+        return { ...actual, [parte === "fecha" ? "fechaFin" : "horaFin"]: valor }
+      }
+
+      const actualizado = { ...actual, [parte === "fecha" ? "fecha" : "hora"]: valor }
+      const fechaInicio = parte === "fecha" ? valor : actualizado.fecha
+      const horaInicio = parte === "hora" ? valor : actualizado.hora
+      return completarHorarioFin(actualizado, fechaInicio, horaInicio)
+    })
   }
 
   function agregarPrestador(valor) {
