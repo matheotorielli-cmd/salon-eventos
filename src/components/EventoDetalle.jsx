@@ -153,6 +153,7 @@ export default function EventoDetalle() {
     saldoGeneral: saldo,
     totalServicio: precioServicio,
     cobradoServicio,
+    descuentoServicio,
     saldoServicio,
     porcentajeServicio: porcentaje
   } = calcularFinanzasEvento(evento)
@@ -192,6 +193,7 @@ export default function EventoDetalle() {
             <FilaContable label="Moneda" valor="Peso argentino" />
             <FilaContable label="Precio del evento" valor={pesos.format(precioServicio)} />
             <FilaContable label="Cobrado del evento" valor={pesos.format(cobradoServicio)} />
+            {descuentoServicio > 0 && <FilaContable label="Descuentos aplicados" valor={pesos.format(descuentoServicio)} />}
             <FilaContable label="Saldo del evento" valor={pesos.format(saldoServicio)} destacado={saldoServicio > 0} />
             <FilaContable label="Porcentaje pagado" valor={`${porcentaje}%`} />
             <div style={barra}><div style={{ ...progreso, width: `${porcentaje}%` }} /></div>
@@ -245,12 +247,12 @@ export default function EventoDetalle() {
           <MiniResumen label="Saldo" valor={pesos.format(saldo)} />
           <MiniResumen label="Pagado" valor={`${porcentaje}%`} />
         </div>
-        <Tabla columnas={["Fecha", "Concepto", "Descripción", "Cuenta", "Usuario", "Monto cobrado", "Acciones"]}>
+        <Tabla columnas={["Fecha", "Concepto", "Descripción", "Tipo y cuenta", "Usuario", "Monto cobrado", "Acciones"]}>
           {cobros.map((cobro) => <tr key={cobro.id} style={cobro.anulado ? { opacity: .62, background: "#fff1f2" } : undefined}>
             <td style={td}><button onClick={() => abrirComprobante(cobro)} disabled={generandoComprobanteId === cobro.id} style={fechaComprobanteBtn}>{generandoComprobanteId === cobro.id ? "Generando..." : cobro.fecha?.toDate ? fechaTexto.format(cobro.fecha.toDate()) : "—"}</button></td>
             <td style={td}>{cobro.concepto || "Cobro de evento"}{cobro.anulado && <div style={anuladoBadge}>ANULADO</div>}</td>
             <td style={td}>{cobro.anulado ? cobro.motivoAnulacion || "Sin motivo" : cobro.descripcion || "—"}</td>
-            <td style={td}>{cobro.metodoPago || "—"}</td>
+            <td style={td}>{cobro.tipoCobroNombre || "Sin especificar"}<small style={{ display: "block", color: "#776d83" }}>{cobro.metodoPago || "—"}{Number(cobro.descuento || 0) > 0 ? ` · Descuento ${pesos.format(Number(cobro.descuento))}` : ""}</small></td>
             <td style={td}>{cobro.creadoPorNombre || cobro.creadoPorEmail || cobro.creadoPor?.slice?.(0, 8) || "—"}</td>
             <td style={{ ...td, color: cobro.anulado ? "#b42339" : "#16865c", fontWeight: 700, textDecoration: cobro.anulado ? "line-through" : "none" }}>{pesos.format(Number(cobro.monto || 0))}</td>
             <td style={td}>{role === "admin" && hasPermission("cobrosAnular") && !cobro.anulado ? <button onClick={() => anular(cobro)} disabled={anulandoId === cobro.id} style={anularBtn}>{anulandoId === cobro.id ? "Anulando..." : "Anular"}</button> : "—"}</td>

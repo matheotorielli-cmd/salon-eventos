@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { auth } from "../firebase"
 import { signOut } from "firebase/auth"
 import { useUserRole } from "../hooks/useUserRole"
-import { ArrowLeftRight, BarChart3, BriefcaseBusiness, Building2, CalendarClock, CalendarDays, CirclePlus, ContactRound, CreditCard, GraduationCap, HandCoins, Landmark, ListTree, PackageOpen, PartyPopper, ReceiptText, Scale, Settings, Shapes, ShieldCheck, Sparkles, Tags, Truck, UserCog, Users, WalletCards } from "lucide-react"
+import { ArrowLeftRight, BadgePercent, BarChart3, BriefcaseBusiness, Building2, CalendarClock, CalendarDays, CirclePlus, ContactRound, CreditCard, GraduationCap, HandCoins, Landmark, ListTree, PackageOpen, PartyPopper, ReceiptText, Scale, Settings, Shapes, ShieldCheck, Sparkles, Tags, Truck, UserCog, Users, WalletCards } from "lucide-react"
 
 export default function Navbar() {
 
@@ -722,6 +722,16 @@ export default function Navbar() {
                     Tipos de eventos
                   </div>
 
+                  <div
+                    onClick={() => {
+                      navigate("/tipos-cobro")
+                      setOpenConfig(false)
+                    }}
+                    style={configSub}
+                  >
+                    Tipos de cobro
+                  </div>
+
                 </>
               )}
 
@@ -824,6 +834,7 @@ function ConfigPanel({ role, puedeConfigurar, navigate, onClose, openSections, o
             <SubItem icon={<Building2 size={16}/>} label="Perfil Organización (nuevo)" badge="BETA" />
             <SubItem icon={<GraduationCap size={16}/>} label="Escuelas" onClick={() => abrir("/escuelas")} />
             <SubItem icon={<PartyPopper size={16}/>} label="Tipo de eventos" onClick={() => abrir("/tipos-eventos")} />
+            <SubItem icon={<BadgePercent size={16}/>} label="Tipos de cobro" onClick={() => abrir("/tipos-cobro")} />
             <SubItem icon={<Shapes size={16}/>} label="Tipo de servicios" />
             <SubItem icon={<ListTree size={16}/>} label="Tipo de movimientos" onClick={() => abrir("/tipos-movimientos")} />
           </div>

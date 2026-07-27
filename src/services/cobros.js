@@ -2,11 +2,30 @@ import { collection, doc, onSnapshot, query, runTransaction, serverTimestamp, Ti
 import { db } from "../firebase"
 import { calcularFinanzasEvento } from "../utils/finanzasEvento"
 
-export async function registrarCobro({ eventoId, cuentaId, destinos, monto, fecha, concepto, descripcion, ventaBebidasId, userId }) {
+export async function registrarCobro({
+  eventoId,
+  cuentaId,
+  destinos,
+  monto,
+  montoAplicado,
+  descuento,
+  porcentajeDescuento,
+  tipoCobroId,
+  tipoCobroNombre,
+  fecha,
+  concepto,
+  descripcion,
+  ventaBebidasId,
+  userId
+}) {
   const eventoRef = doc(db, "eventos", eventoId)
   const usuarioRef = doc(db, "usuarios", userId)
   const cobroRef = doc(collection(db, "cobros"))
   const fechaTimestamp = Timestamp.fromDate(new Date(`${fecha}T12:00:00`))
+  const montoRecibido = Number(monto)
+  const montoCancelado = Number(montoAplicado ?? montoRecibido)
+  const montoDescuento = Number(descuento || 0)
+  const porcentajeBonificacion = Number(porcentajeDescuento || 0)
   const distribucion = (destinos?.length ? destinos : [{ cuentaId, monto }]).filter((item) => item.cuentaId && Number(item.monto) > 0).map((item) => ({ cuentaId: item.cuentaId, monto: Number(item.monto) }))
   if (distribucion.length > 5) throw new Error("demasiadas-cuentas")
   const movimientosRefs = distribucion.map(() => doc(collection(db, "movimientos")))
@@ -17,7 +36,9 @@ export async function registrarCobro({ eventoId, cuentaId, destinos, monto, fech
     const cuentasSnaps = await Promise.all(cuentasRefs.map((ref) => transaction.get(ref)))
     const usuarioSnap = await transaction.get(usuarioRef)
     if (!eventoSnap.exists()) throw new Error("evento-no-disponible")
-    if (!distribucion.length || distribucion.reduce((total, item) => total + item.monto, 0) !== monto) throw new Error("distribucion-invalida")
+    if (!distribucion.length || distribucion.reduce((total, item) => total + item.monto, 0) !== montoRecibido) throw new Error("distribucion-invalida")
+    if (!Number.isFinite(montoCancelado) || montoCancelado <= 0 || !Number.isFinite(montoDescuento) || montoDescuento < 0 || montoRecibido + montoDescuento !== montoCancelado) throw new Error("descuento-invalido")
+    if (ventaBebidasId && montoDescuento > 0) throw new Error("descuento-bebidas-no-permitido")
     if (new Set(distribucion.map((item) => item.cuentaId)).size !== distribucion.length) throw new Error("cuentas-repetidas")
     if (cuentasSnaps.some((snap) => !snap.exists() || snap.data().activa === false)) throw new Error("cuenta-no-disponible")
 
@@ -29,14 +50,16 @@ export async function registrarCobro({ eventoId, cuentaId, destinos, monto, fech
     const saldo = finanzas.saldoGeneral
 
     const totalCobradoAnterior = Number(evento.totalCobrado ?? evento.sena ?? 0)
-    const nuevoTotalCobrado = totalCobradoAnterior + monto
-    const nuevoSaldo = saldo - monto
+    const totalDescuentosAnterior = Number(evento.totalDescuentosCobros || 0)
+    const nuevoTotalCobrado = totalCobradoAnterior + montoRecibido
+    const nuevoTotalDescuentos = totalDescuentosAnterior + montoDescuento
+    const nuevoSaldo = saldo - montoCancelado
     const estadoPagado = String(evento.estado || "").toLowerCase() === "pagado" ? evento.estado : "Pagado"
 
     const venta = ventaBebidasId ? (evento.ventasBebidas || []).find((item) => item.id === ventaBebidasId) : null
     if (ventaBebidasId && !venta) throw new Error("venta-bebidas-no-disponible")
-    if (venta && monto > Number(venta.saldo ?? venta.total ?? 0)) throw new Error("monto-supera-bebidas")
-    if (!venta && monto > finanzas.saldoServicio) throw new Error("monto-supera-saldo")
+    if (venta && montoCancelado > Number(venta.saldo ?? venta.total ?? 0)) throw new Error("monto-supera-bebidas")
+    if (!venta && montoCancelado > finanzas.saldoServicio) throw new Error("monto-supera-saldo")
 
     transaction.set(cobroRef, {
       eventoId,
@@ -45,7 +68,12 @@ export async function registrarCobro({ eventoId, cuentaId, destinos, monto, fech
       movimientoIds: movimientosRefs.map((ref) => ref.id),
       distribucion: distribucion.map((item, index) => ({ ...item, cuentaNombre: cuentas[index].nombre, movimientoId: movimientosRefs[index].id })),
       ventaBebidasId: ventaBebidasId || null,
-      monto,
+      monto: montoRecibido,
+      montoAplicado: montoCancelado,
+      descuento: montoDescuento,
+      porcentajeDescuento: porcentajeBonificacion,
+      tipoCobroId: tipoCobroId || "",
+      tipoCobroNombre: tipoCobroNombre || "",
       moneda: "ARS",
       fecha: fechaTimestamp,
       concepto: concepto.trim() || "Cobro de evento",
@@ -83,13 +111,14 @@ export async function registrarCobro({ eventoId, cuentaId, destinos, monto, fech
       creadoEn: serverTimestamp()
     }))
 
-    const ventasActualizadas = venta ? (evento.ventasBebidas || []).map((item) => item.id === venta.id ? { ...item, cobrado: Number(item.cobrado || 0) + monto, saldo: Number(item.saldo ?? item.total) - monto, estado: Number(item.saldo ?? item.total) - monto === 0 ? "Pagado" : "Parcial" } : item) : null
+    const ventasActualizadas = venta ? (evento.ventasBebidas || []).map((item) => item.id === venta.id ? { ...item, cobrado: Number(item.cobrado || 0) + montoRecibido, saldo: Number(item.saldo ?? item.total) - montoRecibido, estado: Number(item.saldo ?? item.total) - montoRecibido === 0 ? "Pagado" : "Parcial" } : item) : null
 
     transaction.update(eventoRef, {
       sena: nuevoTotalCobrado,
       totalCobrado: nuevoTotalCobrado,
+      totalDescuentosCobros: nuevoTotalDescuentos,
       saldo: nuevoSaldo,
-      estado: !venta && finanzas.saldoServicio - monto === 0 ? estadoPagado : evento.estado,
+      estado: !venta && finanzas.saldoServicio - montoCancelado === 0 ? estadoPagado : evento.estado,
       ultimoCobroId: cobroRef.id,
       actualizadoPor: userId,
       actualizadoEn: serverTimestamp()
@@ -140,12 +169,16 @@ export async function anularCobro({ cobroId, motivo, userId }) {
     const usuario = usuarioSnap.exists() ? usuarioSnap.data() : {}
     const usuarioNombre = [usuario.nombre, usuario.apellido].filter(Boolean).join(" ") || usuario.email || "Usuario"
     const monto = Number(cobro.monto || 0)
+    const montoAplicado = Number(cobro.montoAplicado ?? monto)
+    const descuento = Number(cobro.descuento || 0)
     if (!Number.isFinite(monto) || monto <= 0) throw new Error("monto-invalido")
     if (cuentas.some((cuenta, index) => Number(cuenta.saldoActual || 0) < Number(distribucion[index].monto))) throw new Error("saldo-cuenta-insuficiente")
 
     const totalCobrado = Number(evento.totalCobrado ?? evento.sena ?? 0)
     const nuevoTotalCobrado = Math.max(0, totalCobrado - monto)
-    const nuevoSaldo = Number(evento.saldo ?? (Number(evento.total || 0) - totalCobrado)) + monto
+    const totalDescuentos = Number(evento.totalDescuentosCobros || 0)
+    const nuevoTotalDescuentos = Math.max(0, totalDescuentos - descuento)
+    const nuevoSaldo = Number(evento.saldo ?? (Number(evento.total || 0) - totalCobrado - totalDescuentos)) + montoAplicado
     const estadoActual = String(evento.estado || "")
     const nuevoEstado = !cobro.ventaBebidasId && estadoActual.toLowerCase() === "pagado" ? "Confirmado" : estadoActual
 
@@ -199,6 +232,7 @@ export async function anularCobro({ cobroId, motivo, userId }) {
     transaction.update(eventoRef, {
       sena: nuevoTotalCobrado,
       totalCobrado: nuevoTotalCobrado,
+      totalDescuentosCobros: nuevoTotalDescuentos,
       saldo: nuevoSaldo,
       estado: nuevoEstado,
       ultimaAnulacionCobroId: cobroId,

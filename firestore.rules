@@ -181,33 +181,35 @@ service cloud.firestore {
       allow update: if (hasPermission('eventosEditar')
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'sena', 'totalCobrado', 'saldo', 'total', 'ultimoCobroId', 'ultimaAnulacionCobroId',
-          'ventasBebidas', 'ultimaVentaBebidasId', 'cliente', 'telefono'
+          'totalDescuentosCobros', 'ventasBebidas', 'ultimaVentaBebidasId', 'cliente', 'telefono'
         ])
         && (!(request.resource.data.estado in ['Cancelado', 'cancelado'])
           || request.resource.data.estado == resource.data.estado
           || hasPermission('eventosCancelar'))) || (
         hasPermission('cobrosRegistrar')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'sena', 'totalCobrado', 'saldo', 'estado', 'ultimoCobroId', 'ventasBebidas', 'actualizadoPor', 'actualizadoEn'
+          'sena', 'totalCobrado', 'totalDescuentosCobros', 'saldo', 'estado', 'ultimoCobroId', 'ventasBebidas', 'actualizadoPor', 'actualizadoEn'
         ])
         && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.eventoId == eventoId
-        && request.resource.data.saldo == resource.data.saldo - getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.monto
+        && request.resource.data.saldo == resource.data.saldo - getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.montoAplicado
         && request.resource.data.sena == request.resource.data.totalCobrado
         && request.resource.data.totalCobrado is number
         && request.resource.data.totalCobrado >= getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.monto
+        && request.resource.data.totalDescuentosCobros == resource.data.get('totalDescuentosCobros', 0) + getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.descuento
         && request.resource.data.saldo >= 0
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
       ) || (
         admin() && hasPermission('cobrosAnular')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'sena', 'totalCobrado', 'saldo', 'estado', 'ultimaAnulacionCobroId', 'ventasBebidas', 'actualizadoPor', 'actualizadoEn'
+          'sena', 'totalCobrado', 'totalDescuentosCobros', 'saldo', 'estado', 'ultimaAnulacionCobroId', 'ventasBebidas', 'actualizadoPor', 'actualizadoEn'
         ])
         && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.eventoId == eventoId
         && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.anulado == true
         && request.resource.data.totalCobrado == resource.data.totalCobrado - getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.monto
         && request.resource.data.sena == request.resource.data.totalCobrado
-        && request.resource.data.saldo == resource.data.saldo + getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.monto
+        && request.resource.data.totalDescuentosCobros == resource.data.get('totalDescuentosCobros', 0) - getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.get('descuento', 0)
+        && request.resource.data.saldo == resource.data.saldo + getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.get('montoAplicado', getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimaAnulacionCobroId)).data.monto)
         && request.resource.data.totalCobrado >= 0
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
@@ -395,6 +397,21 @@ service cloud.firestore {
         && request.resource.data.movimientoId is string
         && request.resource.data.monto is number
         && request.resource.data.monto > 0
+        && request.resource.data.montoAplicado is number
+        && request.resource.data.montoAplicado >= request.resource.data.monto
+        && request.resource.data.descuento is number
+        && request.resource.data.descuento >= 0
+        && request.resource.data.montoAplicado == request.resource.data.monto + request.resource.data.descuento
+        && request.resource.data.porcentajeDescuento is number
+        && request.resource.data.porcentajeDescuento >= 0
+        && request.resource.data.porcentajeDescuento <= 100
+        && request.resource.data.tipoCobroId is string
+        && request.resource.data.tipoCobroNombre is string
+        && (request.resource.data.tipoCobroId == '' || (
+          get(/databases/$(database)/documents/tiposCobro/$(request.resource.data.tipoCobroId)).data.activo == true
+          && get(/databases/$(database)/documents/tiposCobro/$(request.resource.data.tipoCobroId)).data.nombre == request.resource.data.tipoCobroNombre
+          && get(/databases/$(database)/documents/tiposCobro/$(request.resource.data.tipoCobroId)).data.porcentajeDescuento == request.resource.data.porcentajeDescuento
+        ))
         && request.resource.data.moneda == 'ARS'
         && request.resource.data.fecha is timestamp
         && request.resource.data.anulado == false
@@ -486,6 +503,27 @@ service cloud.firestore {
       allow delete: if admin();
     }
 
+    match /tiposCobro/{documentId} {
+      allow read: if hasPermission('cobrosRegistrar') || hasPermission('eventosVer') || hasPermission('configuracionAdministrar');
+      allow create: if hasPermission('configuracionAdministrar')
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.porcentajeDescuento is number
+        && request.resource.data.porcentajeDescuento >= 0
+        && request.resource.data.porcentajeDescuento <= 100
+        && request.resource.data.activo == true
+        && validAuditOnCreate();
+      allow update: if hasPermission('configuracionAdministrar')
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.porcentajeDescuento is number
+        && request.resource.data.porcentajeDescuento >= 0
+        && request.resource.data.porcentajeDescuento <= 100
+        && request.resource.data.activo is bool
+        && validAuditOnUpdate();
+      allow delete: if admin();
+    }
+
     match /prestadores/{documentId} {
       allow read: if hasPermission('eventosVer') || hasPermission('eventosCrear') || hasPermission('eventosEditar') || hasPermission('configuracionAdministrar');
       allow create: if hasPermission('configuracionAdministrar') && validAuditOnCreate();
@@ -554,6 +592,7 @@ service cloud.firestore {
           'cobroId', 'numero', 'eventoId', 'eventoNombre', 'clienteNombre', 'clienteTelefono',
           'fechaComprobante', 'fechaEvento', 'fechaFinEvento', 'horaInicio', 'horaFin',
           'concepto', 'descripcion', 'monto', 'moneda', 'cuentaNombre', 'detalleBebidas',
+          'montoAplicado', 'descuento', 'porcentajeDescuento', 'tipoCobroNombre',
           'distribucion', 'registradoPor', 'emitidoPor',
           'anulado', 'creadoPor', 'creadoEn'
         ])
@@ -572,7 +611,7 @@ service cloud.firestore {
           && request.resource.data.anulado == true
           && request.resource.data.anuladoEn == request.time)
         || (hasPermission('eventosVer')
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['numero', 'clienteNombre', 'clienteTelefono', 'detalleBebidas', 'distribucion', 'registradoPor', 'actualizadoEn'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['numero', 'clienteNombre', 'clienteTelefono', 'detalleBebidas', 'distribucion', 'registradoPor', 'monto', 'montoAplicado', 'descuento', 'porcentajeDescuento', 'tipoCobroNombre', 'actualizadoEn'])
           && request.resource.data.numero is string
           && request.resource.data.numero.matches('[0-9]{4}-[0-9]{6}')
           && (!('clienteNombre' in request.resource.data) || request.resource.data.clienteNombre is string)

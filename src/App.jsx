@@ -13,6 +13,7 @@ const NuevoTipoMovimiento = lazy(() => import("./components/NuevoTipoMovimiento"
 const Login = lazy(() => import("./components/Login"))
 const Prestadores = lazy(() => import("./components/Prestadores"))
 const TiposEventos = lazy(() => import("./components/TiposEventos"))
+const TiposCobro = lazy(() => import("./components/TiposCobro"))
 const Escuelas = lazy(() => import("./components/Escuelas"))
 const Cuentas = lazy(() => import("./components/Cuentas"))
 const CuentaDetalle = lazy(() => import("./components/CuentaDetalle"))
@@ -56,6 +57,7 @@ function Layout() {
         <Route path="/evento/:id/cobro" element={permitir("cobrosRegistrar", <RegistrarCobro />)} />
         <Route path="/prestadores" element={permitir("configuracionAdministrar", <Prestadores />)} />
         <Route path="/tipos-eventos" element={permitir("configuracionAdministrar", <TiposEventos />)} />
+        <Route path="/tipos-cobro" element={permitir("configuracionAdministrar", <TiposCobro />)} />
         <Route path="/tipos-movimientos" element={permitir("configuracionAdministrar", <TiposMovimientos />)} />
         <Route path="/nuevo-tipo-movimiento" element={permitir("configuracionAdministrar", <NuevoTipoMovimiento />)} />
         <Route path="/tipo-movimiento/:id/editar" element={permitir("configuracionAdministrar", <NuevoTipoMovimiento />)} />

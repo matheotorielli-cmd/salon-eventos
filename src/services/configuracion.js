@@ -54,6 +54,9 @@ export const observarPrestadores = (onData, onError) =>
 export const observarTiposMovimientos = (onData, onError) =>
   observarConfiguracion("tiposMovimientos", onData, onError)
 
+export const observarTiposCobro = (onData, onError) =>
+  observarConfiguracion("tiposCobro", onData, onError)
+
 export async function migrarConfiguracionLocal(nombreColeccion, claveLocal, transformar, userId) {
   const claveMigracion = `${claveLocal}:migrando-firestore`
   if (localStorage.getItem(claveMigracion) === "si") return false

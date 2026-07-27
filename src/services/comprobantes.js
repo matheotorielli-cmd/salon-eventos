@@ -30,6 +30,10 @@ export async function crearComprobantePublico({ cobro, evento, userId }) {
     concepto: cobro.concepto || "Cobro de evento",
     descripcion: cobro.descripcion || "",
     monto: Number(cobro.monto || 0),
+    montoAplicado: Number(cobro.montoAplicado ?? cobro.monto ?? 0),
+    descuento: Number(cobro.descuento || 0),
+    porcentajeDescuento: Number(cobro.porcentajeDescuento || 0),
+    tipoCobroNombre: cobro.tipoCobroNombre || "",
     moneda: "ARS",
     cuentaNombre: cobro.metodoPago || "",
     detalleBebidas,
@@ -60,6 +64,11 @@ export async function crearComprobantePublico({ cobro, evento, userId }) {
         ...(clienteTelefono ? { clienteTelefono } : {}),
         ...(detalleBebidas.length ? { detalleBebidas } : {}),
         ...(distribucion.length ? { distribucion } : {}),
+        monto: Number(cobro.monto || 0),
+        montoAplicado: Number(cobro.montoAplicado ?? cobro.monto ?? 0),
+        descuento: Number(cobro.descuento || 0),
+        porcentajeDescuento: Number(cobro.porcentajeDescuento || 0),
+        tipoCobroNombre: cobro.tipoCobroNombre || "",
         registradoPor: cobro.creadoPorNombre || cobro.creadoPorEmail || existente.data().registradoPor || "Usuario",
         actualizadoEn: serverTimestamp()
       })
