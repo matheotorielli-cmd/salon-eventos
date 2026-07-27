@@ -1,5 +1,40 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Cierre del 27 de julio de 2026
+
+- Se configuró la duración predeterminada de los eventos en 2 horas y 30 minutos.
+- Al elegir la hora de inicio, la hora final se completa automáticamente; si cruza la medianoche, también cambia la fecha final.
+- La hora y la fecha finales continúan siendo editables manualmente.
+- Se agregó `Configuración > Tipos de cobro`.
+- La configuración de cada tipo de cobro quedó vinculada directamente a una cuenta.
+- Al seleccionar una cuenta en Registrar cobro, el descuento configurado para esa cuenta se aplica automáticamente, sin elegir un tipo de cobro adicional.
+- En cobros divididos, cada cuenta aplica su propio porcentaje sobre la parte del evento que cancela.
+- El dinero real aumenta el saldo de la cuenta y el descuento se registra por separado.
+- Un pago del 100% con descuento deja el evento completamente pagado y sin saldo pendiente.
+- Los descuentos aparecen en el evento, historial y comprobante, y se revierten al anular el cobro.
+- Reglas de Firestore y Firebase Hosting publicados.
+- `npm run lint`: aprobado.
+- `npm run build`: aprobado.
+- Commits publicados:
+  - `eb55419`: completa automáticamente el horario final.
+  - `de382f1`: agrega tipos de cobro con descuentos.
+  - `d65d0bd`: corrige el flujo para aplicar descuentos según la cuenta elegida.
+
+### Datos pendientes de cargar desde la imagen
+
+Todos son cumpleaños del año 2026, comienzan a las 16:00 y finalizan automáticamente a las 18:30:
+
+1. Valentina — responsable: Vanesa Bartola — 03/08/2026 — recibo 292650 — efectivo $105.750 — teléfono 3436114753.
+2. Cielo — responsable: Elisa Rodríguez — 18/09/2026 — recibo 292854 — efectivo $105.750 — teléfono 3435146429.
+3. Felipe — responsable: Laureano Buralli — 10/08/2026 — recibo 293013 — efectivo $423.000 — teléfono 3434199868.
+4. Camilo — responsable: Virginia Humoffe — 15/12/2026 — recibo 293349 — efectivo $423.000 — teléfono 3436113756.
+
+Significado de las letras de la planilla: `N` = nuevo, `A` = adelanto y `C` = pago completo.
+
+Antes de confirmar cada cobro se debe seleccionar la cuenta cuyo cálculo automático coincida exactamente con el importe de la imagen. Si ninguna cuenta produce el importe exacto, no registrar el cobro y avisar al usuario.
+
+**Punto exacto para retomar:** reparar o reconectar el navegador integrado Browser, abrir `https://salon-eventos-ef008.web.app`, iniciar sesión y cargar los cuatro clientes, cumpleaños y cobros anteriores. No se cargó todavía ninguno de esos cuatro registros.
+
 ## Cierre del 24 de julio de 2026
 
 - Cierre final: se reemplazaron los símbolos del Navbar, menús desplegables y panel de Configuración por íconos uniformes de Lucide.
