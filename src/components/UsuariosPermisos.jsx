@@ -48,7 +48,7 @@ export default function UsuariosPermisos() {
 
   function cambiarPermiso(usuarioId, permisoId) {
     setUsuarios((actuales) => actuales.map((usuario) => usuario.id === usuarioId
-      ? { ...usuario, permisos: { ...usuario.permisos, [permisoId]: !usuario.permisos[permisoId] } }
+      ? { ...usuario, permisos: { ...usuario.permisos, [permisoId]: !usuario.permisos[permisoId], usuariosAdministrar: false } }
       : usuario))
   }
 
@@ -74,7 +74,9 @@ export default function UsuariosPermisos() {
         usuarioId: usuario.id,
         rol: usuario.rol,
         activo: usuario.activo,
-        permisos: usuario.permisos,
+        permisos: usuario.rol === "admin"
+          ? PERMISOS_POR_ROL.admin
+          : { ...usuario.permisos, usuariosAdministrar: false },
         adminId: user.uid
       })
       setMensaje(`Permisos de ${usuario.nombre || usuario.email || "usuario"} actualizados.`)
@@ -107,9 +109,6 @@ export default function UsuariosPermisos() {
             <div>
               <h2 style={{ margin: 0, fontSize: 19 }}>{usuario.nombre || "Usuario sin nombre"}</h2>
               <div style={{ color: "#6b7280", marginTop: 4 }}>{usuario.email || usuario.id}</div>
-              {usuario.id !== usuario.uid && usuario.id !== user.uid && (
-                <small style={{ color: "#b45309" }}>Verifica que el ID de este documento coincida con el UID de Authentication.</small>
-              )}
             </div>
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <label>
@@ -126,8 +125,10 @@ export default function UsuariosPermisos() {
             </div>
           </div>
 
-          <div style={grilla}>
-            {PERMISOS.map((permiso) => (
+          {usuario.rol === "admin" ? (
+            <div style={accesoTotal}>Los administradores tienen acceso completo a todas las funciones.</div>
+          ) : <div style={grilla}>
+            {PERMISOS.filter((permiso) => permiso.id !== "usuariosAdministrar").map((permiso) => (
               <label key={permiso.id} style={permisoItem}>
                 <input
                   type="checkbox"
@@ -137,7 +138,7 @@ export default function UsuariosPermisos() {
                 {permiso.label}
               </label>
             ))}
-          </div>
+          </div>}
 
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
             <button onClick={() => guardar(usuario)} disabled={guardandoId === usuario.id} style={boton}>
@@ -155,6 +156,7 @@ const tarjeta = { background: "white", border: "1px solid #e5e7eb", borderRadius
 const filaUsuario = { display: "flex", justifyContent: "space-between", gap: 20, flexWrap: "wrap", borderBottom: "1px solid #e5e7eb", paddingBottom: 18 }
 const grilla = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10, marginTop: 18 }
 const permisoItem = { display: "flex", gap: 9, alignItems: "center", padding: 10, background: "#f9fafb", borderRadius: 8 }
+const accesoTotal = { marginTop: 18, padding: 14, borderRadius: 10, background: "#eef8ff", color: "#245a78", fontWeight: 600 }
 const select = { padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 7 }
 const boton = { border: 0, borderRadius: 10, padding: "11px 18px", background: "#4e2581", color: "white", fontWeight: 700, cursor: "pointer" }
 const aviso = { padding: 14, borderRadius: 10, marginBottom: 16, background: "#f7f5fb", color: "#4b4058" }

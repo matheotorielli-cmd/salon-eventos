@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react"
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
+import { signOut } from "firebase/auth"
 import { auth } from "./firebase"
 import { useUserRole } from "./hooks/useUserRole"
 import Navbar from "./components/Navbar"
@@ -40,10 +41,19 @@ function RutaPrivada({ children, user }) {
 }
 
 function Layout() {
-  const { hasPermission, role, loading } = useUserRole(auth.currentUser)
+  const { hasPermission, role, activeUser, loading } = useUserRole(auth.currentUser)
   const permitir = (permiso, contenido) => loading
     ? <div style={{ padding: 30 }}>Cargando permisos...</div>
     : hasPermission(permiso) ? contenido : <div style={{ padding: 30, color: "#776d83" }}>No tenés permiso para acceder a esta sección.</div>
+
+  useEffect(() => {
+    if (!loading && !activeUser) {
+      sessionStorage.setItem("mensajeAcceso", "Tu usuario está deshabilitado o no tiene un perfil de acceso. Comunicate con un administrador.")
+      signOut(auth).catch((error) => console.error("No se pudo cerrar la sesión sin acceso", error))
+    }
+  }, [activeUser, loading])
+
+  if (!loading && !activeUser) return <div style={{ padding: 30 }}>Cerrando una sesión sin acceso...</div>
 
   return <div style={{ minHeight: "100vh", background: "transparent" }}>
     <Navbar />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore"
+import { doc, onSnapshot } from "firebase/firestore"
 import { db } from "../firebase"
 import { ADMIN_INICIAL_EMAIL, normalizarRol, resolverPermisos } from "../config/permisos"
 
@@ -12,58 +12,32 @@ export function useUserRole(user) {
   useEffect(() => {
     let active = true
 
-    async function buscarRol() {
-      if (!user) {
-        if (active) {
-          setRole(null)
-          setPermissions({})
-          setActiveUser(false)
-          setLoading(false)
-        }
-        return
-      }
-
-      setLoading(true)
-
-      try {
-        const userDoc = await getDoc(doc(db, "usuarios", user.uid))
-        let userData = userDoc.exists() ? userDoc.data() : null
-        let userRole = userData?.rol || null
-
-        // Compatibilidad temporal con usuarios antiguos cuyo documento no usa el uid.
-        if (!userRole && user.email) {
-          const legacyQuery = query(
-            collection(db, "usuarios"),
-            where("email", "==", user.email),
-            limit(1)
-          )
-          const legacySnapshot = await getDocs(legacyQuery)
-          userData = legacySnapshot.docs[0]?.data() || null
-          userRole = userData?.rol || null
-        }
-
-        if (active) {
-          const esAdminInicial = user.email?.toLowerCase() === ADMIN_INICIAL_EMAIL
-          const resolvedRole = esAdminInicial ? "admin" : normalizarRol(userRole)
-          setRole(resolvedRole)
-          setPermissions(resolverPermisos(resolvedRole, userData?.permisos))
-          setActiveUser(userData?.activo !== false)
-        }
-      } catch (error) {
-        console.error("No se pudo obtener el rol del usuario", error)
-        if (active) {
-          setRole("empleado")
-          setPermissions(resolverPermisos("empleado"))
-          setActiveUser(false)
-        }
-      } finally {
-        if (active) setLoading(false)
-      }
+    if (!user) {
+      return undefined
     }
 
-    buscarRol()
+    const esAdminInicial = user.email?.toLowerCase() === ADMIN_INICIAL_EMAIL
+    const unsubscribe = onSnapshot(doc(db, "usuarios", user.uid), (userDoc) => {
+      if (!active) return
+      const userData = userDoc.exists() ? userDoc.data() : null
+      const resolvedRole = esAdminInicial ? "admin" : normalizarRol(userData?.rol)
+      setRole(resolvedRole)
+      setPermissions(resolverPermisos(resolvedRole, userData?.permisos))
+      setActiveUser(esAdminInicial || (userDoc.exists() && userData?.activo !== false))
+      setLoading(false)
+    }, (error) => {
+      console.error("No se pudo obtener el rol del usuario", error)
+      if (active) {
+        setRole(esAdminInicial ? "admin" : "empleado")
+        setPermissions(resolverPermisos(esAdminInicial ? "admin" : "empleado"))
+        setActiveUser(esAdminInicial)
+        setLoading(false)
+      }
+    })
+
     return () => {
       active = false
+      unsubscribe()
     }
   }, [user])
 

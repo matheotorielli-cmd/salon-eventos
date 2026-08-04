@@ -1,5 +1,33 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Cierre del 4 de agosto de 2026
+
+- Se revisó y endureció por completo el módulo de usuarios, roles y permisos.
+- Los perfiles se consultan en tiempo real; si un usuario es deshabilitado mientras está conectado, su sesión se cierra.
+- Los usuarios deshabilitados o sin perfil reciben un mensaje de acceso claro.
+- Los administradores quedaron definidos con acceso completo y ya no muestran permisos individuales engañosos.
+- La administración de usuarios permanece reservada exclusivamente a administradores.
+- Se impide que un administrador se quite su propio rol desde la interfaz.
+- Se corrigió el aviso incorrecto de UID en la pantalla de permisos.
+- Si falla la creación del perfil de Firestore, se elimina la cuenta parcial creada en Authentication.
+- El alta de usuarios ya no solicita una contraseña visible al administrador: genera una clave interna y envía un correo para que el usuario establezca la suya.
+- Se agregó `Olvidé mi contraseña` al login y `Enviar cambio de contraseña` a la tabla de usuarios.
+- El login distingue credenciales inválidas, cuenta deshabilitada, bloqueo temporal, problemas de red y perfil sin acceso.
+- Se corrigió la regla de Firestore para permitir que un usuario autenticado consulte su propio perfil aunque esté inactivo y así mostrar el motivo correcto.
+- Se confirmó que Authentication y la colección `usuarios` son registros separados. Las cuentas creadas manualmente en Authentication no aparecen en Fun Space ni tienen permisos hasta crear/vincular su perfil con el mismo UID.
+- Se evaluó una función administrativa para definir contraseñas provisorias, pero requería el plan Blaze. Se retiró completamente junto con sus dependencias; nunca llegó a producción.
+- Se mantiene la alternativa gratuita: correos reales, alias de correo, restablecimiento por correo o cambio manual desde Firebase Authentication.
+- Firebase Hosting y las reglas de Firestore corregidas quedaron publicados.
+- `npm run lint`: aprobado.
+- `npm run build`: aprobado.
+- `git diff --check`: aprobado.
+
+### Punto exacto para retomar
+
+1. Resolver las cuentas que existen únicamente en Firebase Authentication (`muke_1993@hotmail.com` y posiblemente `matheotori...`): eliminarlas y recrearlas desde Fun Space si no tienen uso, o crear una herramienta gratuita para vincular un UID existente con un perfil de Firestore.
+2. Probar en producción el ingreso de un usuario creado desde Fun Space y el flujo `Olvidé mi contraseña`.
+3. Continuar con las mejoras que indique el usuario.
+
 ## Cierre del 27 de julio de 2026
 
 - Se configuró la duración predeterminada de los eventos en 2 horas y 30 minutos.

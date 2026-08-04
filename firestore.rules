@@ -225,7 +225,7 @@ service cloud.firestore {
     }
 
     match /usuarios/{uid} {
-      allow get: if (activeUser() && request.auth.uid == uid) || admin();
+      allow get: if (signedIn() && request.auth.uid == uid) || admin();
       allow list, create, update, delete: if admin();
     }
 

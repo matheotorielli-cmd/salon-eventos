@@ -1,7 +1,7 @@
 import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
-import { db } from "../firebase"
+import { auth, db } from "../firebase"
 import { initializeApp, getApp, getApps } from "firebase/app"
-import { createUserWithEmailAndPassword, getAuth, signOut } from "firebase/auth"
+import { createUserWithEmailAndPassword, deleteUser, getAuth, sendPasswordResetEmail, signOut } from "firebase/auth"
 import { firebaseConfig } from "../firebase"
 
 export function observarUsuarios(onData, onError) {
@@ -39,29 +39,58 @@ export function asegurarAdministradorInicial({ uid, email, permisos }) {
   }, { merge: true })
 }
 
-export async function crearUsuario({ nombre, apellido, email, telefono, rol, permisos, password, adminId }) {
+function generarPasswordProvisoria() {
+  const caracteres = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%"
+  const valores = new Uint32Array(24)
+  globalThis.crypto.getRandomValues(valores)
+  return Array.from(valores, (valor) => caracteres[valor % caracteres.length]).join("")
+}
+
+export function enviarRestablecimientoPassword(email) {
+  auth.languageCode = "es"
+  return sendPasswordResetEmail(auth, email.trim().toLowerCase())
+}
+
+export async function crearUsuario({ nombre, apellido, email, telefono, rol, permisos, adminId }) {
   const secondaryApp = getApps().find((app) => app.name === "crear-usuario")
     || initializeApp(firebaseConfig, "crear-usuario")
   const secondaryAuth = getAuth(getApp(secondaryApp.name))
-  const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password)
+  secondaryAuth.languageCode = "es"
+  const emailNormalizado = email.trim().toLowerCase()
+  const credential = await createUserWithEmailAndPassword(secondaryAuth, emailNormalizado, generarPasswordProvisoria())
 
   try {
-    await setDoc(doc(db, "usuarios", credential.user.uid), {
-      nombre: nombre.trim(),
-      apellido: apellido.trim(),
-      email: email.trim().toLowerCase(),
-      telefono: telefono.trim(),
-      rol,
-      permisos,
-      activo: true,
-      creadoPor: adminId,
-      creadoEn: serverTimestamp(),
-      actualizadoPor: adminId,
-      actualizadoEn: serverTimestamp()
-    })
+    try {
+      await setDoc(doc(db, "usuarios", credential.user.uid), {
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        email: emailNormalizado,
+        telefono: telefono.trim(),
+        rol,
+        permisos,
+        activo: true,
+        creadoPor: adminId,
+        creadoEn: serverTimestamp(),
+        actualizadoPor: adminId,
+        actualizadoEn: serverTimestamp()
+      })
+    } catch (error) {
+      try {
+        await deleteUser(credential.user)
+      } catch (cleanupError) {
+        console.error("No se pudo eliminar la cuenta de Authentication creada parcialmente", cleanupError)
+      }
+      throw error
+    }
+
+    try {
+      await sendPasswordResetEmail(secondaryAuth, emailNormalizado)
+      return { uid: credential.user.uid, correoEnviado: true }
+    } catch (emailError) {
+      console.error("El usuario se creó, pero no se pudo enviar el correo de contraseña", emailError)
+      return { uid: credential.user.uid, correoEnviado: false }
+    }
   } finally {
     await signOut(secondaryAuth)
   }
-
-  return credential.user.uid
 }

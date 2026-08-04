@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { auth } from "../firebase"
 import { normalizarRol, PERMISOS_POR_ROL } from "../config/permisos"
 import { useUserRole } from "../hooks/useUserRole"
-import { actualizarAccesoUsuario, crearUsuario, observarUsuarios } from "../services/usuarios"
+import { actualizarAccesoUsuario, crearUsuario, enviarRestablecimientoPassword, observarUsuarios } from "../services/usuarios"
 
 export default function Usuarios() {
   const user = auth.currentUser
@@ -13,6 +13,8 @@ export default function Usuarios() {
   const [mostrarForm, setMostrarForm] = useState(false)
   const [editando, setEditando] = useState(null)
   const [error, setError] = useState("")
+  const [mensaje, setMensaje] = useState("")
+  const [enviandoId, setEnviandoId] = useState(null)
 
   useEffect(() => {
     if (cargandoRol || role !== "admin") return undefined
@@ -47,6 +49,21 @@ export default function Usuarios() {
     }
   }
 
+  async function enviarCambioPassword(usuario) {
+    setError("")
+    setMensaje("")
+    setEnviandoId(usuario.id)
+    try {
+      await enviarRestablecimientoPassword(usuario.email)
+      setMensaje(`Enviamos a ${usuario.email} el enlace para cambiar la contraseña.`)
+    } catch (resetError) {
+      console.error(resetError)
+      setError("No se pudo enviar el correo para cambiar la contraseña.")
+    } finally {
+      setEnviandoId(null)
+    }
+  }
+
   if (cargandoRol) return <p>Cargando...</p>
   if (role !== "admin") return <p>No tenes permiso para ver usuarios.</p>
 
@@ -63,6 +80,7 @@ export default function Usuarios() {
       </div>
 
       {error && <div role="alert" style={errorBox}>{error}</div>}
+      {mensaje && <div role="status" style={mensajeBox}>{mensaje}</div>}
 
       <div style={{ overflowX: "auto" }}>
         <table style={tabla}>
@@ -83,6 +101,9 @@ export default function Usuarios() {
                   <button onClick={() => setEditando(usuario)} style={botonEditar}>✎ Editar</button>{" "}
                   <button onClick={() => cambiarEstado(usuario)} style={usuario.activo === false ? botonHabilitar : botonDeshabilitar}>
                     {usuario.activo === false ? "✓ Habilitar" : "⊘ Deshabilitar"}
+                  </button>{" "}
+                  <button onClick={() => enviarCambioPassword(usuario)} disabled={enviandoId === usuario.id} style={botonPassword}>
+                    {enviandoId === usuario.id ? "Enviando..." : "Enviar cambio de contraseña"}
                   </button>
                 </td>
               </tr>
@@ -100,17 +121,19 @@ export default function Usuarios() {
           adminId={user.uid}
           onClose={() => { setMostrarForm(false); setEditando(null) }}
           onError={setError}
+          onSuccess={setMensaje}
         />
       )}
     </div>
   )
 }
 
-function FormularioUsuario({ usuario, adminId, onClose, onError }) {
+function FormularioUsuario({ usuario, adminId, onClose, onError, onSuccess }) {
   const rolInicial = normalizarRol(usuario?.rol)
+  const esUsuarioActual = usuario?.id === adminId
   const [form, setForm] = useState({
     nombre: usuario?.nombre || "", apellido: usuario?.apellido || "", email: usuario?.email || "",
-    telefono: usuario?.telefono || "", rol: rolInicial, password: ""
+    telefono: usuario?.telefono || "", rol: rolInicial
   })
   const [guardando, setGuardando] = useState(false)
 
@@ -120,13 +143,21 @@ function FormularioUsuario({ usuario, adminId, onClose, onError }) {
     setGuardando(true)
     try {
       if (usuario) {
+        if (esUsuarioActual && form.rol !== "admin") {
+          onError("No podés quitarte tu propio acceso de administrador.")
+          return
+        }
         await actualizarAccesoUsuario({
           usuarioId: usuario.id, rol: form.rol, activo: usuario.activo !== false,
           permisos: usuario.rol === form.rol && usuario.permisos ? usuario.permisos : PERMISOS_POR_ROL[form.rol],
           nombre: form.nombre, apellido: form.apellido, telefono: form.telefono, adminId
         })
+        onSuccess("Usuario actualizado correctamente.")
       } else {
-        await crearUsuario({ ...form, permisos: PERMISOS_POR_ROL[form.rol], adminId })
+        const resultado = await crearUsuario({ ...form, permisos: PERMISOS_POR_ROL[form.rol], adminId })
+        onSuccess(resultado.correoEnviado
+          ? `Usuario creado. Enviamos a ${form.email} el enlace para establecer su contraseña.`
+          : `Usuario creado, pero no se pudo enviar el correo. Usá “Enviar cambio de contraseña” para reintentarlo.`)
       }
       onClose()
     } catch (saveError) {
@@ -146,8 +177,7 @@ function FormularioUsuario({ usuario, adminId, onClose, onError }) {
           <Campo label="Apellido" name="apellido" value={form.apellido} onChange={setForm} form={form} />
           <Campo label="Correo electrónico" name="email" type="email" value={form.email} onChange={setForm} form={form} required disabled={Boolean(usuario)} />
           <Campo label="Teléfono" name="telefono" value={form.telefono} onChange={setForm} form={form} />
-          {!usuario && <Campo label="Contraseña temporal" name="password" type="password" value={form.password} onChange={setForm} form={form} required minLength="6" />}
-          <label>Rol<select value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value })} style={input}><option value="empleado">Empleado</option><option value="admin">Administrador</option></select></label>
+          <label>Rol<select value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value })} style={input} disabled={esUsuarioActual}><option value="empleado">Empleado</option><option value="admin">Administrador</option></select></label>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
           <button type="button" onClick={onClose} style={botonCancelar}>Cancelar</button>
@@ -175,8 +205,10 @@ const filaInactiva = { opacity: 0.55, background: "#f9fafb" }
 const botonEditar = { background: "#57b6ee", color: "#17364a", border: 0, borderRadius: 7, padding: "7px 10px", fontWeight: 600, cursor: "pointer" }
 const botonDeshabilitar = { background: "#ef334f", color: "white", border: 0, borderRadius: 3, padding: "6px 9px", cursor: "pointer" }
 const botonHabilitar = { ...botonDeshabilitar, background: "#16a34a" }
+const botonPassword = { background: "#4e2581", color: "white", border: 0, borderRadius: 7, padding: "7px 10px", fontWeight: 600, cursor: "pointer" }
 const pie = { padding: "12px 8px", fontSize: 12 }
 const errorBox = { margin: "0 8px 10px", padding: 10, color: "#991b1b", background: "#fee2e2" }
+const mensajeBox = { margin: "0 8px 10px", padding: 10, color: "#166534", background: "#dcfce7" }
 const modalFondo = { position: "fixed", inset: 0, zIndex: 100000, display: "grid", placeItems: "center", background: "rgba(15,23,42,.5)", padding: 18 }
 const modal = { width: "min(650px,95vw)", background: "white", borderRadius: 10, padding: 24, boxShadow: "0 20px 50px rgba(0,0,0,.25)" }
 const formGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }
