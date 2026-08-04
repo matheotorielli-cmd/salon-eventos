@@ -232,7 +232,7 @@ service cloud.firestore {
     match /eventos/{eventoId} {
       allow read: if hasPermission('eventosVer');
       allow create: if hasPermission('eventosCrear');
-      allow update: if (hasPermission('eventosEditar')
+      allow update: if admin() || (hasPermission('eventosEditar')
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'sena', 'totalCobrado', 'saldo', 'total', 'ultimoCobroId', 'ultimaAnulacionCobroId',
           'totalDescuentosCobros', 'ventasBebidas', 'ultimaVentaBebidasId', 'cliente', 'telefono'
@@ -284,34 +284,13 @@ service cloud.firestore {
         && request.resource.data.ventasBebidas is list
         && ((!('ventasBebidas' in resource.data) && request.resource.data.ventasBebidas.size() == 1)
           || ('ventasBebidas' in resource.data && request.resource.data.ventasBebidas.size() == resource.data.ventasBebidas.size() + 1))
-        && (!('ventasBebidas' in resource.data) || request.resource.data.ventasBebidas.hasAll(resource.data.ventasBebidas))
-        && request.resource.data.total > resource.data.total
-        && request.resource.data.saldo == resource.data.saldo + (request.resource.data.total - resource.data.total)
-        && request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].id == request.resource.data.ultimaVentaBebidasId
-        && request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].total == request.resource.data.total - resource.data.total
-        && request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].cobrado == 0
-        && request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].saldo == request.resource.data.ventasBebidas[request.resource.data.ventasBebidas.size() - 1].total
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
       ) || (
         hasPermission('eventosEditar')
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'ventasBebidas', 'total', 'saldo', 'ultimaVentaBebidasAnterior', 'ultimaVentaBebidasEditada', 'actualizadoPor', 'actualizadoEn'
-        ])
-        && resource.data.ventasBebidas is list
         && request.resource.data.ventasBebidas is list
-        && request.resource.data.ventasBebidas.size() == resource.data.ventasBebidas.size()
-        && resource.data.ventasBebidas.hasAny([request.resource.data.ultimaVentaBebidasAnterior])
-        && request.resource.data.ventasBebidas.hasAny([request.resource.data.ultimaVentaBebidasEditada])
-        && request.resource.data.ultimaVentaBebidasAnterior.id == request.resource.data.ultimaVentaBebidasEditada.id
-        && request.resource.data.ultimaVentaBebidasAnterior.cobrado == 0
-        && request.resource.data.ultimaVentaBebidasAnterior.saldo == request.resource.data.ultimaVentaBebidasAnterior.total
-        && request.resource.data.ultimaVentaBebidasEditada.cobrado == 0
-        && request.resource.data.ultimaVentaBebidasEditada.saldo == request.resource.data.ultimaVentaBebidasEditada.total
-        && request.resource.data.total == resource.data.total - request.resource.data.ultimaVentaBebidasAnterior.total + request.resource.data.ultimaVentaBebidasEditada.total
-        && request.resource.data.saldo == resource.data.saldo - request.resource.data.ultimaVentaBebidasAnterior.total + request.resource.data.ultimaVentaBebidasEditada.total
-        && request.resource.data.total >= request.resource.data.totalCobrado
-        && request.resource.data.saldo >= 0
+        && request.resource.data.ultimaVentaBebidasAnterior is map
+        && request.resource.data.ultimaVentaBebidasEditada is map
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
       ) || (
@@ -322,7 +301,6 @@ service cloud.firestore {
         && resource.data.ventasBebidas is list
         && request.resource.data.ventasBebidas is list
         && request.resource.data.ventasBebidas.size() == resource.data.ventasBebidas.size() - 1
-        && resource.data.ventasBebidas.hasAll(request.resource.data.ventasBebidas)
         && resource.data.ventasBebidas.hasAny([request.resource.data.ultimaVentaBebidasEliminada])
         && request.resource.data.ultimaVentaBebidasEliminada.cobrado == 0
         && request.resource.data.ultimaVentaBebidasEliminada.saldo == request.resource.data.ultimaVentaBebidasEliminada.total
@@ -611,7 +589,7 @@ service cloud.firestore {
 
     match /stockBebidas/{stockId} {
       allow read: if hasPermission('eventosVer') || hasPermission('eventosEditar') || hasPermission('movimientosVer');
-      allow create, update: if hasPermission('movimientosCrear')
+      allow create, update: if (hasPermission('movimientosCrear') || hasPermission('eventosEditar'))
         && request.resource.data.nombre is string
         && request.resource.data.cantidad is number
         && request.resource.data.cantidad >= 0
@@ -622,7 +600,8 @@ service cloud.firestore {
 
     match /movimientosStock/{movimientoId} {
       allow read: if hasPermission('movimientosVer') || hasPermission('movimientosCrear');
-      allow create: if hasPermission('movimientosCrear')
+      allow create: if ((request.resource.data.origen == 'manual' && hasPermission('movimientosCrear'))
+          || (request.resource.data.origen == 'venta' && hasPermission('eventosEditar')))
         && request.resource.data.stockId is string
         && request.resource.data.cantidad is number
         && request.resource.data.cantidadNueva is number

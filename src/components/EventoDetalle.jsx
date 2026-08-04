@@ -112,7 +112,15 @@ export default function EventoDetalle() {
       setBebidasSeleccionadas([])
       setVistaBebidas("seleccionadas")
       setEditandoVentaId("")
-    } catch (saleError) { console.error(saleError); setError(saleError.message.startsWith("stock-insuficiente:") ? `Stock insuficiente de ${saleError.message.split(":")[1]}.` : "No se pudo registrar la venta de bebidas.") }
+    } catch (saleError) {
+      console.error(saleError)
+      if (saleError.message.startsWith("stock-insuficiente:")) {
+        setError(`Stock insuficiente de ${saleError.message.split(":")[1]}.`)
+      } else {
+        const detalle = saleError.code || saleError.message || "error-desconocido"
+        setError(`No se pudo registrar la venta de bebidas (${detalle}).`)
+      }
+    }
     finally { setGuardandoBebidas(false) }
   }
 

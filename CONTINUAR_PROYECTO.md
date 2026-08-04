@@ -14,11 +14,15 @@
 - El módulo Caja se probó de punta a punta en `caja general`: apertura en $0, ingreso de prueba de $100, egreso compensatorio de $100, cálculo en $0, cierre y consulta histórica.
 - La caja cerrada conservó exactamente los dos movimientos y registró correctamente usuario, fecha y hora de apertura y cierre.
 - Los cuatro cumpleaños que figuraban pendientes (Valentina, Cielo, Felipe y Camilo) ya habían sido cargados en otra sesión de ChatGPT; no deben volver a cargarse.
+- Stock de bebidas se probó con ingresos, conteos, fechas de último ingreso y egreso, ventas, edición por diferencia, anulación y eliminación.
+- Se corrigieron las reglas que rechazaban alta, edición y eliminación de ventas de bebidas; los administradores tienen actualización completa de eventos, coherente con su acceso general.
+- Al eliminar una venta pendiente, el sistema devuelve el stock, verifica el resultado y ejecuta una reparación idempotente si la devolución no quedó aplicada.
+- El usuario confirmó que el stock vuelve correctamente al anular y eliminar una venta.
 
 ### Punto exacto para retomar
 
-1. Continuar con las pruebas reales controladas de Stock de bebidas.
-2. Probar Pago prestadores y verificar el saldo de la cuenta utilizada.
+1. Probar Pago prestadores y verificar el saldo de la cuenta utilizada.
+2. Revisar carga de costo y precio de lista si queda algún caso pendiente.
 3. Continuar con las mejoras que indique el usuario.
 
 ## Cierre del 4 de agosto de 2026

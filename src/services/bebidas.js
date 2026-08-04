@@ -1,4 +1,4 @@
-import { collection, doc, runTransaction, serverTimestamp } from "firebase/firestore"
+import { collection, doc, getDoc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore"
 import { db } from "../firebase"
 import { stockIdBebida } from "../utils/stockBebidas"
 
@@ -39,7 +39,7 @@ export async function registrarVentaBebidas({ eventoId, items, userId }) {
 
 export async function eliminarVentaBebidas({ eventoId, ventaId, userId }) {
   const eventoRef = doc(db, "eventos", eventoId)
-  return runTransaction(db, async (transaction) => {
+  const devoluciones = await runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(eventoRef)
     if (!snapshot.exists()) throw new Error("evento-no-disponible")
     const evento = snapshot.data()
@@ -53,7 +53,7 @@ export async function eliminarVentaBebidas({ eventoId, ventaId, userId }) {
     const stockRefs = itemsVenta.map((item) => doc(db, "stockBebidas", item.stockId || stockIdBebida(item.nombre, item.presentacion)))
     const stockSnaps = await Promise.all(stockRefs.map((ref) => transaction.get(ref)))
     const movimientos = itemsVenta.map(() => doc(collection(db, "movimientosStock")))
-    itemsVenta.forEach((item,index)=>{const anterior=stockSnaps[index].exists()?Number(stockSnaps[index].data().cantidad||0):0,nueva=anterior+Number(item.cantidad||0);const datos={nombre:item.nombre,presentacion:item.presentacion||"",cantidad:nueva,actualizadoPor:userId,actualizadoEn:serverTimestamp()};if(stockSnaps[index].exists())transaction.update(stockRefs[index],datos);else transaction.set(stockRefs[index],{...datos,stockMinimo:0,costoCompra:0,creadoPor:userId,creadoEn:serverTimestamp()});transaction.set(movimientos[index],{stockId:stockRefs[index].id,nombre:item.nombre,presentacion:item.presentacion||"",tipo:"devolucion",cantidad:Number(item.cantidad||0),cantidadAnterior:anterior,cantidadNueva:nueva,motivo:"Venta eliminada",origen:"venta",eventoId,ventaId,creadoPor:userId,creadoEn:serverTimestamp()})})
+    const resultadoDevoluciones = itemsVenta.map((item,index)=>{const anterior=stockSnaps[index].exists()?Number(stockSnaps[index].data().cantidad||0):0,nueva=anterior+Number(item.cantidad||0);const datos={nombre:item.nombre,presentacion:item.presentacion||"",cantidad:nueva,actualizadoPor:userId,actualizadoEn:serverTimestamp()};if(stockSnaps[index].exists())transaction.update(stockRefs[index],datos);else transaction.set(stockRefs[index],{...datos,stockMinimo:0,costoCompra:0,creadoPor:userId,creadoEn:serverTimestamp()});transaction.set(movimientos[index],{stockId:stockRefs[index].id,nombre:item.nombre,presentacion:item.presentacion||"",tipo:"devolucion",cantidad:Number(item.cantidad||0),cantidadAnterior:anterior,cantidadNueva:nueva,motivo:"Venta eliminada",origen:"venta",eventoId,ventaId,creadoPor:userId,creadoEn:serverTimestamp()});return {stockId:stockRefs[index].id,nombre:item.nombre,presentacion:item.presentacion||"",cantidad:Number(item.cantidad||0),anterior,esperada:nueva}})
     transaction.update(eventoRef, {
       ventasBebidas: ventas.filter((item) => item.id !== ventaId),
       total: Number(evento.total || 0) - totalVenta,
@@ -62,12 +62,32 @@ export async function eliminarVentaBebidas({ eventoId, ventaId, userId }) {
       actualizadoPor: userId,
       actualizadoEn: serverTimestamp()
     })
+    return resultadoDevoluciones
   })
+
+  await Promise.all(devoluciones.map(async (devolucion) => {
+    const stockRef = doc(db, "stockBebidas", devolucion.stockId)
+    const snapshot = await getDoc(stockRef)
+    if (snapshot.exists() && Number(snapshot.data().cantidad || 0) === devolucion.esperada) return
+
+    const reparacionRef = doc(db, "movimientosStock", `devolucion_${ventaId}_${devolucion.stockId}`)
+    await runTransaction(db, async (transaction) => {
+      const [stockActual, reparacion] = await Promise.all([transaction.get(stockRef), transaction.get(reparacionRef)])
+      if (reparacion.exists()) return
+      const cantidadActual = stockActual.exists() ? Number(stockActual.data().cantidad || 0) : 0
+      if (cantidadActual !== devolucion.anterior) throw new Error("stock-cambio-durante-devolucion")
+      const cantidadNueva = cantidadActual + devolucion.cantidad
+      const datos = { nombre:devolucion.nombre,presentacion:devolucion.presentacion,cantidad:cantidadNueva,actualizadoPor:userId,actualizadoEn:serverTimestamp() }
+      if (stockActual.exists()) transaction.update(stockRef, datos)
+      else transaction.set(stockRef, { ...datos, stockMinimo:0, costoCompra:0, creadoPor:userId, creadoEn:serverTimestamp() })
+      transaction.set(reparacionRef, { stockId:devolucion.stockId,nombre:devolucion.nombre,presentacion:devolucion.presentacion,tipo:"devolucion",cantidad:devolucion.cantidad,cantidadAnterior:cantidadActual,cantidadNueva,motivo:"Venta eliminada · devolución verificada",origen:"venta",eventoId,ventaId,creadoPor:userId,creadoEn:serverTimestamp() })
+    })
+  }))
 }
 
 export async function editarVentaBebidas({ eventoId, ventaId, items, userId }) {
   const eventoRef = doc(db, "eventos", eventoId)
-  return runTransaction(db, async (transaction) => {
+  const cambiosStock = await runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(eventoRef)
     if (!snapshot.exists()) throw new Error("evento-no-disponible")
     const evento = snapshot.data()
@@ -85,7 +105,7 @@ export async function editarVentaBebidas({ eventoId, ventaId, items, userId }) {
     const stockIds = [...new Set([...Object.keys(cantidadesAnteriores), ...Object.keys(cantidadesNuevas)])]
     const stockRefs = stockIds.map((stockId) => doc(db, "stockBebidas", stockId))
     const stockSnaps = await Promise.all(stockRefs.map((ref) => transaction.get(ref)))
-    const movimientos = stockIds.map(() => doc(collection(db, "movimientosStock")))
+    const cambios = []
     stockIds.forEach((stockId,index)=>{
       const diferencia=(cantidadesNuevas[stockId]||0)-(cantidadesAnteriores[stockId]||0)
       if(!diferencia)return
@@ -96,7 +116,7 @@ export async function editarVentaBebidas({ eventoId, ventaId, items, userId }) {
       const datos={nombre:referencia.nombre,presentacion:referencia.presentacion||"",cantidad:nueva,actualizadoPor:userId,actualizadoEn:serverTimestamp()}
       if(stockSnaps[index].exists())transaction.update(stockRefs[index],datos)
       else transaction.set(stockRefs[index],{...datos,stockMinimo:0,costoCompra:0,creadoPor:userId,creadoEn:serverTimestamp()})
-      transaction.set(movimientos[index],{stockId,nombre:referencia.nombre,presentacion:referencia.presentacion||"",tipo:"ajuste-venta",cantidad:-diferencia,cantidadAnterior:anterior,cantidadNueva:nueva,motivo:"Venta editada",origen:"venta",eventoId,ventaId,creadoPor:userId,creadoEn:serverTimestamp()})
+      cambios.push({stockId,nombre:referencia.nombre,presentacion:referencia.presentacion||"",tipo:"ajuste-venta",cantidad:-diferencia,cantidadAnterior:anterior,cantidadNueva:nueva,motivo:"Venta editada",origen:"venta",eventoId,ventaId,creadoPor:userId})
     })
 
     const ventaEditada = { ...ventaAnterior, items: detalle, total: totalVenta, cobrado: 0, saldo: totalVenta, estado: "Pendiente", editadoPor: userId, editadoEnTexto: new Date().toISOString() }
@@ -110,5 +130,9 @@ export async function editarVentaBebidas({ eventoId, ventaId, items, userId }) {
       actualizadoPor: userId,
       actualizadoEn: serverTimestamp()
     })
+    return cambios
   })
+
+  const resultados = await Promise.allSettled(cambiosStock.map((cambio) => setDoc(doc(collection(db, "movimientosStock")), { ...cambio, creadoEn:serverTimestamp() })))
+  resultados.filter((resultado) => resultado.status === "rejected").forEach((resultado) => console.error("No se pudo guardar la trazabilidad del ajuste de stock", resultado.reason))
 }
