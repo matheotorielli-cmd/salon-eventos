@@ -1,5 +1,22 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Avance del 4 de agosto de 2026 - usuarios internos
+
+- Se probó correctamente en producción el envío de cambio de contraseña desde Gestión de usuarios.
+- Se probó correctamente el flujo `Olvidé mi contraseña` desde el login y el acceso posterior con la nueva clave.
+- Se eliminaron de Firebase Authentication y Firestore los usuarios de prueba; quedó únicamente `muke_1993@hotmail.com` como administrador.
+- Se agregó al alta la opción `Usuario interno` para empleados sin correo real.
+- El administrador define el nombre de acceso y una contraseña inicial de al menos 8 caracteres.
+- El login ahora acepta correo electrónico o nombre de usuario.
+- Los usuarios internos no muestran acciones de recuperación por correo; si pierden la clave, debe administrarse desde Firebase Authentication.
+- Verificación local: `npm run lint`, `npm run build` y `git diff --check` aprobados.
+
+### Punto exacto para retomar
+
+1. Probar localmente la creación y el ingreso de un usuario interno.
+2. Si la prueba es correcta, desplegar Firebase Hosting.
+3. Continuar con las pruebas pendientes del módulo Caja.
+
 ## Cierre del 4 de agosto de 2026
 
 - Se revisó y endureció por completo el módulo de usuarios, roles y permisos.

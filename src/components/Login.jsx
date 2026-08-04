@@ -3,12 +3,12 @@ import { signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { doc, getDoc } from "firebase/firestore"
 import { auth, db } from "../firebase"
 import { ADMIN_INICIAL_EMAIL } from "../config/permisos"
-import { enviarRestablecimientoPassword } from "../services/usuarios"
+import { enviarRestablecimientoPassword, opcionesIdentificadorAcceso } from "../services/usuarios"
 import { useNavigate } from "react-router-dom"
 
 export default function Login() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState("")
+  const [identificador, setIdentificador] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(() => {
@@ -23,13 +23,17 @@ export default function Login() {
   async function recuperarPassword() {
     setError("")
     setMensaje("")
-    if (!email.trim()) {
+    if (!identificador.trim()) {
       setError("Escribí tu correo electrónico para recuperar la contraseña.")
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identificador.trim())) {
+      setError("Los usuarios internos no tienen recuperación por correo. Pedile una nueva clave al administrador.")
       return
     }
     setEnviandoReset(true)
     try {
-      await enviarRestablecimientoPassword(email)
+      await enviarRestablecimientoPassword(identificador)
       setMensaje("Si el correo está registrado, recibirás un enlace para elegir una contraseña nueva.")
     } catch (resetError) {
       console.error(resetError)
@@ -44,16 +48,36 @@ export default function Login() {
     setError("")
     setLoading(true)
     try {
-      const credential = await signInWithEmailAndPassword(auth, email.trim(), password)
-      const esAdminInicial = credential.user.email?.toLowerCase() === ADMIN_INICIAL_EMAIL
-      const perfil = await getDoc(doc(db, "usuarios", credential.user.uid))
-      if (!esAdminInicial && (!perfil.exists() || perfil.data()?.activo === false)) {
-        await signOut(auth)
-        setError(perfil.exists()
-          ? "Tu usuario está deshabilitado. Comunicate con un administrador."
-          : "Tu usuario no tiene un perfil de acceso. Comunicate con un administrador.")
+      let credential = null
+      let ultimoError = null
+      let encontroCuentaSinPerfil = false
+      for (const emailAcceso of opcionesIdentificadorAcceso(identificador)) {
+        try {
+          const intento = await signInWithEmailAndPassword(auth, emailAcceso, password)
+          const esAdminInicial = intento.user.email?.toLowerCase() === ADMIN_INICIAL_EMAIL
+          const perfil = await getDoc(doc(db, "usuarios", intento.user.uid))
+          if (!esAdminInicial && !perfil.exists()) {
+            encontroCuentaSinPerfil = true
+            await signOut(auth)
+            continue
+          }
+          if (!esAdminInicial && perfil.data()?.activo === false) {
+            await signOut(auth)
+            setError("Tu usuario está deshabilitado. Comunicate con un administrador.")
+            return
+          }
+          credential = intento
+          break
+        } catch (accessError) {
+          ultimoError = accessError
+          if (accessError.code !== "auth/invalid-credential") throw accessError
+        }
+      }
+      if (!credential && encontroCuentaSinPerfil) {
+        setError("Tu usuario no tiene un perfil de acceso. Comunicate con un administrador.")
         return
       }
+      if (!credential) throw ultimoError
       navigate("/")
     } catch (loginError) {
       console.error(loginError)
@@ -90,8 +114,8 @@ export default function Login() {
           <h2 style={tituloForm}>Iniciá sesión</h2>
           <p style={ayuda}>Ingresá tus datos para administrar el salón.</p>
 
-          <label style={label} htmlFor="email">Correo electrónico</label>
-          <input id="email" type="email" placeholder="nombre@correo.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
+          <label style={label} htmlFor="identificador">Correo o usuario</label>
+          <input id="identificador" type="text" placeholder="nombre@correo.com o usuario" value={identificador} onChange={(e) => setIdentificador(e.target.value)} autoComplete="username" required />
 
           <label style={{ ...label, marginTop: 18 }} htmlFor="password">Contraseña</label>
           <div style={passwordWrap}>

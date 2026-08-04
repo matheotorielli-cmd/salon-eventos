@@ -4,6 +4,33 @@ import { initializeApp, getApp, getApps } from "firebase/app"
 import { createUserWithEmailAndPassword, deleteUser, getAuth, sendPasswordResetEmail, signOut } from "firebase/auth"
 import { firebaseConfig } from "../firebase"
 
+const DOMINIO_USUARIOS_INTERNOS = "usuarios.funspace.invalid"
+
+export function normalizarNombreUsuario(valor) {
+  return valor.trim().toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, ".")
+}
+
+export function emailUsuarioInterno(nombreUsuario) {
+  const identificadorTecnico = normalizarNombreUsuario(nombreUsuario).replace(/@/g, ".arroba.")
+  return `${identificadorTecnico}@${DOMINIO_USUARIOS_INTERNOS}`
+}
+
+export function normalizarIdentificadorAcceso(valor) {
+  const identificador = valor.trim().toLowerCase()
+  const esCorreoCompleto = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identificador)
+  return esCorreoCompleto ? identificador : emailUsuarioInterno(identificador)
+}
+
+export function opcionesIdentificadorAcceso(valor) {
+  const identificador = valor.trim().toLowerCase()
+  const principal = normalizarIdentificadorAcceso(identificador)
+  const interno = emailUsuarioInterno(identificador)
+  return principal === interno ? [principal] : [principal, interno]
+}
+
 export function observarUsuarios(onData, onError) {
   return onSnapshot(collection(db, "usuarios"), (snapshot) => {
     const usuarios = snapshot.docs
@@ -51,13 +78,16 @@ export function enviarRestablecimientoPassword(email) {
   return sendPasswordResetEmail(auth, email.trim().toLowerCase())
 }
 
-export async function crearUsuario({ nombre, apellido, email, telefono, rol, permisos, adminId }) {
+export async function crearUsuario({ nombre, apellido, email, telefono, rol, permisos, adminId, tipoAcceso = "correo", nombreUsuario = "", passwordInicial = "" }) {
   const secondaryApp = getApps().find((app) => app.name === "crear-usuario")
     || initializeApp(firebaseConfig, "crear-usuario")
   const secondaryAuth = getAuth(getApp(secondaryApp.name))
   secondaryAuth.languageCode = "es"
-  const emailNormalizado = email.trim().toLowerCase()
-  const credential = await createUserWithEmailAndPassword(secondaryAuth, emailNormalizado, generarPasswordProvisoria())
+  const esInterno = tipoAcceso === "interno"
+  const usuarioNormalizado = esInterno ? normalizarNombreUsuario(nombreUsuario) : ""
+  const emailNormalizado = esInterno ? emailUsuarioInterno(usuarioNormalizado) : email.trim().toLowerCase()
+  const passwordCreacion = esInterno ? passwordInicial : generarPasswordProvisoria()
+  const credential = await createUserWithEmailAndPassword(secondaryAuth, emailNormalizado, passwordCreacion)
 
   try {
     try {
@@ -65,6 +95,8 @@ export async function crearUsuario({ nombre, apellido, email, telefono, rol, per
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         email: emailNormalizado,
+        tipoAcceso: esInterno ? "interno" : "correo",
+        nombreUsuario: usuarioNormalizado,
         telefono: telefono.trim(),
         rol,
         permisos,
@@ -81,6 +113,10 @@ export async function crearUsuario({ nombre, apellido, email, telefono, rol, per
         console.error("No se pudo eliminar la cuenta de Authentication creada parcialmente", cleanupError)
       }
       throw error
+    }
+
+    if (esInterno) {
+      return { uid: credential.user.uid, correoEnviado: false, usuarioInterno: usuarioNormalizado }
     }
 
     try {
