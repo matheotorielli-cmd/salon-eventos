@@ -10,12 +10,16 @@
 - El login ahora acepta correo electrónico o nombre de usuario.
 - Los usuarios internos no muestran acciones de recuperación por correo; si pierden la clave, debe administrarse desde Firebase Authentication.
 - Verificación local: `npm run lint`, `npm run build` y `git diff --check` aprobados.
+- Los cambios de usuarios internos se publicaron en Firebase Hosting y se probaron correctamente con un usuario empleado y permisos personalizados.
+- El módulo Caja se probó de punta a punta en `caja general`: apertura en $0, ingreso de prueba de $100, egreso compensatorio de $100, cálculo en $0, cierre y consulta histórica.
+- La caja cerrada conservó exactamente los dos movimientos y registró correctamente usuario, fecha y hora de apertura y cierre.
+- Los cuatro cumpleaños que figuraban pendientes (Valentina, Cielo, Felipe y Camilo) ya habían sido cargados en otra sesión de ChatGPT; no deben volver a cargarse.
 
 ### Punto exacto para retomar
 
-1. Probar localmente la creación y el ingreso de un usuario interno.
-2. Si la prueba es correcta, desplegar Firebase Hosting.
-3. Continuar con las pruebas pendientes del módulo Caja.
+1. Continuar con las pruebas reales controladas de Stock de bebidas.
+2. Probar Pago prestadores y verificar el saldo de la cuenta utilizada.
+3. Continuar con las mejoras que indique el usuario.
 
 ## Cierre del 4 de agosto de 2026
 
