@@ -8,7 +8,9 @@ import { enlaceWhatsApp } from "../utils/whatsapp"
 import { crearComprobantePublico } from "../services/comprobantes"
 import { obtenerListaPrecios } from "../services/listasPrecios"
 import { editarVentaBebidas, eliminarVentaBebidas, registrarVentaBebidas } from "../services/bebidas"
+import { observarStockBebidas } from "../services/stockBebidas"
 import { calcularFinanzasEvento } from "../utils/finanzasEvento"
+import { stockIdBebida } from "../utils/stockBebidas"
 
 const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 const fechaTexto = new Intl.DateTimeFormat("es-AR")
@@ -30,6 +32,7 @@ export default function EventoDetalle() {
   const [guardandoBebidas, setGuardandoBebidas] = useState(false)
   const [eliminandoVentaId, setEliminandoVentaId] = useState("")
   const [editandoVentaId, setEditandoVentaId] = useState("")
+  const [stockBebidas, setStockBebidas] = useState({})
 
   useEffect(() => {
     getDoc(doc(db, "eventos", id)).then((snapshot) => {
@@ -43,6 +46,20 @@ export default function EventoDetalle() {
       setError("No se pudieron cargar los cobros del evento.")
     })
   }, [id])
+
+  useEffect(() => observarStockBebidas(
+    setStockBebidas,
+    () => setError("No se pudo consultar el stock de bebidas.")
+  ), [])
+
+  function stockDisponiblePara(bebida) {
+    const stockId = stockIdBebida(bebida.nombre, bebida.presentacion)
+    const actual = Number(stockBebidas[stockId]?.cantidad || 0)
+    if (!editandoVentaId) return actual
+    const venta = (evento?.ventasBebidas || []).find((item) => item.id === editandoVentaId)
+    const cantidadReservada = Number((venta?.items || []).find((item) => (item.stockId || stockIdBebida(item.nombre, item.presentacion)) === stockId)?.cantidad || 0)
+    return actual + cantidadReservada
+  }
 
   async function cambiarEstado(estado) {
     try {
@@ -102,6 +119,8 @@ export default function EventoDetalle() {
     if (!auth.currentUser || !listaPrecios) return
     const items = (listaPrecios.bebidas || []).filter((bebida) => bebidasSeleccionadas.includes(bebida.id)).map((bebida) => ({ ...bebida, cantidad: Number(cantidadesBebidas[bebida.id] || 0) })).filter((bebida) => bebida.cantidad > 0)
     if (!items.length) return setError("Indicá la cantidad de al menos una bebida.")
+    const sinStock = items.find((bebida) => bebida.cantidad > stockDisponiblePara(bebida))
+    if (sinStock) return setError(`Stock disponible de ${sinStock.nombre}: ${stockDisponiblePara(sinStock)} unidades.`)
     setGuardandoBebidas(true); setError("")
     try {
       if (editandoVentaId) await editarVentaBebidas({ eventoId: id, ventaId: editandoVentaId, items, userId: auth.currentUser.uid })
@@ -222,15 +241,15 @@ export default function EventoDetalle() {
           <div style={bebidasCabecera}><div><strong>Lista: {evento.listaPreciosNombre || listaPrecios.nombre}</strong><small>Los precios se copian al evento al registrar la venta.</small></div></div>
           <div style={bebidasPestanas}><button onClick={() => setVistaBebidas("seleccionadas")} style={vistaBebidas === "seleccionadas" ? pestanaActiva : pestana}>Seleccionadas ({bebidasSeleccionadas.length})</button><button onClick={() => setVistaBebidas("catalogo")} style={vistaBebidas === "catalogo" ? pestanaActiva : pestana}>Todas las bebidas</button></div>
           {vistaBebidas === "catalogo" ? <>
-            <div style={catalogoBebidas}>{(listaPrecios.bebidas || []).filter((bebida) => bebida.activo !== false).map((bebida) => { const seleccionada = bebidasSeleccionadas.includes(bebida.id); return <button type="button" key={bebida.id} onClick={() => { setBebidasSeleccionadas((actuales) => seleccionada ? actuales.filter((item) => item !== bebida.id) : [...actuales, bebida.id]); if (seleccionada) setCantidadesBebidas((actuales) => { const nuevas = { ...actuales }; delete nuevas[bebida.id]; return nuevas }) }} style={{ ...bebidaCatalogo, ...(seleccionada ? bebidaCatalogoSeleccionada : {}) }}><span><strong>{bebida.nombre}</strong><small>{bebida.presentacion || "Sin presentación"}</small></span><span><strong>{pesos.format(Number(bebida.precio || 0))}</strong><small style={seleccionada ? quitarCatalogoTexto : agregarCatalogoTexto}>{seleccionada ? "× Quitar" : "+ Agregar"}</small></span></button>})}</div>
+            <div style={catalogoBebidas}>{(listaPrecios.bebidas || []).filter((bebida) => bebida.activo !== false).map((bebida) => { const seleccionada = bebidasSeleccionadas.includes(bebida.id); const disponible = stockDisponiblePara(bebida); const agotada = disponible <= 0 && !seleccionada; return <button type="button" key={bebida.id} disabled={agotada} onClick={() => { setBebidasSeleccionadas((actuales) => seleccionada ? actuales.filter((item) => item !== bebida.id) : [...actuales, bebida.id]); if (seleccionada) setCantidadesBebidas((actuales) => { const nuevas = { ...actuales }; delete nuevas[bebida.id]; return nuevas }) }} style={{ ...bebidaCatalogo, ...(seleccionada ? bebidaCatalogoSeleccionada : {}), ...(agotada ? bebidaCatalogoAgotada : {}) }}><span><strong>{bebida.nombre}</strong><small>{bebida.presentacion || "Sin presentación"}</small><small style={disponible > 0 ? stockDisponibleTexto : stockAgotadoTexto}>{disponible > 0 ? `Stock: ${disponible}` : "Agotada"}</small></span><span><strong>{pesos.format(Number(bebida.precio || 0))}</strong><small style={agotada ? stockAgotadoTexto : seleccionada ? quitarCatalogoTexto : agregarCatalogoTexto}>{agotada ? "Sin stock" : seleccionada ? "× Quitar" : "+ Agregar"}</small></span></button>})}</div>
             {!listaPrecios.bebidas?.length && <div style={avisoBebidas}>La lista no tiene bebidas cargadas.</div>}
             {!!bebidasSeleccionadas.length && <div style={bebidasAcciones}><button onClick={() => setVistaBebidas("seleccionadas")} style={botonAmarillo}>Continuar con {bebidasSeleccionadas.length} {bebidasSeleccionadas.length === 1 ? "bebida" : "bebidas"}</button></div>}
           </> : <>
             <Tabla columnas={["Bebida", "Presentación", "Precio unitario", "Cantidad", "Subtotal", "Acción"]}>
-              {(listaPrecios.bebidas || []).filter((bebida) => bebidasSeleccionadas.includes(bebida.id)).map((bebida) => { const cantidad = Number(cantidadesBebidas[bebida.id] || 0); return <tr key={bebida.id}><td style={td}><strong>{bebida.nombre}</strong></td><td style={td}>{bebida.presentacion || "—"}</td><td style={td}>{pesos.format(Number(bebida.precio || 0))}</td><td style={td}><input type="number" min="0" step="1" value={cantidadesBebidas[bebida.id] || ""} onChange={(e) => setCantidadesBebidas({ ...cantidadesBebidas, [bebida.id]: e.target.value })} style={cantidadInput}/></td><td style={td}>{pesos.format(cantidad * Number(bebida.precio || 0))}</td><td style={td}><button type="button" onClick={() => { setBebidasSeleccionadas((actuales) => actuales.filter((item) => item !== bebida.id)); setCantidadesBebidas((actuales) => { const nuevas = { ...actuales }; delete nuevas[bebida.id]; return nuevas }) }} style={quitarBebidaBtn}>Quitar</button></td></tr> })}
+              {(listaPrecios.bebidas || []).filter((bebida) => bebidasSeleccionadas.includes(bebida.id)).map((bebida) => { const cantidad = Number(cantidadesBebidas[bebida.id] || 0); const disponible = stockDisponiblePara(bebida); const excede = cantidad > disponible; return <tr key={bebida.id}><td style={td}><strong>{bebida.nombre}</strong></td><td style={td}>{bebida.presentacion || "—"}</td><td style={td}>{pesos.format(Number(bebida.precio || 0))}</td><td style={td}><input type="number" min="0" max={disponible} step="1" value={cantidadesBebidas[bebida.id] || ""} onChange={(e) => setCantidadesBebidas({ ...cantidadesBebidas, [bebida.id]: e.target.value })} style={{...cantidadInput,...(excede?cantidadInputError:{})}}/><small style={excede ? stockAgotadoTexto : stockDisponibleTexto}>{excede ? `Máximo disponible: ${disponible}` : `Disponible: ${disponible}`}</small></td><td style={td}>{pesos.format(cantidad * Number(bebida.precio || 0))}</td><td style={td}><button type="button" onClick={() => { setBebidasSeleccionadas((actuales) => actuales.filter((item) => item !== bebida.id)); setCantidadesBebidas((actuales) => { const nuevas = { ...actuales }; delete nuevas[bebida.id]; return nuevas }) }} style={quitarBebidaBtn}>Quitar</button></td></tr> })}
               {!bebidasSeleccionadas.length && <FilaVacia columnas="6" texto="Todavía no seleccionaste bebidas. Abrí la pestaña Todas las bebidas para agregarlas."/>}
             </Tabla>
-            {!!bebidasSeleccionadas.length && hasPermission("eventosEditar") && <div style={bebidasAcciones}>{editandoVentaId && <button onClick={cancelarEdicionVenta} disabled={guardandoBebidas} style={botonClaroSecundario}>Cancelar edición</button>}<button onClick={agregarBebidas} disabled={guardandoBebidas} style={botonAmarillo}>{guardandoBebidas ? "Guardando..." : editandoVentaId ? "Guardar cambios" : "Agregar bebidas al evento"}</button></div>}
+            {!!bebidasSeleccionadas.length && hasPermission("eventosEditar") && <div style={bebidasAcciones}>{editandoVentaId && <button onClick={cancelarEdicionVenta} disabled={guardandoBebidas} style={botonClaroSecundario}>Cancelar edición</button>}<button onClick={agregarBebidas} disabled={guardandoBebidas || (listaPrecios.bebidas || []).some((bebida) => bebidasSeleccionadas.includes(bebida.id) && Number(cantidadesBebidas[bebida.id] || 0) > stockDisponiblePara(bebida))} style={botonAmarillo}>{guardandoBebidas ? "Guardando..." : editandoVentaId ? "Guardar cambios" : "Agregar bebidas al evento"}</button></div>}
           </>}
         </>}
         {!!evento.ventasBebidas?.length && <div style={{marginTop:20}}><h3 style={subtitulo}>Ventas registradas</h3><Tabla columnas={["Fecha", "Detalle", "Total", "Estado", "Acción"]}>{evento.ventasBebidas.map((venta) => { const estadoVenta = venta.estado || "Pendiente"; const saldoVenta = Number(venta.saldo ?? venta.total); const sinCobros = Number(venta.cobrado || 0) === 0 && saldoVenta === Number(venta.total); return <tr key={venta.id}><td style={td}>{venta.creadoEnTexto ? fechaTexto.format(new Date(venta.creadoEnTexto)) : "—"}</td><td style={td}>{venta.items.map((item) => `${item.cantidad} × ${item.nombre}`).join(", ")}</td><td style={td}><strong>{pesos.format(venta.total)}</strong></td><td style={td}><span style={{...estadoVentaBadge,...(estadoVenta.toLowerCase()==="pagado"?estadoVentaPagado:estadoVenta.toLowerCase()==="parcial"?estadoVentaParcial:estadoVentaPendiente)}}>{estadoVenta}</span></td><td style={td}><div style={accionesVenta}>{saldoVenta > 0 ? <button onClick={() => navigate(`/evento/${id}/cobro?bebidas=${venta.id}&monto=${saldoVenta}`)} style={cobrarBebidasBtn}>Cobrar bebidas</button> : <span style={ventaCobradaTexto}>Cobrado</span>}{sinCobros && hasPermission("eventosEditar") && <button onClick={() => comenzarEdicionVenta(venta)} style={editarVentaBtn}>Editar</button>}{sinCobros && hasPermission("eventosEditar") && <button onClick={() => eliminarVenta(venta)} disabled={eliminandoVentaId === venta.id} style={eliminarVentaBtn}>{eliminandoVentaId === venta.id ? "Eliminando..." : "Eliminar"}</button>}</div></td></tr> })}</Tabla></div>}
@@ -295,10 +314,14 @@ const pestanaActiva = { ...pestana, color: "#4e2581", borderBottomColor: "#4e258
 const catalogoBebidas = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }
 const bebidaCatalogo = { display: "flex", justifyContent: "space-between", gap: 12, padding: 14, border: "1px solid #e8e1ee", borderRadius: 12, background: "white", color: "#4b4058", textAlign: "left", cursor: "pointer" }
 const bebidaCatalogoSeleccionada = { borderColor: "#4e2581", background: "#f5f0fa", boxShadow: "0 0 0 1px #4e2581" }
+const bebidaCatalogoAgotada = { opacity: .62, cursor: "not-allowed", background: "#f5f5f5" }
 const agregarCatalogoTexto = { color: "#16865c", fontWeight: 800 }
 const quitarCatalogoTexto = { color: "#b42339", fontWeight: 800 }
 const quitarBebidaBtn = { padding: "7px 10px", border: 0, borderRadius: 7, color: "#b42339", background: "#fff0f2", fontWeight: 700, cursor: "pointer" }
 const cantidadInput = { width: 85, padding: 8 }
+const cantidadInputError = { borderColor: "#dc2626", background: "#fff1f2" }
+const stockDisponibleTexto = { display: "block", marginTop: 4, color: "#16865c", fontWeight: 700 }
+const stockAgotadoTexto = { display: "block", marginTop: 4, color: "#b42339", fontWeight: 700 }
 const bebidasAcciones = { display: "flex", justifyContent: "flex-end", marginTop: 15 }
 const cobrarBebidasBtn = { ...botonBase, color: "white", background: "#57b6ee" }
 const accionesVenta = { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }

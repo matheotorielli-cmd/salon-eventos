@@ -25,6 +25,8 @@
 - Cada vez que se abre y confirma un cobro, el sistema usa la lista vigente para la fecha elegida, actualiza el servicio y todas las bebidas con saldo, conserva los importes ya cobrados y recalcula el total y el saldo.
 - Cada cobro guarda la lista de precios aplicada. Se bloquea el cobro si no hay lista vigente, si existen listas superpuestas o si falta un producto o servicio en la lista.
 - El usuario verifico en produccion la vigencia automatica, el nuevo total y saldo del cumpleaños y los precios actualizados de bebidas antes del cobro.
+- En los eventos, el catalogo de bebidas ahora muestra el stock disponible, identifica y bloquea las bebidas agotadas y avisa junto a la cantidad cuando se supera el maximo disponible.
+- La edicion de una venta contempla las unidades ya reservadas por esa misma venta. El usuario probo la mejora visual de stock en produccion y confirmo su funcionamiento.
 
 ### Punto exacto para retomar
 
