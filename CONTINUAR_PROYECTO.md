@@ -27,6 +27,7 @@
 - El usuario verifico en produccion la vigencia automatica, el nuevo total y saldo del cumpleaños y los precios actualizados de bebidas antes del cobro.
 - En los eventos, el catalogo de bebidas ahora muestra el stock disponible, identifica y bloquea las bebidas agotadas y avisa junto a la cantidad cuando se supera el maximo disponible.
 - La edicion de una venta contempla las unidades ya reservadas por esa misma venta. El usuario probo la mejora visual de stock en produccion y confirmo su funcionamiento.
+- Al crear o editar una lista activa, el sistema impide guardar fechas que se superpongan con otra lista activa e identifica la lista en conflicto. La validacion inclusiva fue probada en produccion por el usuario.
 
 ### Punto exacto para retomar
 

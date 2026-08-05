@@ -31,6 +31,19 @@ export async function obtenerListaVigente(fecha) {
   return vigentes[0]
 }
 
+export async function buscarSuperposicionLista({ idExcluir = "", fechaApertura, fechaCierre, activa = true }) {
+  if (!activa) return null
+  const snapshot = await getDocs(listasRef)
+  return snapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() }))
+    .find((item) => item.id !== idExcluir
+      && item.activa !== false
+      && item.fechaApertura
+      && item.fechaCierre
+      && fechaApertura <= item.fechaCierre
+      && fechaCierre >= item.fechaApertura) || null
+}
+
 export function guardarListaPrecios({ id, datos, userId }) {
   const payload = { ...datos, moneda: "ARS", actualizadoPor: userId, actualizadoEn: serverTimestamp() }
   if (id) return updateDoc(doc(db, "listasPrecios", id), payload)

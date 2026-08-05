@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { ArrowLeft, CalendarDays, CheckCircle2, Plus, Trash2 } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 import { auth } from "../firebase"
-import { guardarListaPrecios, obtenerListaAnterior, obtenerListaPrecios } from "../services/listasPrecios"
+import { buscarSuperposicionLista, guardarListaPrecios, obtenerListaAnterior, obtenerListaPrecios } from "../services/listasPrecios"
 
 const iso = (fecha) => { const d = new Date(fecha); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10) }
 const itemVacio = () => ({ id: crypto.randomUUID(), nombre: "", presentacion: "", costo: "", precio: "", activo: true })
@@ -59,10 +59,16 @@ export default function NuevaListaPrecios() {
     if (!auth.currentUser) return setError("La sesión no está disponible.")
     const normalizar = (items) => items.filter((item) => item.nombre.trim()).map((item) => ({ ...item, nombre: item.nombre.trim(), presentacion: item.presentacion.trim(), costo: Number(item.costo || 0), precio: Number(item.precio || 0) }))
     const servicios = normalizar(form.servicios), bebidas = normalizar(form.bebidas)
+    if (form.fechaCierre < form.fechaApertura) return setError("La fecha de cierre no puede ser anterior a la fecha de apertura.")
     if (!servicios.length) return setError("Agregá al menos un servicio o cumpleaños.")
     if ([...servicios, ...bebidas].some((item) => item.precio <= 0)) return setError("Todos los precios deben ser mayores que cero.")
     setGuardando(true)
-    try { await guardarListaPrecios({ id, datos: { nombre: form.nombre.trim(), fechaApertura: form.fechaApertura, fechaCierre: form.fechaCierre, descripcion: form.descripcion.trim(), activa: form.activa, servicios, bebidas }, userId: auth.currentUser.uid }); navigate("/listas-precios") }
+    try {
+      const superpuesta = await buscarSuperposicionLista({ idExcluir: id, fechaApertura: form.fechaApertura, fechaCierre: form.fechaCierre, activa: form.activa })
+      if (superpuesta) return setError(`Estas fechas se superponen con ${superpuesta.nombre || "otra lista activa"}.`)
+      await guardarListaPrecios({ id, datos: { nombre: form.nombre.trim(), fechaApertura: form.fechaApertura, fechaCierre: form.fechaCierre, descripcion: form.descripcion.trim(), activa: form.activa, servicios, bebidas }, userId: auth.currentUser.uid })
+      navigate("/listas-precios")
+    }
     catch (saveError) { console.error(saveError); setError("No se pudo guardar la lista de precios.") }
     finally { setGuardando(false) }
   }
