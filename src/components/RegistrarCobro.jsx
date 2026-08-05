@@ -5,7 +5,9 @@ import { auth, db } from "../firebase"
 import { observarCuentas } from "../services/cuentas"
 import { registrarCobro } from "../services/cobros"
 import { observarTiposCobro } from "../services/configuracion"
+import { obtenerListaVigente } from "../services/listasPrecios"
 import { calcularFinanzasEvento } from "../utils/finanzasEvento"
+import { recalcularEventoConLista } from "../utils/vigenciaPrecios"
 
 const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 
@@ -40,6 +42,10 @@ export default function RegistrarCobro() {
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState("")
+  const [listaVigente, setListaVigente] = useState(null)
+  const [eventoRecalculado, setEventoRecalculado] = useState(null)
+  const [cargandoPrecios, setCargandoPrecios] = useState(false)
+  const [errorPrecios, setErrorPrecios] = useState("")
   const ventaBebidasId = searchParams.get("bebidas") || ""
   const montoBebidas = searchParams.get("monto") || ""
   const [form, setForm] = useState({ cuentaId: "", cuentaId2: "", dividir: false, montoCuenta1: montoBebidas, montosCuentas: {}, descripcion: "", concepto: ventaBebidasId ? "Cobro de bebidas" : "Cobro de evento", fecha: new Date().toISOString().split("T")[0], porcentaje: "", monto: montoBebidas })
@@ -62,9 +68,46 @@ export default function RegistrarCobro() {
     () => setError("No se pudieron cargar los tipos de cobro.")
   ), [])
 
+  useEffect(() => {
+    if (!evento || !form.fecha) return
+    let vigente = true
+    Promise.resolve().then(() => {
+      if (!vigente) return null
+      setCargandoPrecios(true)
+      setErrorPrecios("")
+      setListaVigente(null)
+      setEventoRecalculado(null)
+      return obtenerListaVigente(form.fecha)
+    }).then((lista) => {
+      if (!lista) return
+      const recalculado = recalcularEventoConLista(evento, lista)
+      if (!vigente) return
+      setListaVigente(lista)
+      setEventoRecalculado(recalculado)
+      if (ventaBebidasId) {
+        const venta = (recalculado.ventasBebidas || []).find((item) => item.id === ventaBebidasId)
+        const nuevoSaldo = Number(venta?.saldo ?? venta?.total ?? 0)
+        setForm((actual) => ({ ...actual, monto: String(nuevoSaldo), montoCuenta1: String(nuevoSaldo), montosCuentas: {} }))
+      }
+    }).catch((loadError) => {
+      if (!vigente) return
+      console.error(loadError)
+      setListaVigente(null)
+      setEventoRecalculado(null)
+      if (loadError.message === "sin-lista-vigente") setErrorPrecios("No existe una lista de precios vigente para la fecha del cobro.")
+      else if (loadError.message === "listas-vigentes-superpuestas") setErrorPrecios("Hay más de una lista vigente para esta fecha. Corregí las fechas antes de cobrar.")
+      else if (loadError.message.startsWith("bebida-sin-precio-vigente:")) setErrorPrecios(`Falta el precio vigente de ${loadError.message.split(":")[1]}.`)
+      else if (loadError.message === "servicio-sin-precio-vigente") setErrorPrecios("El servicio del evento no existe en la lista vigente.")
+      else if (loadError.message === "precio-vigente-menor-a-lo-cobrado") setErrorPrecios("El precio vigente es menor que el importe ya cobrado. Revisá la lista antes de continuar.")
+      else setErrorPrecios("No se pudieron actualizar los precios para el cobro.")
+    }).finally(() => { if (vigente) setCargandoPrecios(false) })
+    return () => { vigente = false }
+  }, [evento, form.fecha, ventaBebidasId])
+
   const esCobroBebidas = Boolean(ventaBebidasId)
-  const finanzas = calcularFinanzasEvento(evento || {})
-  const ventaBebidas = (evento?.ventasBebidas || []).find((venta) => venta.id === ventaBebidasId)
+  const eventoCobro = eventoRecalculado || evento || {}
+  const finanzas = calcularFinanzasEvento(eventoCobro)
+  const ventaBebidas = (eventoCobro.ventasBebidas || []).find((venta) => venta.id === ventaBebidasId)
   const totalCobro = esCobroBebidas ? Number(ventaBebidas?.total || 0) : finanzas.totalServicio
   const cobradoCobro = esCobroBebidas ? Number(ventaBebidas?.cobrado || 0) : finanzas.cobradoServicio
   const saldo = esCobroBebidas ? Number(ventaBebidas?.saldo ?? ventaBebidas?.total ?? 0) : finanzas.saldoServicio
@@ -95,6 +138,8 @@ export default function RegistrarCobro() {
   async function cobrar(e) {
     e.preventDefault()
     setError("")
+    if (cargandoPrecios) return setError("Esperá a que se actualicen los precios.")
+    if (errorPrecios || !listaVigente) return setError(errorPrecios || "No hay una lista de precios vigente.")
     if (!esCobroBebidas && !form.cuentaId) return setError("Seleccioná la cuenta que recibirá el dinero.")
     if (!esCobroBebidas && form.dividir && (!form.cuentaId2 || form.cuentaId2 === form.cuentaId)) return setError("Seleccioná una segunda cuenta diferente.")
     if (esCobroBebidas && !destinosBebidas.length) return setError("Ingresá el monto que recibirá al menos una cuenta.")
@@ -132,6 +177,7 @@ export default function RegistrarCobro() {
         ...form,
         destinos,
         ventaBebidasId,
+        listaPreciosId: listaVigente.id,
         monto,
         montoAplicado,
         descuento,
@@ -144,7 +190,7 @@ export default function RegistrarCobro() {
       navigate(`/evento/${id}`)
     } catch (saveError) {
       console.error(saveError)
-      const mensajes = { "monto-supera-saldo": "El cobro supera el saldo pendiente.", "monto-supera-bebidas": "El cobro supera el saldo de la venta de bebidas.", "descuento-invalido": "El descuento calculado no es válido.", "descuento-bebidas-no-permitido": "Los descuentos no se aplican a las ventas de bebidas.", "distribucion-invalida": "La distribución entre cuentas no coincide con el total.", "demasiadas-cuentas": "El cobro puede distribuirse entre un máximo de cinco cuentas.", "cuentas-repetidas": "Las cuentas deben ser diferentes.", "cuenta-no-disponible": "La cuenta seleccionada ya no está disponible.", "evento-no-disponible": "El evento ya no está disponible." }
+      const mensajes = { "monto-supera-saldo": "El cobro supera el saldo pendiente.", "monto-supera-bebidas": "El cobro supera el saldo de la venta de bebidas.", "descuento-invalido": "El descuento calculado no es válido.", "descuento-bebidas-no-permitido": "Los descuentos no se aplican a las ventas de bebidas.", "distribucion-invalida": "La distribución entre cuentas no coincide con el total.", "demasiadas-cuentas": "El cobro puede distribuirse entre un máximo de cinco cuentas.", "cuentas-repetidas": "Las cuentas deben ser diferentes.", "cuenta-no-disponible": "La cuenta seleccionada ya no está disponible.", "evento-no-disponible": "El evento ya no está disponible.", "sin-lista-vigente": "La lista de precios dejó de estar vigente. Volvé a abrir el cobro.", "servicio-sin-precio-vigente": "El servicio no tiene un precio en la lista vigente.", "precio-vigente-menor-a-lo-cobrado": "El nuevo precio es menor que lo ya cobrado." }
       setError(mensajes[saveError.message] || "No se pudo registrar el cobro.")
     } finally { setGuardando(false) }
   }
@@ -163,6 +209,9 @@ export default function RegistrarCobro() {
         <Dato label={esCobroBebidas ? "Saldo de bebidas" : "Saldo del evento"} valor={pesos.format(saldo)} destacado />
       </section>
 
+      {listaVigente && <div style={precioVigenteBox}>Precios actualizados con <strong>{listaVigente.nombre}</strong>, vigente para el {form.fecha.split("-").reverse().join("/")}.</div>}
+      {errorPrecios && <div role="alert" style={errorBox}>{errorPrecios}</div>}
+
       <form onSubmit={cobrar} style={tarjeta}>
         <div style={tituloSeccion}><div><h2 style={{ margin: 0 }}>{esCobroBebidas ? "Cobrar bebidas" : "Registrar pago"}</h2><p style={{ margin: "4px 0 0", color: "#776d83" }}>{esCobroBebidas ? "Distribuí el total entre una o varias cuentas." : "El saldo de la cuenta elegida se actualizará automáticamente."}</p></div></div>
         <div style={grilla}>
@@ -177,7 +226,7 @@ export default function RegistrarCobro() {
         {esCobroBebidas ? <section style={cuentasBebidasBox}><div style={cuentasBebidasHead}><strong>Distribución por cuentas</strong><span>Total a distribuir: {pesos.format(monto)}</span></div>{cuentas.map((cuenta) => <label key={cuenta.id} style={cuentaMontoRow}><span>{cuenta.nombre}</span><input type="number" min="0" max={monto} step="1" value={form.montosCuentas[cuenta.id] || ""} onChange={(e) => setForm({ ...form, montosCuentas: { ...form.montosCuentas, [cuenta.id]: e.target.value } })} placeholder="$ 0"/></label>)}<div style={distribucionResumen}><span>Distribuido: <strong>{pesos.format(totalDistribuido)}</strong></span><span style={{color:diferenciaDistribucion===0?"#16865c":"#b45309"}}>{diferenciaDistribucion < 0 ? "Excede" : "Falta asignar"}: <strong>{pesos.format(Math.abs(diferenciaDistribucion))}</strong></span></div></section> : <><label style={dividirLabel}><input type="checkbox" style={{width:20,height:20,accentColor:"#4e2581"}} checked={form.dividir} onChange={(e) => setForm({ ...form, dividir: e.target.checked, montoCuenta1: e.target.checked ? String(Math.round(montoAplicado / 2)) : "", cuentaId2: "" })}/><span>Dividir el cobro entre dos cuentas</span></label>{form.dividir && <div style={divisionBox}><Campo label="Importe a cancelar con la primera cuenta"><input type="number" min="1" max={Math.max(1, montoAplicado - 1)} value={form.montoCuenta1} onChange={(e) => setForm({ ...form, montoCuenta1: e.target.value })}/></Campo><Campo label="Segunda cuenta"><select value={form.cuentaId2} onChange={(e) => setForm({ ...form, cuentaId2: e.target.value })} required><option value="">Seleccionar segunda cuenta</option>{cuentas.filter((cuenta) => cuenta.id !== form.cuentaId).map((cuenta) => { const configuracion = tiposCobro.find((tipo) => tipo.cuentaId === cuenta.id); return <option key={cuenta.id} value={cuenta.id}>{cuenta.nombre}{Number(configuracion?.porcentajeDescuento || 0) > 0 ? ` · ${configuracion.porcentajeDescuento}% de descuento` : ""}</option> })}</select></Campo><Dato label="Importe a cancelar con la segunda cuenta" valor={pesos.format(Math.max(0, montoAplicadoCuenta2))}/></div>}</>}
         {montoAplicado > 0 && montoAplicado <= saldo && <div style={preview}>Luego del cobro quedarán pendientes <strong>{pesos.format(saldo - montoAplicado)}</strong>.</div>}
         {error && <div role="alert" style={errorBox}>{error}</div>}
-        <div style={acciones}><button type="button" onClick={() => navigate(`/evento/${id}`)} style={cancelar}>Cancelar</button><button disabled={guardando || saldo <= 0} style={cobrarBtn}>{guardando ? "Registrando..." : "Confirmar cobro"}</button></div>
+        <div style={acciones}><button type="button" onClick={() => navigate(`/evento/${id}`)} style={cancelar}>Cancelar</button><button disabled={guardando || cargandoPrecios || Boolean(errorPrecios) || saldo <= 0} style={cobrarBtn}>{guardando ? "Registrando..." : cargandoPrecios ? "Actualizando precios..." : "Confirmar cobro"}</button></div>
       </form>
     </div>
   )
@@ -199,6 +248,7 @@ const tituloSeccion = { marginBottom: 22, paddingBottom: 17, borderBottom: "1px 
 const grilla = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 20 }
 const labelStyle = { display: "block", marginBottom: 8, color: "#4b4058", fontSize: 14, fontWeight: 600 }
 const preview = { marginTop: 20, padding: 13, borderRadius: 10, color: "#4e2581", background: "#eee7f7" }
+const precioVigenteBox = { margin: "18px 0", padding: 14, borderRadius: 10, color: "#14532d", background: "#ecfdf3", border: "1px solid #bbf7d0" }
 const descuentoBox = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginTop: 20, padding: 16, borderRadius: 13, color: "#4e2581", background: "#f4fbff", border: "1px solid #bfe8ff" }
 const totalAbonar = { paddingLeft: 12, borderLeft: "2px solid #57b6ee" }
 const errorBox = { marginTop: 18, padding: 12, borderRadius: 10, background: "#fff1f2", color: "#be123c" }

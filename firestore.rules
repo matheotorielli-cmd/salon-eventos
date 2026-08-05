@@ -242,10 +242,13 @@ service cloud.firestore {
           || hasPermission('eventosCancelar'))) || (
         hasPermission('cobrosRegistrar')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'sena', 'totalCobrado', 'totalDescuentosCobros', 'saldo', 'estado', 'ultimoCobroId', 'ventasBebidas', 'actualizadoPor', 'actualizadoEn'
+          'listaPreciosId', 'listaPreciosNombre', 'servicioListaId', 'servicioListaNombre', 'servicioListaPrecio',
+          'total', 'sena', 'totalCobrado', 'totalDescuentosCobros', 'saldo', 'estado', 'ultimoCobroId',
+          'ventasBebidas', 'actualizadoPor', 'actualizadoEn'
         ])
         && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.eventoId == eventoId
-        && request.resource.data.saldo == resource.data.saldo - getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.montoAplicado
+        && request.resource.data.listaPreciosId == getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.listaPreciosId
+        && request.resource.data.saldo == request.resource.data.total - request.resource.data.totalCobrado - request.resource.data.totalDescuentosCobros
         && request.resource.data.sena == request.resource.data.totalCobrado
         && request.resource.data.totalCobrado is number
         && request.resource.data.totalCobrado >= getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.ultimoCobroId)).data.monto
@@ -439,6 +442,9 @@ service cloud.firestore {
         && request.resource.data.porcentajeDescuento <= 100
         && request.resource.data.tipoCobroId is string
         && request.resource.data.tipoCobroNombre is string
+        && request.resource.data.listaPreciosId is string
+        && request.resource.data.listaPreciosId.size() > 0
+        && request.resource.data.listaPreciosNombre is string
         && validCobroApplications()
         && request.resource.data.moneda == 'ARS'
         && request.resource.data.fecha is timestamp

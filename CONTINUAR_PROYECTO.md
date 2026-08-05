@@ -21,11 +21,14 @@
 - Pago prestadores fue probado por el usuario: los prestadores se cargan en el evento, pueden seleccionarse para pago y el total se descuenta correctamente de la cuenta elegida antes de confirmar.
 - Se agrego y publico la opcion para copiar cumpleaños y servicios desde la lista de precios anterior al crear una lista nueva.
 - La lista `AGOSTO 2026` fue cargada por el usuario directamente en la aplicacion publicada, con los nuevos precios de servicios y bebidas.
+- Las listas ahora calculan su estado por fecha: Activa, Proxima, Vencida o Inactiva. Las listas vencidas dejan de utilizarse automaticamente.
+- Cada vez que se abre y confirma un cobro, el sistema usa la lista vigente para la fecha elegida, actualiza el servicio y todas las bebidas con saldo, conserva los importes ya cobrados y recalcula el total y el saldo.
+- Cada cobro guarda la lista de precios aplicada. Se bloquea el cobro si no hay lista vigente, si existen listas superpuestas o si falta un producto o servicio en la lista.
+- El usuario verifico en produccion la vigencia automatica, el nuevo total y saldo del cumpleaños y los precios actualizados de bebidas antes del cobro.
 
 ### Punto exacto para retomar
 
-1. Continuar con la revision visual general en computadora y celular, de a una pantalla.
-2. Continuar con las mejoras que indique el usuario.
+1. Continuar con las mejoras que indique el usuario.
 
 ## Cierre del 4 de agosto de 2026
 

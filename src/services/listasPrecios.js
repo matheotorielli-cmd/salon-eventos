@@ -1,5 +1,6 @@
 import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore"
 import { db } from "../firebase"
+import { esListaVigente } from "../utils/vigenciaPrecios"
 
 const listasRef = collection(db, "listasPrecios")
 
@@ -20,6 +21,14 @@ export async function obtenerListaAnterior(idExcluir = "") {
     .map((item) => ({ id: item.id, ...item.data() }))
     .filter((item) => item.id !== idExcluir)
     .sort((a, b) => String(b.fechaApertura || "").localeCompare(String(a.fechaApertura || "")))[0] || null
+}
+
+export async function obtenerListaVigente(fecha) {
+  const snapshot = await getDocs(listasRef)
+  const vigentes = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => esListaVigente(item, fecha))
+  if (vigentes.length > 1) throw new Error("listas-vigentes-superpuestas")
+  if (!vigentes.length) throw new Error("sin-lista-vigente")
+  return vigentes[0]
 }
 
 export function guardarListaPrecios({ id, datos, userId }) {

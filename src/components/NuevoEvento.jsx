@@ -7,6 +7,7 @@ import { nombreCompleto, observarClientes } from "../services/clientes"
 import { observarEscuelas } from "../services/escuelas"
 import { observarPrestadores, observarTiposEventos } from "../services/configuracion"
 import { observarListasPrecios } from "../services/listasPrecios"
+import { esListaVigente } from "../utils/vigenciaPrecios"
 
 const DURACION_PREDETERMINADA_MINUTOS = 150
 
@@ -119,7 +120,7 @@ export default function NuevoEvento() {
 
   useEffect(() => observarListasPrecios(
     (datos) => {
-      const activas = datos.filter((lista) => lista.activa !== false)
+      const activas = datos.filter((lista) => esListaVigente(lista))
       setListasPrecios(activas)
       if (!editando && activas.length > 0) {
         const listaActiva = activas[0]

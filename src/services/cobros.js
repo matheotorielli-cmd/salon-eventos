@@ -1,6 +1,7 @@
 import { collection, doc, onSnapshot, query, runTransaction, serverTimestamp, Timestamp, where } from "firebase/firestore"
 import { db } from "../firebase"
 import { calcularFinanzasEvento } from "../utils/finanzasEvento"
+import { esListaVigente, recalcularEventoConLista } from "../utils/vigenciaPrecios"
 
 export async function registrarCobro({
   eventoId,
@@ -17,10 +18,12 @@ export async function registrarCobro({
   concepto,
   descripcion,
   ventaBebidasId,
+  listaPreciosId,
   userId
 }) {
   const eventoRef = doc(db, "eventos", eventoId)
   const usuarioRef = doc(db, "usuarios", userId)
+  const listaPreciosRef = doc(db, "listasPrecios", listaPreciosId)
   const cobroRef = doc(collection(db, "cobros"))
   const fechaTimestamp = Timestamp.fromDate(new Date(`${fecha}T12:00:00`))
   const montoRecibido = Number(monto)
@@ -45,7 +48,9 @@ export async function registrarCobro({
     const cuentasRefs = distribucion.map((item) => doc(db, "cuentas", item.cuentaId))
     const cuentasSnaps = await Promise.all(cuentasRefs.map((ref) => transaction.get(ref)))
     const usuarioSnap = await transaction.get(usuarioRef)
+    const listaPreciosSnap = await transaction.get(listaPreciosRef)
     if (!eventoSnap.exists()) throw new Error("evento-no-disponible")
+    if (!listaPreciosSnap.exists() || !esListaVigente(listaPreciosSnap.data(), fecha)) throw new Error("sin-lista-vigente")
     if (!distribucion.length || distribucion.reduce((total, item) => total + item.monto, 0) !== montoRecibido) throw new Error("distribucion-invalida")
     if (!Number.isFinite(montoCancelado) || montoCancelado <= 0 || !Number.isFinite(montoDescuento) || montoDescuento < 0 || montoRecibido + montoDescuento !== montoCancelado) throw new Error("descuento-invalido")
     if (!ventaBebidasId && (!aplicaciones.length || aplicaciones.reduce((total, item) => total + item.montoAplicado, 0) !== montoCancelado || aplicaciones.reduce((total, item) => total + item.descuento, 0) !== montoDescuento || aplicaciones.reduce((total, item) => total + item.monto, 0) !== montoRecibido)) throw new Error("descuento-invalido")
@@ -53,7 +58,8 @@ export async function registrarCobro({
     if (new Set(distribucion.map((item) => item.cuentaId)).size !== distribucion.length) throw new Error("cuentas-repetidas")
     if (cuentasSnaps.some((snap) => !snap.exists() || snap.data().activa === false)) throw new Error("cuenta-no-disponible")
 
-    const evento = eventoSnap.data()
+    const listaPrecios = { id: listaPreciosSnap.id, ...listaPreciosSnap.data() }
+    const evento = recalcularEventoConLista(eventoSnap.data(), listaPrecios)
     const cuentas = cuentasSnaps.map((snap) => snap.data())
     const usuario = usuarioSnap.exists() ? usuarioSnap.data() : {}
     const usuarioNombre = [usuario.nombre, usuario.apellido].filter(Boolean).join(" ") || usuario.email || "Usuario"
@@ -79,6 +85,8 @@ export async function registrarCobro({
       movimientoIds: movimientosRefs.map((ref) => ref.id),
       distribucion: distribucion.map((item, index) => ({ ...item, cuentaNombre: cuentas[index].nombre, movimientoId: movimientosRefs[index].id })),
       ventaBebidasId: ventaBebidasId || null,
+      listaPreciosId: listaPrecios.id,
+      listaPreciosNombre: listaPrecios.nombre || "",
       monto: montoRecibido,
       montoAplicado: montoCancelado,
       descuento: montoDescuento,
@@ -123,9 +131,15 @@ export async function registrarCobro({
       creadoEn: serverTimestamp()
     }))
 
-    const ventasActualizadas = venta ? (evento.ventasBebidas || []).map((item) => item.id === venta.id ? { ...item, cobrado: Number(item.cobrado || 0) + montoRecibido, saldo: Number(item.saldo ?? item.total) - montoRecibido, estado: Number(item.saldo ?? item.total) - montoRecibido === 0 ? "Pagado" : "Parcial" } : item) : null
+    const ventasActualizadas = venta ? (evento.ventasBebidas || []).map((item) => item.id === venta.id ? { ...item, cobrado: Number(item.cobrado || 0) + montoRecibido, saldo: Number(item.saldo ?? item.total) - montoRecibido, estado: Number(item.saldo ?? item.total) - montoRecibido === 0 ? "Pagado" : "Parcial" } : item) : (evento.ventasBebidas || [])
 
     transaction.update(eventoRef, {
+      listaPreciosId: listaPrecios.id,
+      listaPreciosNombre: listaPrecios.nombre || "",
+      servicioListaId: evento.servicioListaId || "",
+      servicioListaNombre: evento.servicioListaNombre || "",
+      servicioListaPrecio: Number(evento.servicioListaPrecio || 0),
+      total: Number(evento.total || 0),
       sena: nuevoTotalCobrado,
       totalCobrado: nuevoTotalCobrado,
       totalDescuentosCobros: nuevoTotalDescuentos,
@@ -134,7 +148,7 @@ export async function registrarCobro({
       ultimoCobroId: cobroRef.id,
       actualizadoPor: userId,
       actualizadoEn: serverTimestamp()
-      ,...(ventasActualizadas ? { ventasBebidas: ventasActualizadas } : {})
+      ,ventasBebidas: ventasActualizadas
     })
 
     distribucion.forEach((destino, index) => transaction.update(cuentasRefs[index], {

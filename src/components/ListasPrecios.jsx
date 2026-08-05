@@ -3,6 +3,7 @@ import { Eye, Pencil, Plus, Power } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { auth } from "../firebase"
 import { cambiarEstadoLista, observarListasPrecios } from "../services/listasPrecios"
+import { estadoVigenciaLista } from "../utils/vigenciaPrecios"
 
 const fecha = (valor) => valor ? valor.split("-").reverse().join("/") : "—"
 
@@ -22,7 +23,7 @@ export default function ListasPrecios() {
     {error && <div className="price-error">{error}</div>}
     <section className="price-list-card"><div className="price-list-scroll"><table>
       <thead><tr><th>Nombre</th><th>Fecha de apertura</th><th>Fecha de vigencia</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead>
-      <tbody>{listas.map((lista) => <tr key={lista.id}><td><strong>{lista.nombre}</strong><small>{lista.servicios?.length || 0} servicios · {lista.bebidas?.length || 0} bebidas</small></td><td>{fecha(lista.fechaApertura)}</td><td>{fecha(lista.fechaCierre)}</td><td>{lista.descripcion || "—"}</td><td><span className={lista.activa === false ? "price-status off" : "price-status"}>{lista.activa === false ? "Inactiva" : "Activa"}</span></td><td><div className="price-row-actions"><button title="Ver" onClick={() => navigate(`/listas-precios/${lista.id}/editar`)}><Eye size={16}/></button><button title="Editar" onClick={() => navigate(`/listas-precios/${lista.id}/editar`)}><Pencil size={16}/></button><button className="danger" title={lista.activa === false ? "Habilitar" : "Deshabilitar"} onClick={() => alternar(lista)}><Power size={16}/></button></div></td></tr>)}
+      <tbody>{listas.map((lista) => { const estado = estadoVigenciaLista(lista); return <tr key={lista.id}><td><strong>{lista.nombre}</strong><small>{lista.servicios?.length || 0} servicios · {lista.bebidas?.length || 0} bebidas</small></td><td>{fecha(lista.fechaApertura)}</td><td>{fecha(lista.fechaCierre)}</td><td>{lista.descripcion || "—"}</td><td><span className={estado === "Activa" ? "price-status" : "price-status off"}>{estado}</span></td><td><div className="price-row-actions"><button title="Ver" onClick={() => navigate(`/listas-precios/${lista.id}/editar`)}><Eye size={16}/></button><button title="Editar" onClick={() => navigate(`/listas-precios/${lista.id}/editar`)}><Pencil size={16}/></button><button className="danger" title={lista.activa === false ? "Habilitar" : "Deshabilitar"} onClick={() => alternar(lista)}><Power size={16}/></button></div></td></tr> })}
       {!listas.length && <tr><td colSpan="6" className="price-list-empty"><div>✦</div><strong>Todavía no hay listas de precios</strong><span>Creá la primera lista para empezar a organizar tus valores.</span><button onClick={() => navigate("/listas-precios/nueva")}><Plus size={17}/> Crear lista</button></td></tr>}</tbody>
     </table></div></section>
   </div>
