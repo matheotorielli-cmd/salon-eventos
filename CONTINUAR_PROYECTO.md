@@ -18,12 +18,14 @@
 - Se corrigieron las reglas que rechazaban alta, edición y eliminación de ventas de bebidas; los administradores tienen actualización completa de eventos, coherente con su acceso general.
 - Al eliminar una venta pendiente, el sistema devuelve el stock, verifica el resultado y ejecuta una reparación idempotente si la devolución no quedó aplicada.
 - El usuario confirmó que el stock vuelve correctamente al anular y eliminar una venta.
+- Pago prestadores fue probado por el usuario: los prestadores se cargan en el evento, pueden seleccionarse para pago y el total se descuenta correctamente de la cuenta elegida antes de confirmar.
+- Se agrego y publico la opcion para copiar cumpleaños y servicios desde la lista de precios anterior al crear una lista nueva.
+- La lista `AGOSTO 2026` fue cargada por el usuario directamente en la aplicacion publicada, con los nuevos precios de servicios y bebidas.
 
 ### Punto exacto para retomar
 
-1. Probar Pago prestadores y verificar el saldo de la cuenta utilizada.
-2. Revisar carga de costo y precio de lista si queda algún caso pendiente.
-3. Continuar con las mejoras que indique el usuario.
+1. Continuar con la revision visual general en computadora y celular, de a una pantalla.
+2. Continuar con las mejoras que indique el usuario.
 
 ## Cierre del 4 de agosto de 2026
 
