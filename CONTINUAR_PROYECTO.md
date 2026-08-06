@@ -1,5 +1,21 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Cierre del 6 de agosto de 2026
+
+- El usuario decidio pausar el trabajo y continuar otro dia.
+- Todo lo desarrollado quedo publicado en Firebase Hosting; las reglas necesarias tambien quedaron desplegadas.
+- La lista `AGOSTO 2026` esta cargada y vigente. `JULIO 2026` se identifica automaticamente como vencida.
+- Los cobros recalculan el servicio y las bebidas con saldo usando la lista vigente para la fecha del pago, conservando lo ya cobrado.
+- El catalogo del evento muestra stock disponible, bloquea bebidas agotadas y controla el maximo antes de guardar.
+- Las listas activas con fechas superpuestas no se pueden guardar; el usuario probo esta validacion correctamente.
+- Las ultimas mejoras fueron verificadas por el usuario en la aplicacion publicada.
+
+### Punto exacto para retomar
+
+1. Leer este archivo completo.
+2. Abrir el proyecto `C:\Users\muke_\OneDrive\Desktop\salon-eventos`.
+3. Continuar con la proxima mejora que indique el usuario; no quedan pruebas ni publicaciones pendientes de esta sesion.
+
 ## Avance del 4 de agosto de 2026 - usuarios internos
 
 - Se probó correctamente en producción el envío de cambio de contraseña desde Gestión de usuarios.
