@@ -406,9 +406,13 @@ export default function NuevoEvento() {
 
     setGuardando(true)
     try {
-      if (editando) await updateDoc(doc(db, "eventos", id), nuevoEvento)
-      else await addDoc(collection(db, "eventos"), nuevoEvento)
-      navigate(editando ? `/evento/${id}` : "/eventos")
+      if (editando) {
+        await updateDoc(doc(db, "eventos", id), nuevoEvento)
+        navigate(`/evento/${id}`)
+      } else {
+        await addDoc(collection(db, "eventos"), nuevoEvento)
+        navigate(`/?fecha=${encodeURIComponent(form.fecha)}`)
+      }
     } catch (saveError) {
       console.error(saveError)
       setError("No se pudo guardar el evento")

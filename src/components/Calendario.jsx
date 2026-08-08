@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 
 import { collection, onSnapshot } from "firebase/firestore"
 import { calcularFinanzasEvento } from "../utils/finanzasEvento"
@@ -18,6 +18,8 @@ import esLocale from "@fullcalendar/core/locales/es"
 export default function Calendario() {
 
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const fechaSeleccionada = searchParams.get("fecha")
 
   const [eventos, setEventos] =
     useState([])
@@ -213,7 +215,9 @@ export default function Calendario() {
           locales={[esLocale]}
           locale="es"
 
-          initialView={esMovil ? "dayGridMonth" : "timeGridWeek"}
+          initialDate={fechaSeleccionada || undefined}
+
+          initialView={fechaSeleccionada ? "timeGridDay" : esMovil ? "dayGridMonth" : "timeGridWeek"}
 
           height={esMovil ? "auto" : "100%"}
 

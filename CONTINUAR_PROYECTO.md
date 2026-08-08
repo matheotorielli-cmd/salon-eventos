@@ -1,5 +1,20 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Avance del 8 de agosto de 2026
+
+- Al crear un evento nuevo y guardarlo, la aplicacion ya no abre la lista de eventos.
+- Ahora abre el Calendario en la fecha exacta del evento y utiliza la vista Dia para comprobar inmediatamente la fecha y el horario.
+- Al tocar el evento desde esa vista se abre su detalle, desde donde se puede registrar un cobro o editarlo.
+- Al editar un evento existente se conserva el comportamiento anterior: vuelve directamente al detalle del evento.
+- `npm run lint`, `npm run build` y `git diff --check`: aprobados.
+- La mejora quedo publicada en Firebase Hosting.
+
+### Punto exacto para retomar
+
+1. Probar creando un evento y confirmar que se abra el Calendario en el dia elegido.
+2. Tocar el evento y comprobar el acceso al detalle, al cobro y a la edicion.
+3. Continuar con la proxima mejora que indique el usuario.
+
 ## Cierre del 6 de agosto de 2026
 
 - El usuario decidio pausar el trabajo y continuar otro dia.
