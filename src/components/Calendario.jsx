@@ -217,7 +217,7 @@ export default function Calendario() {
 
           initialDate={fechaSeleccionada || undefined}
 
-          initialView={fechaSeleccionada ? "timeGridDay" : esMovil ? "dayGridMonth" : "timeGridWeek"}
+          initialView={fechaSeleccionada ? "timeGridWeek" : esMovil ? "dayGridMonth" : "timeGridWeek"}
 
           height={esMovil ? "auto" : "100%"}
 

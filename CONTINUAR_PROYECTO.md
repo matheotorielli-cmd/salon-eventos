@@ -3,9 +3,12 @@
 ## Avance del 8 de agosto de 2026
 
 - Al crear un evento nuevo y guardarlo, la aplicacion ya no abre la lista de eventos.
-- Ahora abre el Calendario en la fecha exacta del evento y utiliza la vista Dia para comprobar inmediatamente la fecha y el horario.
+- Ahora abre el Calendario en la semana que contiene la fecha exacta del evento, para comprobar inmediatamente la fecha y el horario.
 - Al tocar el evento desde esa vista se abre su detalle, desde donde se puede registrar un cobro o editarlo.
 - Al editar un evento existente se conserva el comportamiento anterior: vuelve directamente al detalle del evento.
+- Al crear o editar, se comparan todos los eventos vigentes y se bloquea cualquier horario total o parcialmente superpuesto.
+- Se permite que un evento comience exactamente cuando termina otro y los eventos cancelados no bloquean horarios.
+- El mensaje de validacion identifica el evento y el horario que generan el conflicto.
 - `npm run lint`, `npm run build` y `git diff --check`: aprobados.
 - La mejora quedo publicada en Firebase Hosting.
 

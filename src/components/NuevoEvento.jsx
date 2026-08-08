@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { addDoc, collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore"
+import { addDoc, collection, doc, getDoc, getDocs, updateDoc } from "firebase/firestore"
 import { db } from "../firebase"
 import ClienteModal from "./ClienteModal"
 import { nombreCompleto, observarClientes } from "../services/clientes"
@@ -360,27 +360,35 @@ export default function NuevoEvento() {
       )
     }
 
-    let existe = false
-    if (!editando && form.clienteId) {
-      try {
-        const coincidencias = await getDocs(query(
-          collection(db, "eventos"),
-          where("clienteId", "==", form.clienteId),
-          where("fecha", "==", form.fecha)
-        ))
-        existe = !coincidencias.empty
-      } catch (validationError) {
-        console.error(validationError)
-        return setError("No se pudo validar si el cliente ya tiene un evento ese día")
+    try {
+      const eventosGuardados = await getDocs(collection(db, "eventos"))
+      const eventosVigentes = eventosGuardados.docs.filter((eventoDoc) => {
+        if (editando && eventoDoc.id === id) return false
+        return String(eventoDoc.data().estado || "").toLowerCase() !== "cancelado"
+      })
+
+      const mismoCliente = !editando && form.clienteId && eventosVigentes.some((eventoDoc) => {
+        const evento = eventoDoc.data()
+        return evento.clienteId === form.clienteId && evento.fecha === form.fecha
+      })
+      if (mismoCliente) return setError("Ese cliente ya tiene un evento ese día")
+
+      const superpuesto = eventosVigentes.find((eventoDoc) => {
+        const evento = eventoDoc.data()
+        const inicioGuardado = new Date(evento.start || `${evento.fecha}T${evento.hora || "00:00"}`)
+        const finGuardado = new Date(evento.end || `${evento.fechaFin || evento.fecha}T${evento.horaFin || evento.hora || "00:00"}`)
+        if (Number.isNaN(inicioGuardado.getTime()) || Number.isNaN(finGuardado.getTime())) return false
+        return inicioEvento < finGuardado && finEvento > inicioGuardado
+      })
+
+      if (superpuesto) {
+        const evento = superpuesto.data()
+        const nombre = evento.nombreEvento || evento.title || evento.cliente || "otro evento"
+        return setError(`El horario se superpone con ${nombre}, de ${evento.hora || "--:--"} a ${evento.horaFin || "--:--"}`)
       }
-    }
-
-    if (existe) {
-
-      return setError(
-        "Ese cliente ya tiene un evento ese día"
-      )
-
+    } catch (validationError) {
+      console.error(validationError)
+      return setError("No se pudo comprobar la disponibilidad del horario")
     }
 
     const nuevoEvento = {
