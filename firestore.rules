@@ -127,19 +127,14 @@ service cloud.firestore {
             && cashRegister.estado == 'Cerrada'));
     }
 
-    function validCobroDestination(cobroId, destination) {
-      let movement = getAfter(/databases/$(database)/documents/movimientos/$(destination.movimientoId)).data;
+    function validCobroDestination(destination) {
       return destination.cuentaId is string
         && destination.movimientoId is string
         && destination.monto is number
-        && destination.monto > 0
-        && movement.origen == 'cobro'
-        && movement.referenciaId == cobroId
-        && movement.cuentaId == destination.cuentaId
-        && movement.monto == destination.monto;
+        && destination.monto > 0;
     }
 
-    function validCobroDistribution(cobroId) {
+    function validCobroDistribution() {
       let distribution = request.resource.data.distribucion;
       return distribution is list
         && distribution.size() >= 1
@@ -150,11 +145,11 @@ service cloud.firestore {
         && (distribution.size() < 5 || ((distribution[0].cuentaId != distribution[4].cuentaId && distribution[0].movimientoId != distribution[4].movimientoId) && (distribution[1].cuentaId != distribution[4].cuentaId && distribution[1].movimientoId != distribution[4].movimientoId) && (distribution[2].cuentaId != distribution[4].cuentaId && distribution[2].movimientoId != distribution[4].movimientoId) && (distribution[3].cuentaId != distribution[4].cuentaId && distribution[3].movimientoId != distribution[4].movimientoId)))
         && request.resource.data.cuentaId == distribution[0].cuentaId
         && request.resource.data.movimientoId == distribution[0].movimientoId
-        && validCobroDestination(cobroId, distribution[0])
-        && (distribution.size() < 2 || validCobroDestination(cobroId, distribution[1]))
-        && (distribution.size() < 3 || validCobroDestination(cobroId, distribution[2]))
-        && (distribution.size() < 4 || validCobroDestination(cobroId, distribution[3]))
-        && (distribution.size() < 5 || validCobroDestination(cobroId, distribution[4]))
+        && validCobroDestination(distribution[0])
+        && (distribution.size() < 2 || validCobroDestination(distribution[1]))
+        && (distribution.size() < 3 || validCobroDestination(distribution[2]))
+        && (distribution.size() < 4 || validCobroDestination(distribution[3]))
+        && (distribution.size() < 5 || validCobroDestination(distribution[4]))
         && ((distribution.size() == 1 && request.resource.data.monto == distribution[0].monto)
           || (distribution.size() == 2 && request.resource.data.monto == distribution[0].monto + distribution[1].monto)
           || (distribution.size() == 3 && request.resource.data.monto == distribution[0].monto + distribution[1].monto + distribution[2].monto)
@@ -450,7 +445,7 @@ service cloud.firestore {
         && request.resource.data.anulado == false
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.creadoEn == request.time
-        && validCobroDistribution(cobroId)
+        && validCobroDistribution()
         && getAfter(/databases/$(database)/documents/eventos/$(request.resource.data.eventoId)).data.ultimoCobroId == cobroId;
       allow update: if admin() && hasPermission('cobrosAnular')
         && resource.data.anulado == false
