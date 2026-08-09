@@ -455,3 +455,4 @@ Proyecto local: `C:\Users\muke_\OneDrive\Desktop\salon-eventos`
 - Reglas y hosting publicados correctamente en `salon-eventos-ef008`.
 - Prueba manual pendiente: repetir desde la aplicacion un cobro dividido real y comprobar ambos movimientos y saldos.
 - Segunda correccion: se eliminaron tambien las lecturas cruzadas de movimientos que aun se ejecutaban desde la validacion del documento `cobros`; eran redundantes con las reglas propias de movimientos y cuentas. Publicada el 08/08/2026.
+- Tercera correccion: para movimientos originados por cobros se elimino la validacion circular movimiento-cuenta-movimiento. El movimiento se vincula al cobro y la cuenta valida el movimiento y el importe.

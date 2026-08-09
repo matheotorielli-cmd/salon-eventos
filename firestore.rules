@@ -483,7 +483,11 @@ service cloud.firestore {
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.creadoEn == request.time
         && (
-          (request.resource.data.categoria in ['ingreso', 'egreso', 'inversion']
+          (request.resource.data.origen == 'cobro'
+            && request.resource.data.categoria == 'ingreso'
+            && getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.movimientoIds.hasAny([movimientoId]))
+          || (request.resource.data.origen != 'cobro'
+            && request.resource.data.categoria in ['ingreso', 'egreso', 'inversion']
             && getAfter(/databases/$(database)/documents/cuentas/$(request.resource.data.cuentaId)).data.ultimaOperacionId == movimientoId)
           || (request.resource.data.categoria == 'transferencia'
             && request.resource.data.cuentaOrigenId != request.resource.data.cuentaDestinoId
