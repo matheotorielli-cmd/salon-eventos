@@ -444,3 +444,13 @@ Proyecto local: `C:\Users\muke_\OneDrive\Desktop\salon-eventos`
 - En Mis movimientos, un administrador puede vincular egresos manuales anteriores que todavia no tengan evento; queda registrado quien y cuando hizo la vinculacion.
 - Las anulaciones de cobros no se vuelven a descontar como gastos, evitando duplicar su impacto.
 - Verificacion local: `npm run lint` y `npm run build` aprobados.
+
+## Correccion de cobros divididos (08/08/2026)
+
+- Se corrigio el rechazo de cobros divididos entre dos cuentas.
+- La causa era la repeticion de lecturas `getAfter()` en `firestore.rules`: al crear el cobro, dos movimientos y actualizar dos cuentas en una sola transaccion, Firestore podia superar el limite de accesos permitido por las reglas.
+- Se eliminaron solamente las comprobaciones redundantes; se conservan las validaciones cruzadas entre cobro, movimientos, cuentas y evento.
+- `RegistrarCobro.jsx` ahora muestra el codigo del error y un mensaje especifico cuando Firebase rechaza la operacion por permisos, en vez del aviso generico.
+- Verificacion local: `npm run lint`, `npm run build` y `git diff --check` aprobados.
+- Reglas y hosting publicados correctamente en `salon-eventos-ef008`.
+- Prueba manual pendiente: repetir desde la aplicacion un cobro dividido real y comprobar ambos movimientos y saldos.

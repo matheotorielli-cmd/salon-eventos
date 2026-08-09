@@ -191,7 +191,9 @@ export default function RegistrarCobro() {
     } catch (saveError) {
       console.error(saveError)
       const mensajes = { "monto-supera-saldo": "El cobro supera el saldo pendiente.", "monto-supera-bebidas": "El cobro supera el saldo de la venta de bebidas.", "descuento-invalido": "El descuento calculado no es válido.", "descuento-bebidas-no-permitido": "Los descuentos no se aplican a las ventas de bebidas.", "distribucion-invalida": "La distribución entre cuentas no coincide con el total.", "demasiadas-cuentas": "El cobro puede distribuirse entre un máximo de cinco cuentas.", "cuentas-repetidas": "Las cuentas deben ser diferentes.", "cuenta-no-disponible": "La cuenta seleccionada ya no está disponible.", "evento-no-disponible": "El evento ya no está disponible.", "sin-lista-vigente": "La lista de precios dejó de estar vigente. Volvé a abrir el cobro.", "servicio-sin-precio-vigente": "El servicio no tiene un precio en la lista vigente.", "precio-vigente-menor-a-lo-cobrado": "El nuevo precio es menor que lo ya cobrado." }
-      setError(mensajes[saveError.message] || "No se pudo registrar el cobro.")
+      if (mensajes[saveError.message]) setError(mensajes[saveError.message])
+      else if (saveError.code === "permission-denied") setError("Firebase rechazó la operación de seguridad. Actualizá la página y volvé a intentar; si continúa, informá este código: COBRO-PERMISOS.")
+      else setError(`No se pudo registrar el cobro${saveError.code ? ` (${saveError.code})` : ""}.`)
     } finally { setGuardando(false) }
   }
 

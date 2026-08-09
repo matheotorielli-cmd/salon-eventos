@@ -136,8 +136,7 @@ service cloud.firestore {
         && movement.origen == 'cobro'
         && movement.referenciaId == cobroId
         && movement.cuentaId == destination.cuentaId
-        && movement.monto == destination.monto
-        && getAfter(/databases/$(database)/documents/cuentas/$(destination.cuentaId)).data.ultimaOperacionId == destination.movimientoId;
+        && movement.monto == destination.monto;
     }
 
     function validCobroDistribution(cobroId) {
@@ -452,8 +451,7 @@ service cloud.firestore {
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.creadoEn == request.time
         && validCobroDistribution(cobroId)
-        && getAfter(/databases/$(database)/documents/eventos/$(request.resource.data.eventoId)).data.ultimoCobroId == cobroId
-        && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoId)).data.referenciaId == cobroId;
+        && getAfter(/databases/$(database)/documents/eventos/$(request.resource.data.eventoId)).data.ultimoCobroId == cobroId;
       allow update: if admin() && hasPermission('cobrosAnular')
         && resource.data.anulado == false
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
