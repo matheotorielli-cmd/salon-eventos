@@ -471,3 +471,7 @@ Proyecto local: `C:\Users\muke_\OneDrive\Desktop\salon-eventos`
 - La exportacion de Balance incluye el nuevo desglose.
 - La exportacion se amplio para seguir la estructura de las planillas de referencia: genera tres hojas (`BALANCE`, `FIJOS` y `GASTOS EFECTIVO`), detalle diario, separacion entre efectivo y transferencias, reserva/saldo/chicos extra/bebidas, conceptos, cuentas, totales por categoria y resultado final.
 - Para datos historicos, la exportacion interpreta el primer cobro de cada evento como reserva y los cobros posteriores como saldo; los cobros de bebidas y los conceptos con chicos/extra se separan automaticamente.
+- Se agrego un catalogo mensual de gastos fijos basado en los conceptos de la planilla de agosto: alquiler, servicios, seguros, limpieza, redes, sueldos, cargas e impuestos.
+- Los importes detectados en la planilla se cargan como estimados y no afectan saldos hasta registrar manualmente el pago.
+- Balance muestra cada gasto como pendiente, vencido o pagado. Los pagos guardan `gastoFijoId` y `periodoGastoFijo`, descuentan la cuenta elegida y evitan que el concepto siga pendiente ese mes.
+- Los vencimientos del mes generan un recordatorio visual desde la cantidad de dias configurada (inicialmente tres dias antes).

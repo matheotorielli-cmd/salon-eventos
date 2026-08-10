@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
-import { CalendarDays, Download, Plus, X } from "lucide-react"
+import { Bell, CalendarDays, CheckCircle2, Download, Plus, X } from "lucide-react"
 import { auth } from "../firebase"
 import { observarCuentas } from "../services/cuentas"
 import { observarMovimientos, registrarMovimiento } from "../services/movimientos"
 import { observarCobrosBalance, observarEventosBalance } from "../services/balance"
+import { inicializarGastosFijos, observarGastosFijos } from "../services/gastosFijos"
 
 const dinero = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 const estados = ["Todos", "Presupuestado", "Confirmado", "Pagado", "Cancelado"]
@@ -31,9 +32,10 @@ export default function Balance() {
   const [cobros, setCobros] = useState([])
   const [movimientos, setMovimientos] = useState([])
   const [cuentas, setCuentas] = useState([])
+  const [gastosFijos, setGastosFijos] = useState([])
   const [error, setError] = useState("")
   const [estado, setEstado] = useState("Todos")
-  const [modalEgreso, setModalEgreso] = useState(false)
+  const [modalEgreso, setModalEgreso] = useState(null)
   const [rango, setRango] = useState({ desde: iso(inicioMes()), hasta: iso(finMes()) })
 
   useEffect(() => observarEventosBalance(setEventos, () => setError("No se pudieron cargar los eventos.")), [])
@@ -43,6 +45,11 @@ export default function Balance() {
     (items) => setCuentas(items.filter((cuenta) => cuenta.activa !== false)),
     () => setError("No se pudieron cargar las cuentas.")
   ), [])
+  useEffect(() => {
+    if (!auth.currentUser) return undefined
+    inicializarGastosFijos(auth.currentUser.uid).catch(() => setError("No se pudo preparar la lista de gastos fijos."))
+    return observarGastosFijos(setGastosFijos, () => setError("No se pudieron cargar los gastos fijos."))
+  }, [])
 
   const reporte = useMemo(() => {
     const porId = new Map(eventos.map((e) => [e.id, e]))
@@ -93,16 +100,25 @@ export default function Balance() {
     ["Bebida adultos", reporte.bebidaAdultos], ["Bebida niños", reporte.bebidaNinos],
     ["Comida niños", reporte.comidaNinos], ["Otros gastos", reporte.otros], ["Inversiones", reporte.inversion]
   ]
+  const periodo = rango.desde.slice(0, 7)
+  const pagosFijos = new Map(movimientos.filter((m) => !m.anulado && m.gastoFijoId && m.periodoGastoFijo === periodo).map((m) => [m.gastoFijoId, m]))
+  const hoy = new Date(), periodoActual = iso(hoy).slice(0, 7)
+  const recordatorios = gastosFijos.filter((gasto) => {
+    if (pagosFijos.has(gasto.id) || periodo !== periodoActual) return false
+    return Number(gasto.diaVencimiento || 31) - hoy.getDate() <= Number(gasto.diasAviso ?? 3)
+  })
 
   return <div className="balance-page">
-    <header className="balance-header"><div><small>FINANZAS</small><h1>Balance</h1></div><div className="balance-header-actions"><button onClick={() => setModalEgreso(true)}><Plus size={19}/> Cargar egreso</button><button onClick={exportarExcel}><Download size={19}/> Excel</button></div></header>
+    <header className="balance-header"><div><small>FINANZAS</small><h1>Balance</h1></div><div className="balance-header-actions"><button onClick={() => setModalEgreso({})}><Plus size={19}/> Cargar egreso</button><button onClick={exportarExcel}><Download size={19}/> Excel</button></div></header>
     <section className="balance-filters"><RangePicker value={rango} onChange={setRango}/><label><span>Estados</span><select value={estado} onChange={(e) => setEstado(e.target.value)}>{estados.map((item) => <option key={item}>{item}</option>)}</select></label></section>
     <p className="balance-note">El reporte usa la fecha real de cada cobro y movimiento. Los ingresos representan importes efectivamente cobrados.</p>
     {error && <div className="balance-error">{error}</div>}
+    {!!recordatorios.length && <div className="balance-reminder"><Bell size={20}/><div><strong>{recordatorios.length} {recordatorios.length === 1 ? "gasto fijo requiere" : "gastos fijos requieren"} atención</strong><span>{recordatorios.map((gasto) => `${gasto.nombre} (día ${gasto.diaVencimiento})`).join(" · ")}</span></div></div>}
+    <section className="fixed-expenses"><div className="fixed-expenses-title"><div><small>PLANIFICACIÓN MENSUAL</small><h2>Gastos fijos · {periodo}</h2></div><span>{pagosFijos.size} de {gastosFijos.length} pagados</span></div><div className="fixed-expenses-grid">{gastosFijos.map((gasto) => { const pago = pagosFijos.get(gasto.id), vencido = periodo === periodoActual && hoy.getDate() > Number(gasto.diaVencimiento || 31); return <article key={gasto.id} className={pago ? "paid" : vencido ? "overdue" : "pending"}><div><strong>{gasto.nombre}</strong><span>Vence el día {gasto.diaVencimiento}</span><small>Estimado: {Number(gasto.montoEstimado || 0) > 0 ? dinero.format(Number(gasto.montoEstimado)) : "A definir"}</small></div>{pago ? <div className="fixed-paid"><CheckCircle2 size={18}/><span>Pagado<br/><strong>{dinero.format(Number(pago.monto || 0))}</strong></span></div> : <button onClick={() => setModalEgreso({ gasto, periodo })}>{vencido ? "Registrar pago vencido" : "Registrar pago"}</button>}</article> })}</div></section>
     <section className="balance-table"><div className="balance-scroll"><table><thead><tr><th>Tipo de evento</th><th>Cantidad</th><th>Ingresos cobrados</th><th>Egresos vinculados</th><th>Ganancia</th></tr></thead><tbody>{reporte.filas.map((fila) => <tr key={fila.tipo}><td>{fila.tipo}</td><td>{fila.cantidad}</td><td>{dinero.format(fila.ingresos)}</td><td>{dinero.format(fila.egresos)}</td><td className={fila.ganancia >= 0 ? "positive" : "negative"}>{dinero.format(fila.ganancia)}</td></tr>)}{!reporte.filas.length && <tr><td colSpan="5" className="empty">No hay cobros ni gastos vinculados en este período.</td></tr>}</tbody><tfoot><tr><td colSpan="4">Total ganancias de eventos</td><td>{dinero.format(reporte.ingreso - reporte.egreso)}</td></tr></tfoot></table></div></section>
     <section className="balance-expenses"><h2>Detalle de egresos</h2><div>{detalle.map(([label, value]) => <article key={label}><span>{label}</span><strong>{dinero.format(value)}</strong></article>)}</div></section>
     <section className="balance-summary"><Kpi label="Ingresos" value={reporte.ingreso}/><Kpi label="Egresos totales" value={-reporte.egresosTotal}/><Kpi label="Gastos fijos" value={-reporte.fijos}/><Kpi label="Profesores" value={-reporte.profesores}/><Kpi label="Balance total" value={reporte.total} main/></section>
-    {modalEgreso && <EgresoModal cuentas={cuentas} eventos={eventos} onClose={() => setModalEgreso(false)} onError={setError}/>}</div>
+    {modalEgreso && <EgresoModal cuentas={cuentas} eventos={eventos} gastoFijo={modalEgreso.gasto} periodo={modalEgreso.periodo || periodo} onClose={() => setModalEgreso(null)} onError={setError}/>}</div>
 }
 
 function crearExcelDetallado({ reporte, cobros, rango }) {
@@ -166,9 +182,9 @@ function crearExcelDetallado({ reporte, cobros, rango }) {
 
 function Kpi({ label, value, main }) { return <article className={main ? "main" : ""}><span>{label}</span><strong>{dinero.format(value)}</strong></article> }
 
-function EgresoModal({ cuentas, eventos, onClose, onError }) {
+function EgresoModal({ cuentas, eventos, gastoFijo, periodo, onClose, onError }) {
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState({ clasificacionBalance: "gastos_fijos", cuentaId: "", eventoId: "", monto: "", fecha: iso(new Date()), concepto: "", descripcion: "" })
+  const [form, setForm] = useState({ clasificacionBalance: "gastos_fijos", gastoFijoId: gastoFijo?.id || "", periodoGastoFijo: gastoFijo ? periodo : "", cuentaId: "", eventoId: "", monto: gastoFijo?.montoEstimado ? String(gastoFijo.montoEstimado) : "", fecha: periodo === iso(new Date()).slice(0, 7) ? iso(new Date()) : `${periodo}-01`, concepto: gastoFijo?.nombre || "", descripcion: "" })
   const cambiar = (campo, valor) => setForm((actual) => ({ ...actual, [campo]: valor }))
   async function guardar(e) {
     e.preventDefault()
