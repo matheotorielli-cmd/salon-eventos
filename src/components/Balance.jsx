@@ -101,6 +101,7 @@ export default function Balance() {
     ["Bebida adultos", reporte.bebidaAdultos], ["Bebida niños", reporte.bebidaNinos],
     ["Comida niños", reporte.comidaNinos], ["Otros gastos", reporte.otros], ["Inversiones", reporte.inversion]
   ]
+  const eventosPorId = new Map(eventos.map((evento) => [evento.id, evento]))
   const periodo = rango.desde.slice(0, 7)
   const gastosFijosActivos = gastosFijos.filter((gasto) => gasto.activo !== false)
   const pagosFijos = new Map(movimientos.filter((m) => !m.anulado && m.gastoFijoId && m.periodoGastoFijo === periodo).map((m) => [m.gastoFijoId, m]))
@@ -119,9 +120,21 @@ export default function Balance() {
     <section className="fixed-expenses"><div className="fixed-expenses-title"><div><small>PLANIFICACIÓN MENSUAL</small><h2>Gastos fijos · {periodo}</h2></div><div className="fixed-title-actions"><span>{pagosFijos.size} de {gastosFijosActivos.length} pagados</span><button onClick={() => setAdministrarFijos(true)}><Settings size={16}/> Administrar</button></div></div><div className="fixed-expenses-grid">{gastosFijosActivos.map((gasto) => { const pago = pagosFijos.get(gasto.id), vencido = periodo === periodoActual && hoy.getDate() > Number(gasto.diaVencimiento || 31); return <article key={gasto.id} className={pago ? "paid" : vencido ? "overdue" : "pending"}><div><strong>{gasto.nombre}</strong><span>Vence el día {gasto.diaVencimiento}</span><small>Estimado: {Number(gasto.montoEstimado || 0) > 0 ? dinero.format(Number(gasto.montoEstimado)) : "A definir"}</small></div>{pago ? <div className="fixed-paid"><CheckCircle2 size={18}/><span>Pagado<br/><strong>{dinero.format(Number(pago.monto || 0))}</strong></span></div> : <button onClick={() => setModalEgreso({ gasto, periodo })}>{vencido ? "Registrar pago vencido" : "Registrar pago"}</button>}</article> })}</div></section>
     <section className="balance-table"><div className="balance-scroll"><table><thead><tr><th>Tipo de evento</th><th>Cantidad</th><th>Ingresos cobrados</th><th>Egresos vinculados</th><th>Ganancia</th></tr></thead><tbody>{reporte.filas.map((fila) => <tr key={fila.tipo}><td>{fila.tipo}</td><td>{fila.cantidad}</td><td>{dinero.format(fila.ingresos)}</td><td>{dinero.format(fila.egresos)}</td><td className={fila.ganancia >= 0 ? "positive" : "negative"}>{dinero.format(fila.ganancia)}</td></tr>)}{!reporte.filas.length && <tr><td colSpan="5" className="empty">No hay cobros ni gastos vinculados en este período.</td></tr>}</tbody><tfoot><tr><td colSpan="4">Total ganancias de eventos</td><td>{dinero.format(reporte.ingreso - reporte.egreso)}</td></tr></tfoot></table></div></section>
     <section className="balance-expenses"><h2>Detalle de egresos</h2><div>{detalle.map(([label, value]) => <article key={label}><span>{label}</span><strong>{dinero.format(value)}</strong></article>)}</div></section>
+    <DetalleGastos movimientos={reporte.egresos} eventosPorId={eventosPorId}/>
     <section className="balance-summary"><Kpi label="Ingresos" value={reporte.ingreso}/><Kpi label="Egresos totales" value={-reporte.egresosTotal}/><Kpi label="Gastos fijos" value={-reporte.fijos}/><Kpi label="Profesores" value={-reporte.profesores}/><Kpi label="Balance total" value={reporte.total} main/></section>
     {modalEgreso && <EgresoModal cuentas={cuentas} eventos={eventos} gastoFijo={modalEgreso.gasto} periodo={modalEgreso.periodo || periodo} onClose={() => setModalEgreso(null)} onError={setError}/>}
     {administrarFijos && <GastosFijosModal gastos={gastosFijos} onClose={() => setAdministrarFijos(false)} onError={setError}/>}</div>
+}
+
+function DetalleGastos({ movimientos, eventosPorId }) {
+  const filas = [...movimientos].sort((a, b) => fechaDato(b).localeCompare(fechaDato(a)))
+  const columnas = [
+    ["gastos_fijos", "Gastos fijos"], ["otros", "Otros"], ["profesores", "Profesores"],
+    ["bebida_adultos", "Bebida adultos"], ["bebida_ninos", "Bebida niños"],
+    ["comida_ninos", "Comida niños"], ["inversion", "Inversión"]
+  ]
+  const clasificacion = (movimiento) => movimiento.origen === "prestadores" ? "profesores" : movimiento.categoria === "inversion" ? "inversion" : movimiento.clasificacionBalance || "otros"
+  return <section className="expense-detail-table"><header><div><small>COMO EN LA PLANILLA</small><h2>Gastos detallados</h2></div><span>{filas.length} movimientos</span></header><div className="balance-scroll"><table><thead><tr><th>Fecha</th><th>Concepto</th>{columnas.map(([id, nombre]) => <th key={id}>{nombre}</th>)}<th>Cuenta</th><th>Evento / descripción</th></tr></thead><tbody>{filas.map((movimiento) => { const tipo = clasificacion(movimiento), evento = eventosPorId.get(movimiento.eventoId); return <tr key={movimiento.id}><td>{fechaDato(movimiento).split("-").reverse().join("/")}</td><td>{movimiento.concepto || movimiento.tipoMovimientoNombre || "Egreso"}</td>{columnas.map(([id]) => <td key={id} className={tipo === id ? "expense-amount" : "expense-zero"}>{tipo === id ? dinero.format(Number(movimiento.monto || 0)) : "—"}</td>)}<td>{movimiento.cuentaNombre || "Sin cuenta"}</td><td>{evento ? (evento.nombreEvento || evento.nombre || evento.clienteNombre || "Evento") : movimiento.descripcion || "—"}</td></tr>})}{!filas.length && <tr><td colSpan={columnas.length + 4} className="empty">No hay gastos registrados en este período.</td></tr>}</tbody><tfoot><tr><td colSpan="2">Totales</td>{columnas.map(([id]) => <td key={id}>{dinero.format(sumar(filas.filter((movimiento) => clasificacion(movimiento) === id)))}</td>)}<td colSpan="2">{dinero.format(sumar(filas))}</td></tr></tfoot></table></div></section>
 }
 
 function GastosFijosModal({ gastos, onClose, onError }) {
