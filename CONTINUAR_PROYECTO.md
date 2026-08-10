@@ -469,3 +469,5 @@ Proyecto local: `C:\Users\muke_\OneDrive\Desktop\salon-eventos`
 - Balance muestra un detalle por clasificacion, egresos totales y resultado final del periodo.
 - Los pagos realizados desde Pago a prestadores ahora tambien forman parte del total de egresos y profesores.
 - La exportacion de Balance incluye el nuevo desglose.
+- La exportacion se amplio para seguir la estructura de las planillas de referencia: genera tres hojas (`BALANCE`, `FIJOS` y `GASTOS EFECTIVO`), detalle diario, separacion entre efectivo y transferencias, reserva/saldo/chicos extra/bebidas, conceptos, cuentas, totales por categoria y resultado final.
+- Para datos historicos, la exportacion interpreta el primer cobro de cada evento como reserva y los cobros posteriores como saldo; los cobros de bebidas y los conceptos con chicos/extra se separan automaticamente.

@@ -21,6 +21,10 @@ const fechaDato = (dato) => dato?.fecha?.toDate ? iso(dato.fecha.toDate()) : Str
 const sumar = (lista) => lista.reduce((total, item) => total + Number(item.monto || 0), 0)
 const inicioMes = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), 1)
 const finMes = (d = new Date()) => new Date(d.getFullYear(), d.getMonth() + 1, 0)
+const escaparXml = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+const celdaXml = (valor, estilo = "") => `<Cell${estilo ? ` ss:StyleID="${estilo}"` : ""}><Data ss:Type="${typeof valor === "number" ? "Number" : "String"}">${escaparXml(valor)}</Data></Cell>`
+const filaXml = (valores, estilo = "") => `<Row${estilo ? ` ss:StyleID="${estilo}"` : ""}>${valores.map((valor) => celdaXml(valor, typeof valor === "number" ? "m" : "")).join("")}</Row>`
+const hojaXml = (nombre, filas, anchos) => `<Worksheet ss:Name="${nombre}"><Table>${anchos.map((ancho) => `<Column ss:Width="${ancho}"/>`).join("")}${filas.join("")}</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>4</SplitHorizontal><TopRowBottomPane>4</TopRowBottomPane></WorksheetOptions></Worksheet>`
 
 export default function Balance() {
   const [eventos, setEventos] = useState([])
@@ -71,14 +75,11 @@ export default function Balance() {
     const otrosTotal = sumar(otros)
     const inversion = sumar(inversiones)
     const egresosTotal = sumar(egresos)
-    return { filas, ingreso, egreso, fijos, profesores, bebidaAdultos, bebidaNinos, comidaNinos, otros: otrosTotal, inversion, egresosTotal, total: ingreso - egresosTotal }
+    return { filas, cobrados, egresos, ingreso, egreso, fijos, profesores, bebidaAdultos, bebidaNinos, comidaNinos, otros: otrosTotal, inversion, egresosTotal, total: ingreso - egresosTotal }
   }, [eventos, cobros, movimientos, rango, estado])
 
   function exportarExcel() {
-    const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
-    const filas = reporte.filas.map((f) => `<Row><Cell><Data ss:Type="String">${esc(f.tipo)}</Data></Cell><Cell><Data ss:Type="Number">${f.cantidad}</Data></Cell><Cell><Data ss:Type="Number">${f.ingresos}</Data></Cell><Cell><Data ss:Type="Number">${f.egresos}</Data></Cell><Cell><Data ss:Type="Number">${f.ganancia}</Data></Cell></Row>`).join("")
-    const resumen = [["Ingresos", reporte.ingreso], ["Gastos fijos", reporte.fijos], ["Profesores", reporte.profesores], ["Bebida adultos", reporte.bebidaAdultos], ["Bebida niños", reporte.bebidaNinos], ["Comida niños", reporte.comidaNinos], ["Otros gastos", reporte.otros], ["Inversiones", reporte.inversion], ["Egresos totales", reporte.egresosTotal], ["Balance total", reporte.total]]
-    const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="h"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#4E2581" ss:Pattern="Solid"/></Style></Styles><Worksheet ss:Name="Balance"><Table><Row ss:StyleID="h"><Cell><Data ss:Type="String">Tipo de evento</Data></Cell><Cell><Data ss:Type="String">Cantidad</Data></Cell><Cell><Data ss:Type="String">Ingresos cobrados</Data></Cell><Cell><Data ss:Type="String">Egresos vinculados</Data></Cell><Cell><Data ss:Type="String">Ganancia</Data></Cell></Row>${filas}<Row/><Row ss:StyleID="h"><Cell><Data ss:Type="String">Resumen</Data></Cell><Cell><Data ss:Type="String">Importe</Data></Cell></Row>${resumen.map(([nombre, valor]) => `<Row><Cell><Data ss:Type="String">${nombre}</Data></Cell><Cell><Data ss:Type="Number">${valor}</Data></Cell></Row>`).join("")}</Table></Worksheet></Workbook>`
+    const xml = crearExcelDetallado({ reporte, cobros, rango })
     const url = URL.createObjectURL(new Blob([xml], { type: "application/vnd.ms-excel" }))
     const enlace = document.createElement("a")
     enlace.href = url
@@ -102,6 +103,65 @@ export default function Balance() {
     <section className="balance-expenses"><h2>Detalle de egresos</h2><div>{detalle.map(([label, value]) => <article key={label}><span>{label}</span><strong>{dinero.format(value)}</strong></article>)}</div></section>
     <section className="balance-summary"><Kpi label="Ingresos" value={reporte.ingreso}/><Kpi label="Egresos totales" value={-reporte.egresosTotal}/><Kpi label="Gastos fijos" value={-reporte.fijos}/><Kpi label="Profesores" value={-reporte.profesores}/><Kpi label="Balance total" value={reporte.total} main/></section>
     {modalEgreso && <EgresoModal cuentas={cuentas} eventos={eventos} onClose={() => setModalEgreso(false)} onError={setError}/>}</div>
+}
+
+function crearExcelDetallado({ reporte, cobros, rango }) {
+  const fechas = []
+  for (let fecha = new Date(`${rango.desde}T12:00:00`), fin = new Date(`${rango.hasta}T12:00:00`); fecha <= fin; fecha.setDate(fecha.getDate() + 1)) fechas.push(iso(fecha))
+  const tituloPeriodo = new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric" }).format(new Date(`${rango.desde}T12:00:00`)).toUpperCase()
+  const primerosCobros = new Map()
+  cobros.filter((c) => !c.anulado && !c.ventaBebidasId).sort((a, b) => fechaDato(a).localeCompare(fechaDato(b))).forEach((c) => { if (!primerosCobros.has(c.eventoId)) primerosCobros.set(c.eventoId, c.id) })
+  const ingresosDia = Object.fromEntries(fechas.map((fecha) => [fecha, Array(8).fill(0)]))
+  reporte.cobrados.forEach((cobro) => {
+    const fecha = fechaDato(cobro)
+    if (!ingresosDia[fecha]) return
+    const texto = `${cobro.concepto || ""} ${cobro.descripcion || ""}`.toLowerCase()
+    const tipo = cobro.ventaBebidasId ? 3 : /chic|extra/.test(texto) ? 2 : primerosCobros.get(cobro.eventoId) === cobro.id ? 0 : 1
+    const destinos = cobro.distribucion?.length ? cobro.distribucion : [{ cuentaNombre: cobro.metodoPago || "", monto: cobro.monto }]
+    destinos.forEach((destino) => { const efectivo = /efectivo|caja/i.test(destino.cuentaNombre || ""); ingresosDia[fecha][(efectivo ? 0 : 4) + tipo] += Number(destino.monto || 0) })
+  })
+  const totalesIngreso = Array(8).fill(0)
+  Object.values(ingresosDia).forEach((valores) => valores.forEach((valor, indice) => { totalesIngreso[indice] += valor }))
+  const balance = [
+    filaXml([`INGRESOS ${tituloPeriodo}`], "t"), filaXml([""]),
+    filaXml(["FECHA", "EFECTIVO - RESERVA", "EFECTIVO - SALDO", "EFECTIVO - CHICOS EXTRA", "EFECTIVO - BEBIDA", "TRANSFERENCIA - RESERVA", "TRANSFERENCIA - SALDO", "TRANSFERENCIA - CHICOS EXTRA", "TRANSFERENCIA - BEBIDA"], "h"),
+    ...fechas.map((fecha) => filaXml([fecha.split("-").reverse().join("/"), ...ingresosDia[fecha]])),
+    filaXml(["TOTAL", ...totalesIngreso], "z")
+  ]
+  const totalEfectivo = totalesIngreso.slice(0, 4).reduce((a, b) => a + b, 0)
+  const totalTransferencia = totalesIngreso.slice(4).reduce((a, b) => a + b, 0)
+  balance.push(filaXml(["TOTAL EFECTIVO", totalEfectivo, "", "", "TOTAL TRANSFERENCIAS", totalTransferencia, "", "TOTAL RECAUDADO", reporte.ingreso], "z"), filaXml([""]))
+  const resumen = [
+    ["Recaudado", reporte.ingreso], ["Gastos fijos", reporte.fijos], ["Profesores", reporte.profesores],
+    ["Bebida adultos", reporte.bebidaAdultos], ["Comida + bebida niños", reporte.comidaNinos + reporte.bebidaNinos],
+    ["Otros gastos", reporte.otros], ["Inversiones", reporte.inversion], ["EGRESOS TOTALES", reporte.egresosTotal], ["BALANCE", reporte.total]
+  ]
+  balance.push(filaXml(["RESUMEN", "IMPORTE"], "h"), ...resumen.map(([nombre, valor]) => filaXml([nombre, valor], nombre === "BALANCE" ? "z" : "")))
+
+  const fijos = reporte.egresos.filter((m) => m.clasificacionBalance === "gastos_fijos")
+  const filasFijos = [filaXml([`GASTOS FIJOS ${tituloPeriodo}`], "t"), filaXml(["FECHA", "CONCEPTO", "EFECTIVO", "CUENTA", "DESCRIPCIÓN"], "h")]
+  fijos.forEach((m) => { const efectivo = /efectivo|caja/i.test(m.cuentaNombre || ""); filasFijos.push(filaXml([fechaDato(m).split("-").reverse().join("/"), m.concepto || m.tipoMovimientoNombre, efectivo ? Number(m.monto || 0) : 0, efectivo ? 0 : Number(m.monto || 0), m.descripcion || ""])) })
+  const fijoEfectivo = sumar(fijos.filter((m) => /efectivo|caja/i.test(m.cuentaNombre || "")))
+  filasFijos.push(filaXml(["TOTAL", "", fijoEfectivo, reporte.fijos - fijoEfectivo, ""], "z"), filaXml(["TOTAL GASTOS FIJOS", "", "", reporte.fijos, ""], "z"))
+
+  const gastosDia = Object.fromEntries(fechas.map((fecha) => [fecha, { conceptos: [], otros: 0, profesores: 0, adulto: 0, ninos: 0, comida: 0, cuentas: new Set() }]))
+  reporte.egresos.forEach((m) => {
+    const fecha = fechaDato(m), dia = gastosDia[fecha]
+    if (!dia || m.clasificacionBalance === "gastos_fijos" || m.categoria === "inversion") return
+    dia.conceptos.push(m.concepto || m.tipoMovimientoNombre || "Egreso")
+    dia.cuentas.add(m.cuentaNombre || "")
+    if (m.origen === "prestadores" || m.clasificacionBalance === "profesores") dia.profesores += Number(m.monto || 0)
+    else if (m.clasificacionBalance === "bebida_adultos") dia.adulto += Number(m.monto || 0)
+    else if (m.clasificacionBalance === "bebida_ninos") dia.ninos += Number(m.monto || 0)
+    else if (m.clasificacionBalance === "comida_ninos") dia.comida += Number(m.monto || 0)
+    else dia.otros += Number(m.monto || 0)
+  })
+  const filasGastos = [filaXml([`GASTOS ${tituloPeriodo}`], "t"), filaXml(["FECHA", "CONCEPTO", "OTROS", "PROFESORES", "BEBIDA ADULTO", "BEBIDA NIÑOS", "COMIDA NIÑOS", "CUENTA"], "h")]
+  fechas.forEach((fecha) => { const dia = gastosDia[fecha]; filasGastos.push(filaXml([fecha.split("-").reverse().join("/"), [...new Set(dia.conceptos)].join("; "), dia.otros, dia.profesores, dia.adulto, dia.ninos, dia.comida, [...dia.cuentas].filter(Boolean).join(" + ")])) })
+  filasGastos.push(filaXml(["TOTAL", "", reporte.otros, reporte.profesores, reporte.bebidaAdultos, reporte.bebidaNinos, reporte.comidaNinos, ""], "z"), filaXml(["SUMA TOTAL", "", reporte.otros + reporte.profesores + reporte.bebidaAdultos + reporte.bebidaNinos + reporte.comidaNinos, "", "", "", "", ""], "z"))
+
+  const estilos = `<Styles><Style ss:ID="Default" ss:Name="Normal"><Font ss:FontName="Calibri" ss:Size="11"/></Style><Style ss:ID="t"><Font ss:Bold="1" ss:Size="16" ss:Color="#4E2581"/></Style><Style ss:ID="h"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#4E2581" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/></Style><Style ss:ID="m"><NumberFormat ss:Format="Currency"/></Style><Style ss:ID="z"><Font ss:Bold="1"/><Interior ss:Color="#F4D00C" ss:Pattern="Solid"/></Style></Styles>`
+  return `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">${estilos}${hojaXml("BALANCE", balance, [75, 100, 100, 105, 95, 110, 110, 115, 105])}${hojaXml("FIJOS", filasFijos, [75, 150, 90, 90, 220])}${hojaXml("GASTOS EFECTIVO", filasGastos, [75, 190, 85, 90, 100, 100, 100, 130])}</Workbook>`
 }
 
 function Kpi({ label, value, main }) { return <article className={main ? "main" : ""}><span>{label}</span><strong>{dinero.format(value)}</strong></article> }
