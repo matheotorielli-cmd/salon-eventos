@@ -10,7 +10,7 @@ export function observarMovimientos(onData, onError) {
   }, onError)
 }
 
-export async function registrarMovimiento({ categoria, tipo, cuentaId, cuentaOrigenId, cuentaDestinoId, eventoId, monto, fecha, concepto, descripcion, userId }) {
+export async function registrarMovimiento({ categoria, tipo, clasificacionBalance = "", cuentaId, cuentaOrigenId, cuentaDestinoId, eventoId, monto, fecha, concepto, descripcion, userId }) {
   const movimientoRef = doc(movimientosRef)
   const fechaTimestamp = Timestamp.fromDate(new Date(`${fecha}T12:00:00`))
 
@@ -50,6 +50,7 @@ export async function registrarMovimiento({ categoria, tipo, cuentaId, cuentaOri
     transaction.set(movimientoRef, {
       categoria,
       tipoMovimientoNombre: tipo,
+      clasificacionBalance,
       cuentaId: esTransferencia ? null : cuentaId,
       cuentaNombre: esTransferencia ? "" : cuentaNombre,
       cuentaOrigenId: esTransferencia ? cuentaOrigenId : null,

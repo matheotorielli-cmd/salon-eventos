@@ -458,3 +458,14 @@ Proyecto local: `C:\Users\muke_\OneDrive\Desktop\salon-eventos`
 - Tercera correccion: para movimientos originados por cobros se elimino la validacion circular movimiento-cuenta-movimiento. El movimiento se vincula al cobro y la cuenta valida el movimiento y el importe.
 - Diagnostico definitivo con el emulador de Firestore: la transaccion dividida superaba el maximo de 1000 expresiones de reglas. Se separo la validacion de cobros normales (una o dos cuentas) de la validacion multipCuenta para bebidas y se agregaron caminos cortos para evento, movimientos y cuentas.
 - Prueba automatizada aprobada con el caso de la captura: evento $400.000, cobrado previo $100.000, importe aplicado $300.000, descuento $28.000, abono $272.000 y dos cuentas. El emulador devolvio `COBRO_DIVIDIDO_PERMITIDO`.
+
+## Balance basado en planillas Fun Space (10/08/2026)
+
+- Se analizaron `FUNSPACE PLANILLA balance.xlsx` y `FUNSPACE AGOSTO 2026 gastos.xlsx`, incluidas las hojas Balance, Fijos y Gastos Efectivo.
+- Se agrego el boton `Cargar egreso` directamente en Balance.
+- El formulario permite cargar manualmente clasificacion, cuenta que paga, monto, fecha, concepto, descripcion y evento opcional.
+- Clasificaciones disponibles: gastos fijos, profesores, bebida adultos, bebida ninos, comida ninos, otros gastos e inversion.
+- Cada egreso descuenta automaticamente el saldo de la cuenta elegida y queda registrado en Movimientos.
+- Balance muestra un detalle por clasificacion, egresos totales y resultado final del periodo.
+- Los pagos realizados desde Pago a prestadores ahora tambien forman parte del total de egresos y profesores.
+- La exportacion de Balance incluye el nuevo desglose.
