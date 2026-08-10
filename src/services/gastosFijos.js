@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, onSnapshot, serverTimestamp, writeBatch } from "firebase/firestore"
+import { addDoc, collection, doc, getDocs, onSnapshot, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore"
 import { db } from "../firebase"
 
 const ref = collection(db, "gastosFijos")
@@ -15,7 +15,19 @@ const iniciales = [
 ]
 
 export function observarGastosFijos(onData, onError) {
-  return onSnapshot(ref, (snapshot) => onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => item.activo !== false).sort((a, b) => Number(a.diaVencimiento || 99) - Number(b.diaVencimiento || 99) || a.nombre.localeCompare(b.nombre, "es"))), onError)
+  return onSnapshot(ref, (snapshot) => onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).sort((a, b) => Number(a.diaVencimiento || 99) - Number(b.diaVencimiento || 99) || a.nombre.localeCompare(b.nombre, "es"))), onError)
+}
+
+export function crearGastoFijo({ nombre, montoEstimado, diaVencimiento, diasAviso, userId }) {
+  return addDoc(ref, {
+    nombre: nombre.trim(), montoEstimado: Number(montoEstimado || 0), diaVencimiento: Number(diaVencimiento),
+    diasAviso: Number(diasAviso), activo: true, creadoPor: userId, actualizadoPor: userId,
+    creadoEn: serverTimestamp(), actualizadoEn: serverTimestamp()
+  })
+}
+
+export function actualizarGastoFijo(id, datos, userId) {
+  return updateDoc(doc(db, "gastosFijos", id), { ...datos, actualizadoPor: userId, actualizadoEn: serverTimestamp() })
 }
 
 export async function inicializarGastosFijos(userId) {

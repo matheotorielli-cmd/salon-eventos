@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
-import { Bell, CalendarDays, CheckCircle2, Download, Plus, X } from "lucide-react"
+import { Bell, CalendarDays, CheckCircle2, Download, Pencil, Plus, Settings, X } from "lucide-react"
 import { auth } from "../firebase"
 import { observarCuentas } from "../services/cuentas"
 import { observarMovimientos, registrarMovimiento } from "../services/movimientos"
 import { observarCobrosBalance, observarEventosBalance } from "../services/balance"
-import { inicializarGastosFijos, observarGastosFijos } from "../services/gastosFijos"
+import { actualizarGastoFijo, crearGastoFijo, inicializarGastosFijos, observarGastosFijos } from "../services/gastosFijos"
 
 const dinero = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 const estados = ["Todos", "Presupuestado", "Confirmado", "Pagado", "Cancelado"]
@@ -36,6 +36,7 @@ export default function Balance() {
   const [error, setError] = useState("")
   const [estado, setEstado] = useState("Todos")
   const [modalEgreso, setModalEgreso] = useState(null)
+  const [administrarFijos, setAdministrarFijos] = useState(false)
   const [rango, setRango] = useState({ desde: iso(inicioMes()), hasta: iso(finMes()) })
 
   useEffect(() => observarEventosBalance(setEventos, () => setError("No se pudieron cargar los eventos.")), [])
@@ -101,9 +102,10 @@ export default function Balance() {
     ["Comida niños", reporte.comidaNinos], ["Otros gastos", reporte.otros], ["Inversiones", reporte.inversion]
   ]
   const periodo = rango.desde.slice(0, 7)
+  const gastosFijosActivos = gastosFijos.filter((gasto) => gasto.activo !== false)
   const pagosFijos = new Map(movimientos.filter((m) => !m.anulado && m.gastoFijoId && m.periodoGastoFijo === periodo).map((m) => [m.gastoFijoId, m]))
   const hoy = new Date(), periodoActual = iso(hoy).slice(0, 7)
-  const recordatorios = gastosFijos.filter((gasto) => {
+  const recordatorios = gastosFijosActivos.filter((gasto) => {
     if (pagosFijos.has(gasto.id) || periodo !== periodoActual) return false
     return Number(gasto.diaVencimiento || 31) - hoy.getDate() <= Number(gasto.diasAviso ?? 3)
   })
@@ -114,11 +116,42 @@ export default function Balance() {
     <p className="balance-note">El reporte usa la fecha real de cada cobro y movimiento. Los ingresos representan importes efectivamente cobrados.</p>
     {error && <div className="balance-error">{error}</div>}
     {!!recordatorios.length && <div className="balance-reminder"><Bell size={20}/><div><strong>{recordatorios.length} {recordatorios.length === 1 ? "gasto fijo requiere" : "gastos fijos requieren"} atención</strong><span>{recordatorios.map((gasto) => `${gasto.nombre} (día ${gasto.diaVencimiento})`).join(" · ")}</span></div></div>}
-    <section className="fixed-expenses"><div className="fixed-expenses-title"><div><small>PLANIFICACIÓN MENSUAL</small><h2>Gastos fijos · {periodo}</h2></div><span>{pagosFijos.size} de {gastosFijos.length} pagados</span></div><div className="fixed-expenses-grid">{gastosFijos.map((gasto) => { const pago = pagosFijos.get(gasto.id), vencido = periodo === periodoActual && hoy.getDate() > Number(gasto.diaVencimiento || 31); return <article key={gasto.id} className={pago ? "paid" : vencido ? "overdue" : "pending"}><div><strong>{gasto.nombre}</strong><span>Vence el día {gasto.diaVencimiento}</span><small>Estimado: {Number(gasto.montoEstimado || 0) > 0 ? dinero.format(Number(gasto.montoEstimado)) : "A definir"}</small></div>{pago ? <div className="fixed-paid"><CheckCircle2 size={18}/><span>Pagado<br/><strong>{dinero.format(Number(pago.monto || 0))}</strong></span></div> : <button onClick={() => setModalEgreso({ gasto, periodo })}>{vencido ? "Registrar pago vencido" : "Registrar pago"}</button>}</article> })}</div></section>
+    <section className="fixed-expenses"><div className="fixed-expenses-title"><div><small>PLANIFICACIÓN MENSUAL</small><h2>Gastos fijos · {periodo}</h2></div><div className="fixed-title-actions"><span>{pagosFijos.size} de {gastosFijosActivos.length} pagados</span><button onClick={() => setAdministrarFijos(true)}><Settings size={16}/> Administrar</button></div></div><div className="fixed-expenses-grid">{gastosFijosActivos.map((gasto) => { const pago = pagosFijos.get(gasto.id), vencido = periodo === periodoActual && hoy.getDate() > Number(gasto.diaVencimiento || 31); return <article key={gasto.id} className={pago ? "paid" : vencido ? "overdue" : "pending"}><div><strong>{gasto.nombre}</strong><span>Vence el día {gasto.diaVencimiento}</span><small>Estimado: {Number(gasto.montoEstimado || 0) > 0 ? dinero.format(Number(gasto.montoEstimado)) : "A definir"}</small></div>{pago ? <div className="fixed-paid"><CheckCircle2 size={18}/><span>Pagado<br/><strong>{dinero.format(Number(pago.monto || 0))}</strong></span></div> : <button onClick={() => setModalEgreso({ gasto, periodo })}>{vencido ? "Registrar pago vencido" : "Registrar pago"}</button>}</article> })}</div></section>
     <section className="balance-table"><div className="balance-scroll"><table><thead><tr><th>Tipo de evento</th><th>Cantidad</th><th>Ingresos cobrados</th><th>Egresos vinculados</th><th>Ganancia</th></tr></thead><tbody>{reporte.filas.map((fila) => <tr key={fila.tipo}><td>{fila.tipo}</td><td>{fila.cantidad}</td><td>{dinero.format(fila.ingresos)}</td><td>{dinero.format(fila.egresos)}</td><td className={fila.ganancia >= 0 ? "positive" : "negative"}>{dinero.format(fila.ganancia)}</td></tr>)}{!reporte.filas.length && <tr><td colSpan="5" className="empty">No hay cobros ni gastos vinculados en este período.</td></tr>}</tbody><tfoot><tr><td colSpan="4">Total ganancias de eventos</td><td>{dinero.format(reporte.ingreso - reporte.egreso)}</td></tr></tfoot></table></div></section>
     <section className="balance-expenses"><h2>Detalle de egresos</h2><div>{detalle.map(([label, value]) => <article key={label}><span>{label}</span><strong>{dinero.format(value)}</strong></article>)}</div></section>
     <section className="balance-summary"><Kpi label="Ingresos" value={reporte.ingreso}/><Kpi label="Egresos totales" value={-reporte.egresosTotal}/><Kpi label="Gastos fijos" value={-reporte.fijos}/><Kpi label="Profesores" value={-reporte.profesores}/><Kpi label="Balance total" value={reporte.total} main/></section>
-    {modalEgreso && <EgresoModal cuentas={cuentas} eventos={eventos} gastoFijo={modalEgreso.gasto} periodo={modalEgreso.periodo || periodo} onClose={() => setModalEgreso(null)} onError={setError}/>}</div>
+    {modalEgreso && <EgresoModal cuentas={cuentas} eventos={eventos} gastoFijo={modalEgreso.gasto} periodo={modalEgreso.periodo || periodo} onClose={() => setModalEgreso(null)} onError={setError}/>}
+    {administrarFijos && <GastosFijosModal gastos={gastosFijos} onClose={() => setAdministrarFijos(false)} onError={setError}/>}</div>
+}
+
+function GastosFijosModal({ gastos, onClose, onError }) {
+  const vacio = { nombre: "", montoEstimado: "", diaVencimiento: "10", diasAviso: "3" }
+  const [editando, setEditando] = useState(null)
+  const [form, setForm] = useState(vacio)
+  const [guardando, setGuardando] = useState(false)
+  const cambiar = (campo, valor) => setForm((actual) => ({ ...actual, [campo]: valor }))
+  const editar = (gasto) => { setEditando(gasto.id); setForm({ nombre: gasto.nombre, montoEstimado: String(gasto.montoEstimado || ""), diaVencimiento: String(gasto.diaVencimiento), diasAviso: String(gasto.diasAviso ?? 3) }) }
+  const cancelarEdicion = () => { setEditando(null); setForm(vacio) }
+  async function guardar(e) {
+    e.preventDefault()
+    const dia = Number(form.diaVencimiento), aviso = Number(form.diasAviso), monto = Number(form.montoEstimado || 0)
+    if (!form.nombre.trim() || dia < 1 || dia > 31 || aviso < 0 || aviso > 30 || monto < 0) return onError("Revisá los datos del gasto fijo.")
+    if (!auth.currentUser) return onError("La sesión no está disponible.")
+    setGuardando(true)
+    try {
+      const datos = { nombre: form.nombre.trim(), montoEstimado: monto, diaVencimiento: dia, diasAviso: aviso }
+      if (editando) await actualizarGastoFijo(editando, datos, auth.currentUser.uid)
+      else await crearGastoFijo({ ...datos, userId: auth.currentUser.uid })
+      cancelarEdicion(); onError("")
+    } catch (saveError) { console.error(saveError); onError("No se pudo guardar el gasto fijo.") }
+    finally { setGuardando(false) }
+  }
+  async function cambiarEstado(gasto) {
+    if (!auth.currentUser) return
+    try { await actualizarGastoFijo(gasto.id, { activo: gasto.activo === false }, auth.currentUser.uid); onError("") }
+    catch (saveError) { console.error(saveError); onError("No se pudo cambiar el estado del gasto fijo.") }
+  }
+  return <div className="balance-modal-backdrop" onClick={onClose}><section className="balance-modal fixed-admin-modal" onClick={(e) => e.stopPropagation()}><header><div><small>CONFIGURACIÓN</small><h2>Administrar gastos fijos</h2></div><button type="button" onClick={onClose}><X size={20}/></button></header><form className="fixed-admin-form" onSubmit={guardar}><label><span>Nombre</span><input value={form.nombre} onChange={(e) => cambiar("nombre", e.target.value)} required/></label><label><span>Importe estimado</span><input type="number" min="0" step="0.01" value={form.montoEstimado} onChange={(e) => cambiar("montoEstimado", e.target.value)} placeholder="0"/></label><label><span>Día de vencimiento</span><input type="number" min="1" max="31" value={form.diaVencimiento} onChange={(e) => cambiar("diaVencimiento", e.target.value)} required/></label><label><span>Avisar días antes</span><input type="number" min="0" max="30" value={form.diasAviso} onChange={(e) => cambiar("diasAviso", e.target.value)} required/></label><div className="fixed-form-actions">{editando && <button type="button" onClick={cancelarEdicion}>Cancelar edición</button>}<button className="save" disabled={guardando}>{guardando ? "Guardando..." : editando ? "Guardar cambios" : "Agregar gasto"}</button></div></form><div className="fixed-admin-list">{gastos.map((gasto) => <article key={gasto.id} className={gasto.activo === false ? "inactive" : ""}><div><strong>{gasto.nombre}</strong><span>{dinero.format(Number(gasto.montoEstimado || 0))} · vence el día {gasto.diaVencimiento} · aviso {gasto.diasAviso ?? 3} días antes</span></div><div><button title="Editar" onClick={() => editar(gasto)}><Pencil size={16}/></button><button className="state" onClick={() => cambiarEstado(gasto)}>{gasto.activo === false ? "Reactivar" : "Quitar"}</button></div></article>)}</div></section></div>
 }
 
 function crearExcelDetallado({ reporte, cobros, rango }) {

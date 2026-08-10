@@ -475,3 +475,4 @@ Proyecto local: `C:\Users\muke_\OneDrive\Desktop\salon-eventos`
 - Los importes detectados en la planilla se cargan como estimados y no afectan saldos hasta registrar manualmente el pago.
 - Balance muestra cada gasto como pendiente, vencido o pagado. Los pagos guardan `gastoFijoId` y `periodoGastoFijo`, descuentan la cuenta elegida y evitan que el concepto siga pendiente ese mes.
 - Los vencimientos del mes generan un recordatorio visual desde la cantidad de dias configurada (inicialmente tres dias antes).
+- Se agrego `Administrar` en Gastos fijos: permite crear conceptos, editar nombre/importe/vencimiento/dias de aviso y quitar o reactivar gastos. Quitar es una baja logica para conservar el historial de pagos.
