@@ -456,3 +456,5 @@ Proyecto local: `C:\Users\muke_\OneDrive\Desktop\salon-eventos`
 - Prueba manual pendiente: repetir desde la aplicacion un cobro dividido real y comprobar ambos movimientos y saldos.
 - Segunda correccion: se eliminaron tambien las lecturas cruzadas de movimientos que aun se ejecutaban desde la validacion del documento `cobros`; eran redundantes con las reglas propias de movimientos y cuentas. Publicada el 08/08/2026.
 - Tercera correccion: para movimientos originados por cobros se elimino la validacion circular movimiento-cuenta-movimiento. El movimiento se vincula al cobro y la cuenta valida el movimiento y el importe.
+- Diagnostico definitivo con el emulador de Firestore: la transaccion dividida superaba el maximo de 1000 expresiones de reglas. Se separo la validacion de cobros normales (una o dos cuentas) de la validacion multipCuenta para bebidas y se agregaron caminos cortos para evento, movimientos y cuentas.
+- Prueba automatizada aprobada con el caso de la captura: evento $400.000, cobrado previo $100.000, importe aplicado $300.000, descuento $28.000, abono $272.000 y dos cuentas. El emulador devolvio `COBRO_DIVIDIDO_PERMITIDO`.
