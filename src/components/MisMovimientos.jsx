@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { doc, getDoc } from "firebase/firestore"
 import { observarMovimientos, vincularMovimientoEvento } from "../services/movimientos"
-import { auth } from "../firebase"
+import { auth, db } from "../firebase"
 import { crearComprobanteDesdeMovimiento } from "../services/comprobantes"
 import { observarEventosBalance } from "../services/balance"
 import { useUserRole } from "../hooks/useUserRole"
@@ -15,6 +16,29 @@ const nombreUsuarioMovimiento = (movimiento) => movimiento.creadoPorNombre
   || movimiento.creadoPor?.slice?.(0, 8)
   || "Sin identificar"
 
+async function completarNombresUsuarios(movimientos) {
+  const ids = [...new Set(movimientos
+    .filter((movimiento) => !movimiento.creadoPorNombre && movimiento.creadoPor)
+    .map((movimiento) => movimiento.creadoPor))]
+  const perfiles = new Map()
+
+  await Promise.all(ids.map(async (uid) => {
+    try {
+      const snapshot = await getDoc(doc(db, "usuarios", uid))
+      if (!snapshot.exists()) return
+      const usuario = snapshot.data()
+      perfiles.set(uid, [usuario.nombre, usuario.apellido].filter(Boolean).join(" ") || usuario.nombreUsuario || usuario.email || "")
+    } catch {
+      // Empleados sin permiso para consultar otros perfiles conservan el dato guardado en el movimiento.
+    }
+  }))
+
+  return movimientos.map((movimiento) => ({
+    ...movimiento,
+    creadoPorNombre: movimiento.creadoPorNombre || perfiles.get(movimiento.creadoPor) || ""
+  }))
+}
+
 export default function MisMovimientos() {
   const navigate = useNavigate()
   const { role } = useUserRole(auth.currentUser)
@@ -25,10 +49,17 @@ export default function MisMovimientos() {
   const [generandoId, setGenerandoId] = useState("")
   const [filtros, setFiltros] = useState({ desde: "", hasta: "", cuenta: "", categoria: "" })
 
-  useEffect(() => observarMovimientos(
-    (data) => { setMovimientos(data); setCargando(false) },
-    (loadError) => { console.error(loadError); setError("No se pudieron cargar los movimientos."); setCargando(false) }
-  ), [])
+  useEffect(() => {
+    let activo = true
+    const unsubscribe = observarMovimientos(
+      async (data) => {
+        const movimientosConUsuario = await completarNombresUsuarios(data)
+        if (activo) { setMovimientos(movimientosConUsuario); setCargando(false) }
+      },
+      (loadError) => { console.error(loadError); if (activo) { setError("No se pudieron cargar los movimientos."); setCargando(false) } }
+    )
+    return () => { activo = false; unsubscribe() }
+  }, [])
   useEffect(() => observarEventosBalance(setEventos, () => setError("No se pudieron cargar los eventos.")), [])
 
   async function vincular(movimientoId, eventoId) {
