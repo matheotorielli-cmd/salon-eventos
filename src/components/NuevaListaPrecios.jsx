@@ -90,7 +90,7 @@ export default function NuevaListaPrecios() {
 function EditorItems({ titulo, grupo, items, onChange, onAdd, onRemove, presentacion }) {
   return <section className="price-items">
     <header><div><strong>{titulo}</strong><small>{presentacion ? "Productos disponibles para vender en el evento." : "Servicios o combos incluidos en esta lista."}</small></div><button type="button" onClick={() => onAdd(grupo)}><Plus size={16}/> Agregar</button></header>
-    <div className="price-items-list">{items.map((item) => <div className="price-item-row" key={item.id}>
+    <div className="price-items-list">{items.map((item) => <div className={`price-item-row${presentacion ? " price-item-row-beverage" : ""}`} key={item.id}>
       <label><span>Nombre</span><input value={item.nombre} onChange={(e) => onChange(grupo,item.id,"nombre",e.target.value)} placeholder={presentacion ? "Ej.: Coca-Cola" : "Ej.: Cumpleaños clásico"}/></label>
       {presentacion && <label><span>Presentación</span><input value={item.presentacion} onChange={(e) => onChange(grupo,item.id,"presentacion",e.target.value)} placeholder="Ej.: 2,25 L"/></label>}
       {presentacion && <label><span>Costo lista</span><input type="number" min="0" value={item.costo ?? ""} onChange={(e) => onChange(grupo,item.id,"costo",e.target.value)} placeholder="$ 0"/></label>}

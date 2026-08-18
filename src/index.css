@@ -171,3 +171,7 @@ thead th { font-weight: 600; }
 @media(max-width:700px){.price-items>header{align-items:flex-start}.price-item-row,.price-item-row:has(label:nth-child(2):last-of-type){grid-template-columns:1fr 38px}.price-item-row label{grid-column:1/-1}.price-item-row .remove{grid-column:2;grid-row:1;justify-self:end}.price-list-card table{min-width:920px}}
 
 @media(min-width:701px){.price-item-row{grid-template-columns:1.3fr 1fr .7fr .7fr 38px}.price-item-row:has(label:nth-child(2):last-of-type){grid-template-columns:1.6fr .8fr 38px}}
+
+.price-item-row-beverage{margin:-5px;padding:5px;border-radius:12px;transition:background-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.price-item-row-beverage:hover,.price-item-row-beverage:focus-within{background:#f1eafa;box-shadow:inset 4px 0 0 #67359b,0 5px 16px rgba(78,37,129,.1);transform:translateX(2px)}
+.price-item-row-beverage:hover label span,.price-item-row-beverage:focus-within label span{color:#4e2581}

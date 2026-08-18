@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react"
 import { auth } from "../firebase"
-import { ADMIN_INICIAL_EMAIL, normalizarRol, PERMISOS, PERMISOS_POR_ROL, resolverPermisos } from "../config/permisos"
+import { normalizarRol, PERMISOS, PERMISOS_POR_ROL, resolverPermisos } from "../config/permisos"
 import { useUserRole } from "../hooks/useUserRole"
-import { actualizarAccesoUsuario, asegurarAdministradorInicial, observarUsuarios } from "../services/usuarios"
+import { actualizarAccesoUsuario, observarUsuarios } from "../services/usuarios"
 
 export default function UsuariosPermisos() {
   const user = auth.currentUser
@@ -15,13 +15,6 @@ export default function UsuariosPermisos() {
 
   useEffect(() => {
     if (cargandoRol || role !== "admin") return undefined
-    if (user?.email?.toLowerCase() === ADMIN_INICIAL_EMAIL) {
-      asegurarAdministradorInicial({
-        uid: user.uid,
-        email: user.email,
-        permisos: PERMISOS_POR_ROL.admin
-      }).catch((saveError) => console.error("No se pudo normalizar el administrador inicial", saveError))
-    }
     return observarUsuarios(
       (data) => {
         setUsuarios(data.map((usuario) => ({

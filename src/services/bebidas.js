@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore"
+import { collection, doc, getDoc, runTransaction, serverTimestamp } from "firebase/firestore"
 import { db } from "../firebase"
 import { stockIdBebida } from "../utils/stockBebidas"
 
@@ -87,7 +87,7 @@ export async function eliminarVentaBebidas({ eventoId, ventaId, userId }) {
 
 export async function editarVentaBebidas({ eventoId, ventaId, items, userId }) {
   const eventoRef = doc(db, "eventos", eventoId)
-  const cambiosStock = await runTransaction(db, async (transaction) => {
+  await runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(eventoRef)
     if (!snapshot.exists()) throw new Error("evento-no-disponible")
     const evento = snapshot.data()
@@ -104,8 +104,8 @@ export async function editarVentaBebidas({ eventoId, ventaId, items, userId }) {
     const cantidadesNuevas = Object.fromEntries(detalle.map((item) => [item.stockId, Number(item.cantidad || 0)]))
     const stockIds = [...new Set([...Object.keys(cantidadesAnteriores), ...Object.keys(cantidadesNuevas)])]
     const stockRefs = stockIds.map((stockId) => doc(db, "stockBebidas", stockId))
+    const movimientoRefs = stockIds.map(() => doc(collection(db, "movimientosStock")))
     const stockSnaps = await Promise.all(stockRefs.map((ref) => transaction.get(ref)))
-    const cambios = []
     stockIds.forEach((stockId,index)=>{
       const diferencia=(cantidadesNuevas[stockId]||0)-(cantidadesAnteriores[stockId]||0)
       if(!diferencia)return
@@ -116,7 +116,7 @@ export async function editarVentaBebidas({ eventoId, ventaId, items, userId }) {
       const datos={nombre:referencia.nombre,presentacion:referencia.presentacion||"",cantidad:nueva,actualizadoPor:userId,actualizadoEn:serverTimestamp()}
       if(stockSnaps[index].exists())transaction.update(stockRefs[index],datos)
       else transaction.set(stockRefs[index],{...datos,stockMinimo:0,costoCompra:0,creadoPor:userId,creadoEn:serverTimestamp()})
-      cambios.push({stockId,nombre:referencia.nombre,presentacion:referencia.presentacion||"",tipo:"ajuste-venta",cantidad:-diferencia,cantidadAnterior:anterior,cantidadNueva:nueva,motivo:"Venta editada",origen:"venta",eventoId,ventaId,creadoPor:userId})
+      transaction.set(movimientoRefs[index],{stockId,nombre:referencia.nombre,presentacion:referencia.presentacion||"",tipo:"ajuste-venta",cantidad:-diferencia,cantidadAnterior:anterior,cantidadNueva:nueva,motivo:"Venta editada",origen:"venta",eventoId,ventaId,creadoPor:userId,creadoEn:serverTimestamp()})
     })
 
     const ventaEditada = { ...ventaAnterior, items: detalle, total: totalVenta, cobrado: 0, saldo: totalVenta, estado: "Pendiente", editadoPor: userId, editadoEnTexto: new Date().toISOString() }
@@ -130,9 +130,5 @@ export async function editarVentaBebidas({ eventoId, ventaId, items, userId }) {
       actualizadoPor: userId,
       actualizadoEn: serverTimestamp()
     })
-    return cambios
   })
-
-  const resultados = await Promise.allSettled(cambiosStock.map((cambio) => setDoc(doc(collection(db, "movimientosStock")), { ...cambio, creadoEn:serverTimestamp() })))
-  resultados.filter((resultado) => resultado.status === "rejected").forEach((resultado) => console.error("No se pudo guardar la trazabilidad del ajuste de stock", resultado.reason))
 }

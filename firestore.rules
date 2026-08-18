@@ -21,10 +21,7 @@ service cloud.firestore {
     }
 
     function admin() {
-      return signedIn() && (
-        request.auth.token.email == 'nahuel@hui.com'
-        || (activeUser() && userData().rol == 'admin')
-      );
+      return activeUser() && userData().rol == 'admin';
     }
 
     function hasPermission(permission) {
@@ -337,9 +334,21 @@ service cloud.firestore {
         && request.resource.data.actualizadoEn == request.time
       ) || (
         hasPermission('eventosEditar')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'ventasBebidas', 'total', 'saldo', 'ultimaVentaBebidasAnterior',
+          'ultimaVentaBebidasEditada', 'actualizadoPor', 'actualizadoEn'
+        ])
         && request.resource.data.ventasBebidas is list
         && request.resource.data.ultimaVentaBebidasAnterior is map
         && request.resource.data.ultimaVentaBebidasEditada is map
+        && request.resource.data.total == resource.data.total
+          - request.resource.data.ultimaVentaBebidasAnterior.total
+          + request.resource.data.ultimaVentaBebidasEditada.total
+        && request.resource.data.saldo == resource.data.saldo
+          - request.resource.data.ultimaVentaBebidasAnterior.total
+          + request.resource.data.ultimaVentaBebidasEditada.total
+        && request.resource.data.total >= request.resource.data.totalCobrado
+        && request.resource.data.saldo >= 0
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
       ) || (
@@ -718,7 +727,15 @@ service cloud.firestore {
         && request.resource.data.monto is number
         && request.resource.data.monto > 0
         && request.resource.data.moneda == 'ARS'
-        && get(/databases/$(database)/documents/cobros/$(documentId)).data.eventoId == request.resource.data.eventoId;
+        && request.resource.data.eventoId == get(/databases/$(database)/documents/cobros/$(documentId)).data.eventoId
+        && request.resource.data.monto == get(/databases/$(database)/documents/cobros/$(documentId)).data.monto
+        && request.resource.data.montoAplicado == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('montoAplicado', get(/databases/$(database)/documents/cobros/$(documentId)).data.monto)
+        && request.resource.data.descuento == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('descuento', 0)
+        && request.resource.data.porcentajeDescuento == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('porcentajeDescuento', 0)
+        && request.resource.data.tipoCobroNombre == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('tipoCobroNombre', '')
+        && request.resource.data.concepto == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('concepto', 'Cobro de evento')
+        && request.resource.data.descripcion == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('descripcion', '')
+        && request.resource.data.anulado == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('anulado', false);
       allow update: if (admin()
           && resource.data.anulado == false
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anulado', 'anuladoEn'])
@@ -730,6 +747,11 @@ service cloud.firestore {
           && request.resource.data.numero.matches('[0-9]{4}-[0-9]{6}')
           && (!('clienteNombre' in request.resource.data) || request.resource.data.clienteNombre is string)
           && (!('clienteTelefono' in request.resource.data) || request.resource.data.clienteTelefono is string)
+          && request.resource.data.monto == get(/databases/$(database)/documents/cobros/$(documentId)).data.monto
+          && request.resource.data.montoAplicado == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('montoAplicado', get(/databases/$(database)/documents/cobros/$(documentId)).data.monto)
+          && request.resource.data.descuento == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('descuento', 0)
+          && request.resource.data.porcentajeDescuento == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('porcentajeDescuento', 0)
+          && request.resource.data.tipoCobroNombre == get(/databases/$(database)/documents/cobros/$(documentId)).data.get('tipoCobroNombre', '')
           && request.resource.data.actualizadoEn == request.time);
       allow delete: if false;
     }

@@ -16,8 +16,6 @@ export const PERMISOS = [
   { id: "usuariosAdministrar", label: "Administrar usuarios y permisos" }
 ]
 
-export const ADMIN_INICIAL_EMAIL = "nahuel@hui.com"
-
 const permisosAdmin = Object.fromEntries(PERMISOS.map(({ id }) => [id, true]))
 
 const permisosEmpleado = {

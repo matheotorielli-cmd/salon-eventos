@@ -2,7 +2,6 @@ import { useState } from "react"
 import { signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { doc, getDoc } from "firebase/firestore"
 import { auth, db } from "../firebase"
-import { ADMIN_INICIAL_EMAIL } from "../config/permisos"
 import { enviarRestablecimientoPassword, opcionesIdentificadorAcceso } from "../services/usuarios"
 import { useNavigate } from "react-router-dom"
 
@@ -54,14 +53,13 @@ export default function Login() {
       for (const emailAcceso of opcionesIdentificadorAcceso(identificador)) {
         try {
           const intento = await signInWithEmailAndPassword(auth, emailAcceso, password)
-          const esAdminInicial = intento.user.email?.toLowerCase() === ADMIN_INICIAL_EMAIL
           const perfil = await getDoc(doc(db, "usuarios", intento.user.uid))
-          if (!esAdminInicial && !perfil.exists()) {
+          if (!perfil.exists()) {
             encontroCuentaSinPerfil = true
             await signOut(auth)
             continue
           }
-          if (!esAdminInicial && perfil.data()?.activo === false) {
+          if (perfil.data()?.activo === false) {
             await signOut(auth)
             setError("Tu usuario está deshabilitado. Comunicate con un administrador.")
             return
