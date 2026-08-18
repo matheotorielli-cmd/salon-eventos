@@ -8,6 +8,12 @@ import { useUserRole } from "../hooks/useUserRole"
 
 const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 const fechaTexto = new Intl.DateTimeFormat("es-AR")
+const nombreUsuarioMovimiento = (movimiento) => movimiento.creadoPorNombre
+  || movimiento.usuarioNombre
+  || movimiento.usuario
+  || movimiento.creadoPorEmail
+  || movimiento.creadoPor?.slice?.(0, 8)
+  || "Sin identificar"
 
 export default function MisMovimientos() {
   const navigate = useNavigate()
@@ -83,7 +89,7 @@ export default function MisMovimientos() {
         <thead><tr><th style={th}>Fecha</th><th style={th}>Categoría</th><th style={th}>Tipo</th><th style={th}>Concepto</th><th style={th}>Descripción</th><th style={th}>Cuenta</th><th style={th}>Monto</th><th style={th}>Evento vinculado</th><th style={th}>Usuario</th></tr></thead>
         <tbody>
           {cargando && <FilaMensaje texto="Cargando movimientos..." />}
-          {!cargando && filtrados.map((mov) => <tr key={mov.id} style={mov.anulado ? { opacity: .62, background: "#fff1f2" } : undefined}>
+          {!cargando && filtrados.map((mov) => <tr key={mov.id} className={`movement-row${mov.anulado ? " movement-row-cancelled" : ""}`}>
             <td style={td}>{['cobro', 'anulacion'].includes(mov.origen) ? <button onClick={() => abrirComprobante(mov)} disabled={generandoId === mov.id} style={fechaBtn}>{generandoId === mov.id ? "Generando..." : mov.fecha?.toDate ? fechaTexto.format(mov.fecha.toDate()) : "—"}</button> : mov.fecha?.toDate ? fechaTexto.format(mov.fecha.toDate()) : "—"}</td>
             <td style={td}><span style={badge[mov.categoria] || badge.ingreso}>{mov.categoria}</span></td>
             <td style={td}><strong>{mov.tipoMovimientoNombre || "Movimiento"}</strong>{mov.anulado && <span style={anuladoBadge}>ANULADO</span>}</td>
@@ -92,7 +98,7 @@ export default function MisMovimientos() {
             <td style={td}>{mov.categoria === "transferencia" ? `${mov.cuentaOrigenNombre} → ${mov.cuentaDestinoNombre}` : mov.cuentaNombre}</td>
             <td style={{ ...td, fontWeight: 700, color: mov.categoria === "egreso" ? "#c0394b" : mov.categoria === "ingreso" ? "#16865c" : "#4e2581" }}>{mov.categoria === "egreso" ? "− " : mov.categoria === "ingreso" ? "+ " : ""}{pesos.format(Number(mov.monto || 0))}</td>
             <td style={td}>{mov.eventoId ? <strong style={{color:"#4e2581"}}>{mov.eventoNombre || mov.eventoId}</strong> : role === "admin" && mov.categoria === "egreso" && mov.origen === "manual" ? <select defaultValue="" onChange={(e) => vincular(mov.id, e.target.value)}><option value="">Vincular...</option>{eventos.map((evento) => <option key={evento.id} value={evento.id}>{evento.nombreEvento || evento.nombre || evento.clienteNombre || evento.id}</option>)}</select> : "—"}</td>
-            <td style={td}>{mov.creadoPorNombre || mov.creadoPorEmail || mov.creadoPor?.slice?.(0, 8) || "—"}</td>
+            <td style={td}><strong className="movement-user">{nombreUsuarioMovimiento(mov)}</strong></td>
           </tr>)}
           {!cargando && filtrados.length === 0 && <FilaMensaje texto="No hay movimientos para mostrar" />}
         </tbody>
