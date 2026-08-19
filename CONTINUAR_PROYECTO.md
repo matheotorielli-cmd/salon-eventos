@@ -1,5 +1,33 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Cierre del 18 de agosto de 2026
+
+- Se actualizo la copia local con los 47 commits que faltaban del repositorio remoto.
+- En el editor de listas de precios, cada bebida se resalta de punta a punta al pasar el mouse o editar uno de sus campos.
+- En Movimientos, la fila completa se resalta al pasar el mouse; los movimientos anulados usan un resaltado rojo diferenciado.
+- La columna Usuario muestra nombre y apellido, nombre de usuario, correo o UID abreviado como ultimo recurso.
+- Los movimientos antiguos que solo guardaban `creadoPor` ahora consultan automaticamente el perfil `usuarios/{uid}` para recuperar el nombre visible.
+- Se realizo una auditoria integral de seguridad, reglas, finanzas, dependencias, pruebas, accesibilidad y rendimiento.
+- Se cerro una regla vulnerable que permitia modificar campos ajenos al editar una venta de bebidas.
+- Los importes y datos financieros de los comprobantes publicos deben coincidir con el cobro real de Firestore.
+- Se elimino el acceso administrativo excepcional basado en un correo fijo. Todo administrador necesita un perfil activo con rol `admin` en `usuarios/{uid}`.
+- La actualizacion de stock y su movimiento de auditoria al editar una venta de bebidas quedaron dentro de la misma transaccion.
+- Se agregaron encabezados de seguridad al hosting: CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` y `Permissions-Policy`.
+- Se actualizaron 39 dependencias. `npm audit --omit=dev` finaliza con 0 vulnerabilidades.
+- Se agrego `npm test` con 6 pruebas sobre finanzas, descuentos, vigencia de listas, actualizacion de precios e IDs de stock.
+- Verificaciones finales aprobadas: 6/6 pruebas, ESLint, build de produccion, `git diff --check` y compilacion de reglas de Firestore.
+- La aplicacion y las reglas fueron publicadas en `https://salon-eventos-ef008.web.app`.
+- Commits publicados durante la sesion:
+  - `9f7f8ce`: Refuerza seguridad y pruebas de la app.
+  - `8233abd`: Mejora lectura de movimientos y usuarios.
+  - `55eba38`: Recupera usuarios de movimientos antiguos.
+
+### Punto exacto para retomar
+
+1. Abrir la aplicacion publicada y revisar la columna Usuario en Movimientos, especialmente en registros antiguos.
+2. Si algun registro muestra `Sin identificar` o un UID abreviado, significa que el movimiento no tiene nombre guardado y su perfil `usuarios/{uid}` ya no existe o no es accesible.
+3. Continuar con la proxima mejora que indique el usuario. No quedan cambios de codigo sin publicar al cerrar esta sesion.
+
 ## Avance del 8 de agosto de 2026
 
 - Al crear un evento nuevo y guardarlo, la aplicacion ya no abre la lista de eventos.
