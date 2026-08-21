@@ -35,3 +35,10 @@ export function calcularFinanzasEvento(evento = {}) {
     porcentajeServicio
   }
 }
+
+export function estadoVentaBebidas(cobrado, saldo) {
+  const importeCobrado = Math.max(0, Number(cobrado || 0))
+  const importeSaldo = Math.max(0, Number(saldo || 0))
+  if (importeSaldo === 0) return "Pagado"
+  return importeCobrado > 0 ? "Parcial" : "Pendiente"
+}

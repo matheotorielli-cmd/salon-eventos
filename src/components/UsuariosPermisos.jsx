@@ -97,7 +97,7 @@ export default function UsuariosPermisos() {
       {!cargando && usuarios.length === 0 && <div style={tarjeta}>No hay usuarios registrados.</div>}
 
       {usuarios.map((usuario) => (
-        <section key={usuario.id} style={tarjeta}>
+        <section key={usuario.id} className="permissions-user-card" style={tarjeta}>
           <div style={filaUsuario}>
             <div>
               <h2 style={{ margin: 0, fontSize: 19 }}>{usuario.nombre || "Usuario sin nombre"}</h2>
@@ -122,7 +122,7 @@ export default function UsuariosPermisos() {
             <div style={accesoTotal}>Los administradores tienen acceso completo a todas las funciones.</div>
           ) : <div style={grilla}>
             {PERMISOS.filter((permiso) => permiso.id !== "usuariosAdministrar").map((permiso) => (
-              <label key={permiso.id} style={permisoItem}>
+              <label key={permiso.id} className={usuario.permisos?.[permiso.id] === true ? "permission-option enabled" : "permission-option"} style={permisoItem}>
                 <input
                   type="checkbox"
                   checked={usuario.permisos?.[permiso.id] === true}

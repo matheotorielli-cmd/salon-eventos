@@ -23,6 +23,12 @@ export default function MisEventos() {
   const [filtroTipo, setFiltroTipo] =
     useState("")
 
+  const [filtroEscuela, setFiltroEscuela] =
+    useState("")
+
+  const [filtroEdad, setFiltroEdad] =
+    useState("")
+
   useEffect(() => {
 
     const unsubscribe = onSnapshot(
@@ -56,6 +62,14 @@ export default function MisEventos() {
     )
   ]
 
+  const escuelasUnicas = [...new Set(eventos.map((ev) => ev.escuela).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "es"))
+
+  const edadesUnicas = [...new Set(eventos
+    .map((ev) => ev.edadCumpleanero)
+    .filter((valor) => valor !== "" && valor != null)
+    .map(Number))].sort((a, b) => a - b)
+
   const eventosFiltrados =
     eventos.filter((ev) => {
 
@@ -84,10 +98,20 @@ export default function MisEventos() {
           ? ev.tipoEvento === filtroTipo
           : true
 
+      const coincideEscuela = filtroEscuela
+        ? ev.escuela === filtroEscuela
+        : true
+
+      const coincideEdad = filtroEdad !== ""
+        ? Number(ev.edadCumpleanero) === Number(filtroEdad)
+        : true
+
       return (
         coincideBusqueda &&
         coincideFecha &&
-        coincideTipo
+        coincideTipo &&
+        coincideEscuela &&
+        coincideEdad
       )
 
     })
@@ -201,6 +225,16 @@ export default function MisEventos() {
             )
           )}
 
+        </select>
+
+        <select value={filtroEscuela} onChange={(e) => setFiltroEscuela(e.target.value)} style={input}>
+          <option value="">Todas las escuelas</option>
+          {escuelasUnicas.map((escuela) => <option key={escuela} value={escuela}>{escuela}</option>)}
+        </select>
+
+        <select value={filtroEdad} onChange={(e) => setFiltroEdad(e.target.value)} style={input}>
+          <option value="">Todas las edades</option>
+          {edadesUnicas.map((edad) => <option key={edad} value={edad}>{edad} años</option>)}
         </select>
 
       </div>

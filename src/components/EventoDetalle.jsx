@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { auth, db } from "../firebase"
 import { anularCobro, observarCobrosEvento } from "../services/cobros"
 import { useUserRole } from "../hooks/useUserRole"
@@ -66,12 +66,6 @@ export default function EventoDetalle() {
       await updateDoc(doc(db, "eventos", id), { estado })
       setEvento({ ...evento, estado })
     } catch { setError("No se pudo cambiar el estado.") }
-  }
-
-  async function eliminarEvento() {
-    if (!confirm("¿Seguro querés eliminar este evento?")) return
-    try { await deleteDoc(doc(db, "eventos", id)); navigate("/eventos") }
-    catch { setError("No se pudo eliminar el evento.") }
   }
 
   async function anular(cobro) {
@@ -195,7 +189,6 @@ export default function EventoDetalle() {
           {hasPermission("cobrosRegistrar") && saldoServicio > 0 && <button onClick={() => navigate(`/evento/${id}/cobro`)} style={botonAmarillo}>Registrar cobro</button>}
           {hasPermission("eventosEditar") && <button onClick={() => cambiarEstado("Confirmado")} style={botonClaro}>Confirmar</button>}
           {hasPermission("eventosCancelar") && <button onClick={() => cambiarEstado("Cancelado")} style={botonPeligro}>Cancelar evento</button>}
-          {role === "admin" && <button onClick={eliminarEvento} style={botonPeligro}>Eliminar</button>}
         </div>
       </div>
 
@@ -203,19 +196,22 @@ export default function EventoDetalle() {
 
       <Seccion titulo={`Datos del evento · ${evento.cliente || evento.title}`}>
         <div style={dosColumnas}>
-          <div style={panelInterno}>
+          <div className="event-inner-panel" style={panelInterno}>
             <h3 style={subtitulo}>Información básica</h3>
+            <Dato label="Nombre del evento" valor={evento.nombreEvento || evento.title} />
             <Dato label="Cliente" valor={evento.clienteId ? <Link to={`/clientes/${evento.clienteId}`} style={clienteLink}>{evento.cliente || evento.title}</Link> : evento.cliente || evento.title} />
             <Dato label="Teléfono" valor={evento.telefono ? <a href={enlaceWhatsApp(evento.telefono)} target="_blank" rel="noreferrer" style={whatsappLink}>{evento.telefono}</a> : null} />
             <Dato label="Dirección" valor={evento.direccion} />
             <Dato label="Tipo de evento" valor={evento.tipoEventoNombre || evento.tipoEvento} />
+            <Dato label="Escuela" valor={evento.escuelaNombre || evento.escuela} />
             <Dato label="Estado" valor={evento.estado} badge />
             <Dato label="Fecha" valor={evento.fecha} />
             <Dato label="Horario" valor={`${evento.hora || evento.horaInicio || "—"} a ${evento.horaFin || "—"}`} />
             <Dato label="Personas" valor={evento.personas} />
             <Dato label="Niños" valor={evento.cantidadNinos} />
+            <Dato label="Edad del cumpleañero/a" valor={evento.edadCumpleanero !== "" && evento.edadCumpleanero != null ? `${evento.edadCumpleanero} años` : null} />
           </div>
-          <div style={panelInterno}>
+          <div className="event-inner-panel" style={panelInterno}>
             <h3 style={subtitulo}>Contabilidad</h3>
             <FilaContable label="Moneda" valor="Peso argentino" />
             <FilaContable label="Precio del evento" valor={pesos.format(precioServicio)} />
@@ -226,7 +222,7 @@ export default function EventoDetalle() {
             <div style={barra}><div style={{ ...progreso, width: `${porcentaje}%` }} /></div>
           </div>
         </div>
-        <div style={{ ...panelInterno, marginTop: 16 }}><h3 style={subtitulo}>Detalle y notas</h3><p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{evento.observaciones || "Sin observaciones"}</p></div>
+        <div className="event-inner-panel" style={{ ...panelInterno, marginTop: 16 }}><h3 style={subtitulo}>Detalle y notas</h3><p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{evento.observaciones || "Sin observaciones"}</p></div>
       </Seccion>
 
       <Seccion titulo="Servicio contratado">

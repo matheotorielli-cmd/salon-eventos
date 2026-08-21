@@ -52,6 +52,7 @@ service cloud.firestore {
       let amount = movement.monto;
       return ((movement.origen == 'manual' && hasPermission('movimientosCrear'))
           || (movement.origen == 'prestadores' && hasPermission('movimientosCrear'))
+          || (movement.origen == 'anulacion-prestadores' && admin() && hasPermission('movimientosCrear'))
           || (movement.origen == 'cobro' && hasPermission('cobrosRegistrar'))
           || (movement.origen == 'anulacion' && hasPermission('cobrosAnular')))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -369,7 +370,9 @@ service cloud.firestore {
         && request.resource.data.actualizadoPor == request.auth.uid
         && request.resource.data.actualizadoEn == request.time
       ));
-      allow delete: if admin();
+      // Los eventos conservan el historial financiero, de stock y de prestadores.
+      // Se cancelan, nunca se eliminan físicamente.
+      allow delete: if false;
     }
 
     match /clientes/{clienteId} {
@@ -549,6 +552,7 @@ service cloud.firestore {
           || (request.resource.data.origen == 'prestadores' && hasPermission('movimientosCrear'))
           || (request.resource.data.origen == 'cobro' && hasPermission('cobrosRegistrar'))
           || (request.resource.data.origen == 'anulacion' && admin() && hasPermission('cobrosAnular'))
+          || (request.resource.data.origen == 'anulacion-prestadores' && admin() && hasPermission('movimientosCrear'))
           || (request.resource.data.origen == 'ajuste' && hasPermission('cuentasAdministrar')))
         && request.resource.data.keys().hasAll([
           'categoria', 'tipoMovimientoNombre', 'monto', 'moneda', 'fecha',
@@ -559,7 +563,7 @@ service cloud.firestore {
         && request.resource.data.monto > 0
         && request.resource.data.moneda == 'ARS'
         && request.resource.data.fecha is timestamp
-        && request.resource.data.origen in ['manual', 'prestadores', 'cobro', 'anulacion', 'ajuste']
+        && request.resource.data.origen in ['manual', 'prestadores', 'cobro', 'anulacion', 'anulacion-prestadores', 'ajuste']
         && request.resource.data.anulado == false
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.creadoEn == request.time
@@ -581,6 +585,11 @@ service cloud.firestore {
           && (request.resource.data.movimientoOriginalId == getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.movimientoId
             || ('movimientoIds' in getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data
               && request.resource.data.movimientoOriginalId in getAfter(/databases/$(database)/documents/cobros/$(request.resource.data.referenciaId)).data.movimientoIds))
+        ))
+        && (request.resource.data.origen != 'anulacion-prestadores' || (
+          request.resource.data.categoria == 'ingreso'
+          && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.referenciaId)).data.anulado == true
+          && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.referenciaId)).data.movimientoAnulacionId == movimientoId
         ))
         && (request.resource.data.origen != 'ajuste' || (
           request.resource.data.categoria in ['ingreso', 'egreso']
@@ -604,7 +613,18 @@ service cloud.firestore {
           && request.resource.data.eventoId.size() > 0
           && exists(/databases/$(database)/documents/eventos/$(request.resource.data.eventoId))
           && request.resource.data.vinculadoPor == request.auth.uid
-          && request.resource.data.vinculadoEn == request.time);
+          && request.resource.data.vinculadoEn == request.time)
+        || (admin()
+          && resource.data.origen == 'prestadores'
+          && resource.data.anulado == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'anulado', 'anuladoPor', 'anuladoPorNombre', 'anuladoEn', 'movimientoAnulacionId', 'motivoAnulacion'
+          ])
+          && request.resource.data.anulado == true
+          && request.resource.data.anuladoPor == request.auth.uid
+          && request.resource.data.anuladoEn == request.time
+          && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoAnulacionId)).data.origen == 'anulacion-prestadores'
+          && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoAnulacionId)).data.referenciaId == movimientoId);
       allow delete: if false;
     }
 
@@ -668,7 +688,22 @@ service cloud.firestore {
         && request.resource.data.anulado == false
         && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoId)).data.origen == 'prestadores'
         && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoId)).data.cuentaId == request.resource.data.cuentaId;
-      allow update, delete: if false;
+      allow update: if admin() && (
+        (resource.data.anulado == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'anulado', 'anuladoPor', 'anuladoPorNombre', 'anuladoEn', 'motivoAnulacion', 'movimientoAnulacionId'
+          ])
+          && request.resource.data.anulado == true
+          && request.resource.data.anuladoPor == request.auth.uid
+          && request.resource.data.anuladoEn == request.time
+          && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoAnulacionId)).data.origen == 'anulacion-prestadores')
+        || (resource.data.anulado == true
+          && request.resource.data.anulado == false
+          && request.resource.data.creadoPor == request.auth.uid
+          && request.resource.data.creadoEn == request.time
+          && getAfter(/databases/$(database)/documents/movimientos/$(request.resource.data.movimientoId)).data.origen == 'prestadores')
+      );
+      allow delete: if false;
     }
 
     match /stockBebidas/{stockId} {

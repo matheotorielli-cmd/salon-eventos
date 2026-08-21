@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { collection, doc, getDoc, onSnapshot } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from "firebase/firestore"
 import { db } from "../firebase"
 import { nombreCompleto } from "../services/clientes"
 import { enlaceWhatsApp } from "../utils/whatsapp"
@@ -19,14 +19,26 @@ export default function ClienteDetalle() {
   const [error, setError] = useState("")
 
   useEffect(() => {
+    let activo = true
     getDoc(doc(db, "clientes", id)).then((snapshot) => {
+      if (!activo) return
       if (snapshot.exists()) setCliente({ id: snapshot.id, ...snapshot.data() })
       else setError("No se encontró el cliente.")
     }).catch(() => setError("No se pudo cargar el cliente."))
-    const cancelarEventos = onSnapshot(collection(db, "eventos"), (snapshot) => setEventos(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((evento) => evento.clienteId === id)), () => setError("No se pudieron cargar los eventos."))
-    const cancelarCobros = onSnapshot(collection(db, "cobros"), (snapshot) => setCobros(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))))
-    const cancelarMovimientos = onSnapshot(collection(db, "movimientos"), (snapshot) => setMovimientos(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))))
-    return () => { cancelarEventos(); cancelarCobros(); cancelarMovimientos() }
+    const cancelarEventos = onSnapshot(query(collection(db, "eventos"), where("clienteId", "==", id)), async (snapshot) => {
+      const eventosCliente = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
+      if (!activo) return
+      setEventos(eventosCliente)
+      try {
+        const cobrosSnapshots = await Promise.all(eventosCliente.map((evento) => getDocs(query(collection(db, "cobros"), where("eventoId", "==", evento.id)))))
+        const cobrosCliente = cobrosSnapshots.flatMap((resultado) => resultado.docs.map((item) => ({ id: item.id, ...item.data() })))
+        const movimientosSnapshots = await Promise.all(cobrosCliente.map((cobro) => getDocs(query(collection(db, "movimientos"), where("referenciaId", "==", cobro.id)))))
+        if (!activo) return
+        setCobros(cobrosCliente)
+        setMovimientos(movimientosSnapshots.flatMap((resultado) => resultado.docs.map((item) => ({ id: item.id, ...item.data() }))))
+      } catch { if (activo) setError("No se pudo cargar el historial financiero del cliente.") }
+    }, () => setError("No se pudieron cargar los eventos."))
+    return () => { activo = false; cancelarEventos() }
   }, [id])
 
   const eventosPorId = useMemo(() => Object.fromEntries(eventos.map((evento) => [evento.id, evento])), [eventos])

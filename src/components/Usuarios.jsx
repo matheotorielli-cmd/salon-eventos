@@ -94,7 +94,7 @@ export default function Usuarios() {
           </tr></thead>
           <tbody>
             {filtrados.slice(0, limite).map((usuario, index) => (
-              <tr key={usuario.id} style={usuario.activo === false ? filaInactiva : undefined}>
+              <tr key={usuario.id} className={usuario.activo === false ? "user-row-inactive" : ""} style={usuario.activo === false ? filaInactiva : undefined}>
                 <td style={td}>{index + 1}</td>
                 <td style={td}>{usuario.nombre || "—"}</td>
                 <td style={td}>{usuario.apellido || "—"}</td>

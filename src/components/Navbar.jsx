@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { auth } from "../firebase"
 import { signOut } from "firebase/auth"
 import { useUserRole } from "../hooks/useUserRole"
-import { ArrowLeftRight, BadgePercent, BarChart3, BriefcaseBusiness, Building2, CalendarClock, CalendarDays, CirclePlus, ContactRound, CreditCard, GraduationCap, HandCoins, Landmark, ListTree, PackageOpen, PartyPopper, ReceiptText, Scale, Settings, Shapes, ShieldCheck, Sparkles, Tags, Truck, UserCog, Users, WalletCards } from "lucide-react"
+import { ArrowLeftRight, BadgePercent, BarChart3, BriefcaseBusiness, Building2, CalendarClock, CalendarDays, CirclePlus, ContactRound, CreditCard, GraduationCap, HandCoins, Landmark, ListTree, Moon, PackageOpen, PartyPopper, ReceiptText, Scale, Settings, Shapes, ShieldCheck, Sparkles, Sun, Tags, Truck, UserCog, Users, WalletCards } from "lucide-react"
 
 export default function Navbar() {
 
@@ -11,6 +11,7 @@ export default function Navbar() {
   const [openMenu, setOpenMenu] = useState(null)
   const [openUser, setOpenUser] = useState(false)
   const [openConfig, setOpenConfig] = useState(false)
+  const [tema, setTema] = useState(() => localStorage.getItem("funspace-tema") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"))
   const mostrarMenuAnterior = Boolean(import.meta.env.VITE_MENU_ANTERIOR)
 
   const [openSection, setOpenSection] = useState(["usuarios", "configuracion"])
@@ -18,6 +19,11 @@ export default function Navbar() {
   const user = auth.currentUser
   const { role, hasPermission } = useUserRole(user)
   const menuRef = useRef()
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = tema
+    localStorage.setItem("funspace-tema", tema)
+  }, [tema])
 
   async function cerrarSesion() {
 
@@ -371,6 +377,16 @@ export default function Navbar() {
             gap: "10px"
           }}
         >
+
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={() => setTema((actual) => actual === "dark" ? "light" : "dark")}
+            aria-label={tema === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+            title={tema === "dark" ? "Modo claro" : "Modo oscuro"}
+          >
+            {tema === "dark" ? <Sun size={21}/> : <Moon size={21}/>}<span>{tema === "dark" ? "Claro" : "Oscuro"}</span>
+          </button>
 
           {/* CONFIG */}
           <div

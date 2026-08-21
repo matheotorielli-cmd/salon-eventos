@@ -116,7 +116,7 @@ export default function MisMovimientos() {
       </div>
 
       {error && <div style={errorBox}>{error}</div>}
-      <div style={tablaBox}><div style={{ overflowX: "auto" }}><table style={tabla}>
+      <div style={tablaBox}><div style={tablaScroll}><table style={tabla}>
         <thead><tr><th style={th}>Fecha</th><th style={th}>Categoría</th><th style={th}>Tipo</th><th style={th}>Concepto</th><th style={th}>Descripción</th><th style={th}>Cuenta</th><th style={th}>Monto</th><th style={th}>Evento vinculado</th><th style={th}>Usuario</th></tr></thead>
         <tbody>
           {cargando && <FilaMensaje texto="Cargando movimientos..." />}
@@ -153,9 +153,10 @@ const filtrosBox = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minm
 const labelStyle = { display: "block", marginBottom: 7, color: "#665b71", fontSize: 13, fontWeight: 600 }
 const limpiar = { padding: 11, border: 0, borderRadius: 10, background: "#eee9f1", color: "#4e2581", fontWeight: 600, cursor: "pointer" }
 const tablaBox = { overflow: "hidden", background: "white", border: "1px solid #e8e1ee", borderRadius: 16, boxShadow: "0 12px 30px rgba(78,37,129,.07)" }
-const tabla = { width: "100%", borderCollapse: "collapse" }
+const tablaScroll = { width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }
+const tabla = { width: "100%", minWidth: 1080, tableLayout: "fixed", borderCollapse: "collapse" }
 const th = { padding: 14, textAlign: "left", background: "#f7f5fb", color: "#665b71", fontSize: 13, whiteSpace: "nowrap" }
-const td = { padding: 14, borderTop: "1px solid #f0eaf4", fontSize: 14, whiteSpace: "nowrap" }
+const td = { padding: 14, borderTop: "1px solid #f0eaf4", fontSize: 14, overflowWrap: "anywhere", verticalAlign: "top" }
 const detalle = { marginTop: 3, color: "#8c8295", fontSize: 12, fontWeight: 400 }
 const badge = { ingreso: { padding: "5px 9px", borderRadius: 999, color: "#166747", background: "#dcf7eb", fontSize: 12, fontWeight: 700, textTransform: "capitalize" }, egreso: { padding: "5px 9px", borderRadius: 999, color: "#a12d3e", background: "#ffe3e8", fontSize: 12, fontWeight: 700, textTransform: "capitalize" }, transferencia: { padding: "5px 9px", borderRadius: 999, color: "#4e2581", background: "#eee7f7", fontSize: 12, fontWeight: 700, textTransform: "capitalize" }, inversion: { padding: "5px 9px", borderRadius: 999, color: "#775f00", background: "#fff3b5", fontSize: 12, fontWeight: 700, textTransform: "capitalize" } }
 const errorBox = { marginBottom: 16, padding: 12, borderRadius: 10, background: "#fff1f2", color: "#be123c" }

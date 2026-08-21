@@ -1,6 +1,6 @@
 import { collection, doc, onSnapshot, query, runTransaction, serverTimestamp, Timestamp, where } from "firebase/firestore"
 import { db } from "../firebase"
-import { calcularFinanzasEvento } from "../utils/finanzasEvento"
+import { calcularFinanzasEvento, estadoVentaBebidas } from "../utils/finanzasEvento"
 import { esListaVigente, recalcularEventoConLista } from "../utils/vigenciaPrecios"
 
 export async function registrarCobro({
@@ -80,6 +80,9 @@ export async function registrarCobro({
 
     transaction.set(cobroRef, {
       eventoId,
+      eventoNombre: evento.nombreEvento || evento.title || evento.cliente || "Evento",
+      clienteId: evento.clienteId || "",
+      clienteNombre: evento.cliente || "",
       cuentaId: distribucion[0].cuentaId,
       movimientoId: movimientosRefs[0].id,
       movimientoIds: movimientosRefs.map((ref) => ref.id),
@@ -124,6 +127,10 @@ export async function registrarCobro({
       descripcion: descripcion.trim(),
       origen: "cobro",
       referenciaId: cobroRef.id,
+      eventoId,
+      eventoNombre: evento.nombreEvento || evento.title || evento.cliente || "Evento",
+      tipoEventoNombre: evento.tipoEventoNombre || evento.tipoEvento || "Evento",
+      clienteId: evento.clienteId || "",
       anulado: false,
       creadoPor: userId,
       creadoPorNombre: usuarioNombre,
@@ -254,7 +261,12 @@ export async function anularCobro({ cobroId, motivo, userId }) {
       transaction.update(comprobantePublicoRef, { anulado: true, anuladoEn: serverTimestamp() })
     }
 
-    const ventasActualizadas = cobro.ventaBebidasId ? (evento.ventasBebidas || []).map((venta) => venta.id === cobro.ventaBebidasId ? { ...venta, cobrado: Math.max(0, Number(venta.cobrado || 0) - monto), saldo: Number(venta.saldo || 0) + monto, estado: "Pendiente" } : venta) : null
+    const ventasActualizadas = cobro.ventaBebidasId ? (evento.ventasBebidas || []).map((venta) => {
+      if (venta.id !== cobro.ventaBebidasId) return venta
+      const cobrado = Math.max(0, Number(venta.cobrado || 0) - monto)
+      const saldo = Number(venta.saldo || 0) + monto
+      return { ...venta, cobrado, saldo, estado: estadoVentaBebidas(cobrado, saldo) }
+    }) : null
     transaction.update(eventoRef, {
       sena: nuevoTotalCobrado,
       totalCobrado: nuevoTotalCobrado,

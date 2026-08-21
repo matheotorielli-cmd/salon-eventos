@@ -1,5 +1,28 @@
 # Continuidad del proyecto - Salon de eventos Fun Space
 
+## Cierre del 21 de agosto de 2026
+
+- Se corrigio el desborde de la tabla de Movimientos y se mejoro su adaptacion a distintos anchos.
+- El detalle del evento ahora muestra nombre del evento, escuela y edad del cumpleanero/a.
+- La administracion de Escuelas incorpora busqueda por nombre y filtro por estado.
+- Mis eventos permite filtrar por escuela y edad.
+- Los eventos ya no se pueden eliminar fisicamente; deben cancelarse para preservar cobros, movimientos, stock y trazabilidad.
+- Al anular un cobro de bebidas, la venta conserva correctamente el estado Pendiente, Parcial o Pagado.
+- Los movimientos nuevos originados por cobros guardan evento, tipo de evento y cliente vinculados.
+- Se agrego anulacion transaccional de pagos a prestadores por grupo, con devolucion a la cuenta, movimiento inverso y auditoria.
+- La ficha del cliente consulta solamente sus eventos, cobros y movimientos relacionados.
+- Se agrego modo oscuro persistente con selector Claro/Oscuro en la barra superior.
+- Se corrigieron contrastes del modo oscuro en detalle de eventos, formularios de fecha y hora, Usuarios, Roles y permisos, Balance, listas, tablas, modales y superficies casi blancas.
+- En cobros y comprobantes, `Importe cancelado` se reemplazo por `Importe aplicado al saldo` para evitar confundir un pago parcial con la cancelacion total del evento.
+- Verificaciones finales aprobadas: 7/7 pruebas, ESLint, build, `git diff --check` y compilacion de reglas de Firestore.
+- Hosting y reglas quedaron publicados en `https://salon-eventos-ef008.web.app`.
+
+### Punto exacto para retomar
+
+1. Actualizar la aplicacion con Ctrl + F5 y continuar revisando visualmente el modo oscuro en las pantallas de uso habitual.
+2. Si aparece una superficie clara o un texto con bajo contraste, enviar una captura para corregir ese componente puntual.
+3. Continuar con la proxima mejora que indique el usuario. No quedan publicaciones pendientes de esta sesion.
+
 ## Cierre del 18 de agosto de 2026
 
 - Se actualizo la copia local con los 47 commits que faltaban del repositorio remoto.

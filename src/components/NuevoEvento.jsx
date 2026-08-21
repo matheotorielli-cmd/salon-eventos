@@ -71,6 +71,7 @@ export default function NuevoEvento() {
 
     personas: "",
     cantidadNinos: "",
+    edadCumpleanero: "",
     escuelaId: "",
     escuela: "",
 
@@ -535,6 +536,7 @@ export default function NuevoEvento() {
             <div style={datosCantidad}>
               <Input type="number" label="Cantidad de personas" name="personas" value={form.personas} onChange={handleChange} />
               <Input type="number" label="Cantidad de niños" name="cantidadNinos" value={form.cantidadNinos} onChange={handleChange} />
+              <Input type="number" min="0" max="18" label="Edad del cumpleañero/a" name="edadCumpleanero" value={form.edadCumpleanero} onChange={handleChange} />
               <div>
                 <label style={label}>Escuela</label>
                 <select value={form.escuelaId} onChange={(e) => seleccionarEscuela(e.target.value)} style={input}>
@@ -1243,7 +1245,7 @@ function FechaHoraInput({ label, fecha, hora, onFecha, onHora }) {
     onHora(`${nuevaHora || "00"}:${nuevoMinuto || "00"}`)
   }
 
-  return <div style={fechaHoraCaja}>
+  return <div className="event-date-time-box" style={fechaHoraCaja}>
     <label style={labelStyle}>{label}</label>
     <input type="date" value={fecha} onChange={(e) => onFecha(e.target.value)} style={input} required />
     <div style={selectorHora}>

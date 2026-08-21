@@ -1,7 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 
-import { calcularFinanzasEvento } from "../src/utils/finanzasEvento.js"
+import { calcularFinanzasEvento, estadoVentaBebidas } from "../src/utils/finanzasEvento.js"
 import { esListaVigente, estadoVigenciaLista, recalcularEventoConLista } from "../src/utils/vigenciaPrecios.js"
 import { stockIdBebida } from "../src/utils/stockBebidas.js"
 
@@ -87,4 +87,10 @@ test("rechaza una lista que no contiene el servicio pendiente", () => {
 test("el identificador de stock es estable e ignora mayúsculas y acentos", () => {
   assert.equal(stockIdBebida("Coca Colá", "1,5 L"), stockIdBebida("coca cola", "1,5 l"))
   assert.notEqual(stockIdBebida("Coca Cola", "1,5 L"), stockIdBebida("Coca Cola", "2 L"))
+})
+
+test("conserva el estado parcial al anular solo una parte de una venta de bebidas", () => {
+  assert.equal(estadoVentaBebidas(20_000, 30_000), "Parcial")
+  assert.equal(estadoVentaBebidas(0, 50_000), "Pendiente")
+  assert.equal(estadoVentaBebidas(50_000, 0), "Pagado")
 })
